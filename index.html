@@ -1,0 +1,734 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>FandomEntryPass – Ticket Exchange (PWA)</title>
+
+  <!-- App / PWA -->
+  <meta name="theme-color" content="#4face7">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="robots" content="noindex,nofollow">
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" href="icon-192.png" sizes="192x192">
+  <link rel="apple-touch-icon" href="icon-192.png">
+
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;700&family=Nunito:wght@400;600;700&family=Poppins:wght@600;700&display=swap" rel="stylesheet">
+
+  <!-- Tailwind (CDN) -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            poppins: ['Poppins', 'ui-sans-serif', 'system-ui'],
+            baloo: ['Baloo 2', 'ui-sans-serif', 'system-ui'],
+            nunito: ['Nunito', 'ui-sans-serif', 'system-ui'],
+          }
+        }
+      }
+    }
+  </script>
+
+  <!-- EmailJS -->
+  <script src="https://cdn.jsdelivr.net/npm/emailjs-com@3/dist/email.min.js"></script>
+
+  <!-- Stripe.js (publishable key used only for frontend; real charges are via backend) -->
+  <script src="https://js.stripe.com/v3/"></script>
+
+  <style>
+    html, body { font-family: Nunito, ui-sans-serif, system-ui; background:#f7f7f8; }
+    .gradient-brand { background: linear-gradient(90deg, #f9a8d4, #93c5fd, #86efac); }
+    .glass { backdrop-filter: blur(10px); background: rgba(255,255,255,.70); }
+    .badge-step { font-size: 11px; }
+    .chip { font-size: 11px; }
+    .ios-safe { padding-bottom: constant(safe-area-inset-bottom); padding-bottom: env(safe-area-inset-bottom); }
+  </style>
+</head>
+<body class="min-h-screen ios-safe">
+
+  <!-- Header -->
+  <header class="gradient-brand text-white">
+    <div class="max-w-6xl mx-auto px-4 py-6 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <img src="icon-192.png" alt="FEP" class="w-10 h-10 rounded-2xl bg-white/20 p-1">
+        <div>
+          <h1 class="font-poppins text-2xl leading-none">FandomEntryPass</h1>
+          <p class="text-white/90 text-sm -mt-0.5">PWA • Verified Ticket Exchange • MVP</p>
+        </div>
+      </div>
+      <div class="flex items-center gap-2">
+        <button id="openAdd" class="hidden sm:inline-flex bg-white text-sky-700 font-semibold px-4 py-2 rounded-xl shadow hover:bg-white/90">+ Add Listing</button>
+        <button id="openManageByCode" class="hidden sm:inline-flex bg-white/20 text-white font-semibold px-4 py-2 rounded-xl shadow hover:bg-white/30">Manage</button>
+        <button id="installBtn" class="hidden sm:inline-flex bg-white/20 text-white font-semibold px-4 py-2 rounded-xl shadow hover:bg-white/30">Install App</button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Buyer Protection Banner -->
+  <section class="max-w-6xl mx-auto px-4 mt-4">
+    <div class="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-emerald-900 text-sm">
+      <div class="flex flex-wrap items-center gap-2">
+        <span class="inline-flex items-center gap-1 bg-white/70 px-2 py-1 rounded-full border border-emerald-200 badge-step">1) Buyer pays → <strong>Authorized</strong></span>
+        <span class="inline-flex items-center gap-1 bg-white/70 px-2 py-1 rounded-full border border-emerald-200 badge-step">2) Webhook marks <strong>Authorized</strong></span>
+        <span class="inline-flex items-center gap-1 bg-white/70 px-2 py-1 rounded-full border border-emerald-200 badge-step">3) Buyer confirms → <strong>Release</strong></span>
+        <span class="inline-flex items-center gap-1 bg-white/70 px-2 py-1 rounded-full border border-emerald-200 badge-step">⏱ Auto-release after <strong>72h</strong></span>
+      </div>
+      <p class="mt-2 text-[13px]">
+        App is installable (PWA) and works offline for the main UI. Live payments require your backend & env vars on Vercel.
+      </p>
+    </div>
+  </section>
+
+  <!-- Access code gate -->
+  <section class="max-w-6xl mx-auto px-4 mt-3">
+    <div id="gate" class="rounded-2xl border border-sky-200 bg-white p-4 text-sky-900 text-sm hidden">
+      <div class="flex items-center gap-2">
+        <span class="font-poppins">Tester Access</span>
+      </div>
+      <div class="mt-2 flex gap-2">
+        <input id="gateCode" placeholder="Enter access code" class="flex-1 rounded-xl border border-sky-200 px-3 py-2">
+        <button id="gateBtn" class="rounded-xl bg-sky-600 text-white px-4 py-2">Unlock</button>
+      </div>
+      <p class="mt-2 text-xs text-gray-500">Add Listing is hidden until unlocked. Code persists on this device.</p>
+    </div>
+  </section>
+
+  <!-- Search / Filters -->
+  <section class="max-w-6xl mx-auto px-4 py-6">
+    <div class="rounded-3xl gradient-brand p-[1px] shadow-lg">
+      <div class="glass rounded-3xl p-5 sm:p-6">
+        <form id="filters" class="flex flex-col sm:flex-row sm:items-end gap-3">
+          <div class="sm:flex-1">
+            <label class="text-sm text-gray-600">Search</label>
+            <input id="q" placeholder="Group, city, venue…" class="w-full mt-1 rounded-2xl bg-white px-4 py-3 outline-none ring-1 ring-gray-200 focus:ring-sky-300" />
+          </div>
+          <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:w-auto">
+            <div>
+              <label class="text-sm text-gray-600">City</label>
+              <input id="city" placeholder="Atlanta" class="w-full mt-1 rounded-2xl bg-white px-4 py-3 outline-none ring-1 ring-gray-200 focus:ring-sky-300" />
+            </div>
+            <div>
+              <label class="text-sm text-gray-600">Max Price</label>
+              <input id="maxPrice" type="number" min="0" step="1" placeholder="150" class="w-full mt-1 rounded-2xl bg-white px-4 py-3 outline-none ring-1 ring-gray-200 focus:ring-sky-300" />
+            </div>
+            <div class="flex items-end gap-2">
+              <button type="submit" class="w-full rounded-2xl bg-gray-900 text-white px-4 py-3 hover:bg-gray-800">Filter</button>
+              <button type="button" id="clearFilters" class="w-full rounded-2xl bg-white text-gray-700 px-4 py-3 ring-1 ring-gray-200 hover:bg-gray-50">Clear</button>
+            </div>
+          </div>
+        </form>
+        <div class="mt-3 text-xs text-gray-600">
+          Safety: buyer funds are held until transfer is confirmed (simulated until Stripe backend is live). Listings must stay within
+          <strong>+15% of face value</strong>. Proof of ticket is required (emailed to admin).
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Listings -->
+  <main class="max-w-6xl mx-auto px-4 pb-24">
+    <div id="listings" class="grid sm:grid-cols-2 lg:grid-cols-3 gap-5"></div>
+    <div id="emptyState" class="hidden text-center text-gray-500 mt-10">No listings match your filters (yet!).</div>
+  </main>
+
+  <!-- Mobile FAB -->
+  <div class="fixed bottom-5 right-5 flex flex-col gap-2 sm:hidden">
+    <button id="openAddFab" class="gradient-brand text-white px-5 py-3 rounded-2xl shadow-xl">+ Add Listing</button>
+    <button id="openManageByCodeFab" class="bg-gray-900 text-white px-5 py-3 rounded-2xl shadow-xl">Manage</button>
+  </div>
+
+  <!-- Add Listing Modal -->
+  <section id="modal" class="fixed inset-0 z-50 hidden">
+    <div class="absolute inset-0 bg-black/40"></div>
+    <div class="absolute inset-0 flex items-end sm:items-center justify-center p-3">
+      <div class="w-full sm:w-[860px] bg-white rounded-3xl shadow-2xl overflow-hidden">
+        <div class="gradient-brand p-5 text-white">
+          <h3 class="font-poppins text-xl">Add a Listing</h3>
+          <p class="text-white/90 text-sm">Blur barcodes on proof images. Above +15% is blocked. Seller email is required for notifications.</p>
+        </div>
+        <form id="addForm" class="p-5 grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div class="sm:col-span-2">
+            <label class="text-sm text-gray-600">Group / Show <span class="text-rose-500">*</span></label>
+            <input name="group" required placeholder="ATEEZ – Atlanta Day 1" class="w-full mt-1 rounded-2xl bg-white px-4 py-3 ring-1 ring-gray-200 focus:ring-sky-300 outline-none" />
+          </div>
+          <div>
+            <label class="text-sm text-gray-600">Quantity <span class="text-rose-500">*</span></label>
+            <input name="qty" type="number" min="1" step="1" required placeholder="1" class="w-full mt-1 rounded-2xl bg-white px-4 py-3 ring-1 ring-gray-200 focus:ring-sky-300 outline-none" />
+          </div>
+          <div>
+            <label class="text-sm text-gray-600">Date & Venue <span class="text-rose-500">*</span></label>
+            <input name="date" required placeholder="Nov 12, 2025 • Gas South Arena" class="w-full mt-1 rounded-2xl bg-white px-4 py-3 ring-1 ring-gray-200 focus:ring-sky-300 outline-none" />
+          </div>
+          <div>
+            <label class="text-sm text-gray-600">City</label>
+            <input name="city" placeholder="Atlanta" class="w-full mt-1 rounded-2xl bg-white px-4 py-3 ring-1 ring-gray-200 focus:ring-sky-300 outline-none" />
+          </div>
+          <div class="sm:col-span-2">
+            <label class="text-sm text-gray-600">Section / Row / Seat</label>
+            <input name="seat" placeholder="Sec 104 • Row F • Seat 12" class="w-full mt-1 rounded-2xl bg-white px-4 py-3 ring-1 ring-gray-200 focus:ring-sky-300 outline-none" />
+          </div>
+          <div>
+            <label class="text-sm text-gray-600">Face Value (USD) <span class="text-rose-500">*</span></label>
+            <input name="face" type="number" min="1" step="1" required placeholder="100" class="w-full mt-1 rounded-2xl bg-white px-4 py-3 ring-1 ring-gray-200 focus:ring-sky-300 outline-none" />
+          </div>
+          <div>
+            <label class="text-sm text-gray-600">Your Price (USD) <span class="text-rose-500">*</span></label>
+            <input name="price" type="number" min="1" step="1" required placeholder="110" class="w-full mt-1 rounded-2xl bg-white px-4 py-3 ring-1 ring-gray-200 focus:ring-sky-300 outline-none" />
+            <p class="text-xs text-gray-500 mt-1">We auto-check the +15% cap. Above-cap listings are blocked.</p>
+          </div>
+          <div class="sm:col-span-3">
+            <label class="text-sm text-gray-600">Proof of Ticket (image) <span class="text-rose-500">*</span></label>
+            <input name="proof" type="file" accept="image/*" required class="w-full mt-1 rounded-2xl bg-white px-4 py-3 ring-1 ring-gray-200" />
+            <p class="text-xs text-gray-500 mt-1">Proof is required and will be emailed to admin (not stored on the site).</p>
+          </div>
+          <div class="sm:col-span-2">
+            <label class="text-sm text-gray-600">Payment Link (Stripe/PayPal/etc.) <span class="text-rose-500">*</span></label>
+            <input name="pay" required placeholder="https://buy.stripe.com/... (Payment Link)" class="w-full mt-1 rounded-2xl bg-white px-4 py-3 ring-1 ring-gray-200 focus:ring-sky-300 outline-none" />
+          </div>
+          <div>
+            <label class="text-sm text-gray-600">Seller Name</label>
+            <input name="seller" placeholder="Mina" class="w-full mt-1 rounded-2xl bg-white px-4 py-3 ring-1 ring-gray-200 focus:ring-sky-300 outline-none" />
+          </div>
+          <div class="sm:col-span-3">
+            <label class="text-sm text-gray-600">Seller Email (required)</label>
+            <input name="sellerEmail" type="email" required placeholder="you@example.com" class="w-full mt-1 rounded-2xl bg-white px-4 py-3 ring-1 ring-gray-200 outline-none" />
+            <p class="text-xs text-gray-500 mt-1">Used for mandatory seller notifications (ticket sold, funds released, auto-release).</p>
+          </div>
+          <div class="sm:col-span-3 flex items-center gap-2 mt-2">
+            <input id="agree" type="checkbox" required class="w-4 h-4" />
+            <label for="agree" class="text-sm text-gray-700">I agree to fair-pricing rules (+15% cap) and safe transfer.</label>
+          </div>
+          <div class="sm:col-span-3 flex items-center justify-end gap-3 pt-2">
+            <button type="button" id="cancelAdd" class="px-4 py-2 rounded-xl bg-gray-100 hover:bg-gray-200">Cancel</button>
+            <button class="px-5 py-2 rounded-xl text-white gradient-brand hover:opacity-90">Add Listing</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </section>
+
+  <!-- Manage Listing Modal -->
+  <section id="manageModal" class="fixed inset-0 z-50 hidden">
+    <div class="absolute inset-0 bg-black/40"></div>
+    <div class="absolute inset-0 flex items-end sm:items-center justify-center p-3">
+      <div class="w-full sm:w-[700px] bg-white rounded-3xl shadow-2xl overflow-hidden">
+        <div class="gradient-brand p-5 text-white">
+          <h3 class="font-poppins text-xl">Manage Listing</h3>
+          <p class="text-white/90 text-sm">Edit price, payment link, and remaining quantity.</p>
+        </div>
+        <form id="manageForm" class="p-5 grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <input type="hidden" name="id"/>
+          <div class="sm:col-span-2">
+            <label class="text-sm text-gray-600">Group / Show</label>
+            <input name="group" disabled class="w-full mt-1 rounded-2xl bg-gray-100 px-4 py-3 ring-1 ring-gray-200 outline-none" />
+          </div>
+          <div>
+            <label class="text-sm text-gray-600">Your Price (USD)</label>
+            <input name="price" type="number" min="1" step="1" class="w-full mt-1 rounded-2xl bg-white px-4 py-3 ring-1 ring-gray-200 outline-none" />
+            <p class="text-xs text-gray-500 mt-1">Must be within +15% of face value.</p>
+          </div>
+          <div>
+            <label class="text-sm text-gray-600">Remaining Quantity</label>
+            <input name="remaining" type="number" min="0" step="1" class="w-full mt-1 rounded-2xl bg-white px-4 py-3 ring-1 ring-gray-200 outline-none" />
+          </div>
+          <div class="sm:col-span-2">
+            <label class="text-sm text-gray-600">Payment Link</label>
+            <input name="pay" class="w-full mt-1 rounded-2xl bg-white px-4 py-3 ring-1 ring-gray-200 outline-none" />
+          </div>
+          <div class="sm:col-span-2 flex items-center justify-between gap-3 pt-2">
+            <button type="button" id="closeManage" class="px-4 py-2 rounded-xl bg-gray-100 hover:bg-gray-200">Close</button>
+            <div class="flex items-center gap-2">
+              <button type="button" id="deleteListing" class="px-4 py-2 rounded-xl bg-rose-50 text-rose-600 ring-1 ring-rose-200 hover:bg-rose-100">Delete</button>
+              <button class="px-5 py-2 rounded-xl text-white gradient-brand hover:opacity-90">Save Changes</button>
+            </div>
+          </div>
+        </form>
+      </div>
+    </div>
+  </section>
+
+  <!-- Buyer Email Prompt Modal -->
+  <section id="buyerModal" class="fixed inset-0 z-[60] hidden">
+    <div class="absolute inset-0 bg-black/30"></div>
+    <div class="absolute inset-0 flex items-end sm:items-center justify-center p-3">
+      <div class="w-full sm:w-[480px] bg-white rounded-3xl shadow-2xl overflow-hidden">
+        <div class="gradient-brand p-5 text-white">
+          <h3 class="font-poppins text-xl">Optional Buyer Notifications</h3>
+          <p class="text-white/90 text-sm">Add your email to get escrow status updates (hold, release, 72h fallback).</p>
+        </div>
+        <form id="buyerForm" class="p-5 space-y-4">
+          <input type="hidden" name="listingId"/>
+          <div>
+            <label class="text-sm text-gray-600">Buyer Email (optional)</label>
+            <input name="buyerEmail" type="email" placeholder="you@example.com" class="w-full mt-1 rounded-2xl bg-white px-4 py-3 ring-1 ring-gray-200 outline-none" />
+            <p class="text-xs text-gray-500 mt-1">We’ll only use this for escrow status emails for this order.</p>
+          </div>
+          <div class="flex items-center justify-end gap-2 pt-2">
+            <button type="button" id="buyerSkip" class="px-4 py-2 rounded-xl bg-gray-100 hover:bg-gray-200">Skip</button>
+            <button class="px-5 py-2 rounded-xl text-white gradient-brand hover:opacity-90">Continue</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer class="mt-10 py-10 text-center text-sm text-gray-500">
+    <p>FandomEntryPass • Installable PWA • Fan-first, fair pricing. Seller notifications required; buyer notifications optional.</p>
+  </footer>
+
+  <script>
+    // ======= PWA install + SW =======
+    if ("serviceWorker" in navigator) {
+      navigator.serviceWorker.register("./service-worker.js");
+    }
+    let deferredPrompt = null;
+    window.addEventListener("beforeinstallprompt", (e) => {
+      e.preventDefault();
+      deferredPrompt = e;
+      document.getElementById("installBtn").classList.remove("hidden");
+    });
+    document.getElementById("installBtn").addEventListener("click", async () => {
+      if (!deferredPrompt) return;
+      deferredPrompt.prompt();
+      await deferredPrompt.userChoice;
+      deferredPrompt = null;
+      document.getElementById("installBtn").classList.add("hidden");
+    });
+
+    // ======= CONFIG =======
+    const KEY = "fep_listings_v13";
+    const ESCROW_HOURS = 72;
+    const FORMSPREE = "https://formspree.io/f/mvgqedqo";
+    const EMAILJS_PUBLIC = "PioDqOAQEpgJXFr7G";
+    const EMAILJS_SERVICE = "service_FEP0";
+    const EMAILJS_TEMPLATE_SELLER = "template_SellerNots";
+    const EMAILJS_TEMPLATE_BUYER = "template_BuyerNots";
+    const ACCESS_KEY = "fep_gate_ok";
+    const ACCESS_CODE = "FEPTEST"; // change anytime
+
+    // Backend base (set to "" if not live yet; when backend is live, set to your domain origin)
+    const API_BASE = ""; // e.g. "https://yourapp.vercel.app"
+
+    // Stripe publishable key (safe in frontend)
+    const STRIPE_PK = "pk_live_51LcNBuF7BMVtRlnacvmpKOmS9gMBg3IOnkdgaOjdRjCCspQNjHuvPBwLXBdxIn2qC0bJpa1yO2GZjaTbMOvwvr7n00sb6AKo1u";
+    const stripe = Stripe(STRIPE_PK);
+
+    // ======= ACCESS GATE =======
+    function gateCheck() {
+      const ok = localStorage.getItem(ACCESS_KEY) === "1";
+      const showButtons = (v) => {
+        for (const id of ["openAdd", "openAddFab"]) {
+          const el = document.getElementById(id);
+          if (!el) continue;
+          el.style.display = v ? "" : "none";
+        }
+      };
+      if (ok) {
+        document.getElementById("gate").classList.add("hidden");
+        showButtons(true);
+      } else {
+        document.getElementById("gate").classList.remove("hidden");
+        showButtons(false);
+      }
+    }
+    document.getElementById("gateBtn").addEventListener("click", () => {
+      const code = (document.getElementById("gateCode").value || "").trim().toUpperCase();
+      if (code === ACCESS_CODE) { localStorage.setItem(ACCESS_KEY, "1"); gateCheck(); }
+      else { alert("Wrong code"); }
+    });
+
+    // ======= STORAGE (local demo until backend is connected) =======
+    function load() { try { return JSON.parse(localStorage.getItem(KEY) || "null") || []; } catch { return []; } }
+    function save(list) { localStorage.setItem(KEY, JSON.stringify(list)); }
+    if (!localStorage.getItem(KEY)) {
+      const seed = [
+        { id: crypto.randomUUID(), group: "ATEEZ – Atlanta Day 1", date: "Nov 12, 2025 • Gas South Arena", city: "Atlanta", seat: "Sec 104 • Row F • Seat 12", face: 100, price: 118, pay: "#", seller: "Mina", sellerEmail:"mina@example.com", qty: 2, remaining: 2, orders: [] },
+        { id: crypto.randomUUID(), group: "xikers – Orlando", date: "Oct 3, 2025 • Kia Center", city: "Orlando", seat: "Floor • GA", face: 90, price: 95, pay: "#", seller: "Jay", sellerEmail:"jay@example.com", qty: 1, remaining: 1, orders: [] },
+        { id: crypto.randomUUID(), group: "SEVENTEEN – Newark", date: "Dec 2, 2025 • Prudential Center", city: "Newark", seat: "Sec 212 • Row J • Seat 8", face: 85, price: 95, pay: "#", seller: "Ara", sellerEmail:"ara@example.com", qty: 3, remaining: 3, orders: [] },
+      ];
+      save(seed);
+    }
+
+    // ======= HELPERS =======
+    const elListings = document.getElementById("listings");
+    const elEmpty = document.getElementById("emptyState");
+    const money = (n) => "$" + Number(n).toFixed(0);
+    const capFor = (face) => Math.round(Number(face) * 1.15);
+    const withinCap = (face, price) => Number(price) <= capFor(face) + 0.0001;
+    const hoursMs = (h)=> h*60*60*1000;
+    function timeLeftMs(order) {
+      if (order.status !== "authorized" || !order.authorizedAt) return 0;
+      const end = order.authorizedAt + hoursMs(ESCROW_HOURS);
+      return Math.max(0, end - Date.now());
+    }
+    function fmt(ms) {
+      const h = Math.floor(ms/3600000);
+      const m = Math.floor((ms%3600000)/60000);
+      const s = Math.floor((ms%60000)/1000);
+      return `${h}h ${m}m ${s}s`;
+    }
+    function token() { return Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2); }
+
+    // ======= NOTIFICATIONS =======
+    async function adminNotify(type, listing, order, extra = {}) {
+      const fd = new FormData();
+      fd.append("_subject", `FEP: ${type}`);
+      const msg = [
+        `Type: ${type}`,
+        `Group: ${listing.group}`,
+        `Date: ${listing.date}`,
+        `City: ${listing.city}`,
+        `Seat: ${listing.seat}`,
+        `Price: $${listing.price}`,
+        `Seller: ${listing.seller} <${listing.sellerEmail||"-"}>`,
+        order ? `Order: ${order.shortId} (${order.status})` : "",
+        extra.message || ""
+      ].filter(Boolean).join("\n");
+      fd.append("message", msg);
+      try { await fetch(FORMSPREE, { method:"POST", body: fd, headers: { "Accept":"application/json" } }); } catch {}
+    }
+    async function sellerNotify(listing, subject, text) {
+      if (!listing.sellerEmail) return;
+      try {
+        emailjs.init(EMAILJS_PUBLIC);
+        await emailjs.send(EMAILJS_SERVICE, EMAILJS_TEMPLATE_SELLER, {
+          to_email: listing.sellerEmail,
+          subject,
+          message: text,
+          group: listing.group,
+          price: listing.price,
+          seller: listing.seller
+        });
+      } catch(e) { console.warn("Seller EmailJS failed", e); }
+    }
+    async function buyerNotify(listing, order, subject, text) {
+      if (!order.buyerEmail) return;
+      try {
+        emailjs.init(EMAILJS_PUBLIC);
+        await emailjs.send(EMAILJS_SERVICE, EMAILJS_TEMPLATE_BUYER, {
+          to_email: order.buyerEmail,
+          subject,
+          message: text,
+          group: listing.group,
+          price: listing.price,
+          seller: listing.seller
+        });
+      } catch(e) { console.warn("Buyer EmailJS failed", e); }
+    }
+
+    // ======= RENDER =======
+    function render(list) {
+      elListings.innerHTML = "";
+      if (!list.length) { elEmpty.classList.remove("hidden"); return; }
+      elEmpty.classList.add("hidden");
+
+      for (const it of list) {
+        const cap = capFor(it.face);
+        const ok = withinCap(it.face, it.price);
+        const card = document.createElement("article");
+        card.className = "rounded-3xl border border-gray-200 p-4 bg-white shadow-sm hover:shadow-md transition-shadow";
+
+        let ordersHtml = "";
+        if (it.orders && it.orders.length) {
+          ordersHtml = `<div class="mt-3 space-y-2">` + it.orders.map(o => {
+            if (o.status === "authorized") {
+              return `
+              <div class="rounded-xl bg-amber-50 border border-amber-200 p-2 text-[12px] text-amber-900">
+                Order ${o.shortId} • Authorized • Auto-release in
+                <span data-countdown="${o.id}">${fmt(timeLeftMs(o))}</span>
+                <button data-confirm="${o.id}" class="ml-2 rounded-lg px-2 py-0.5 bg-emerald-600 text-white">Confirm Received → Release</button>
+              </div>`;
+            } else {
+              return `
+              <div class="rounded-xl bg-emerald-50 border border-emerald-200 p-2 text-[12px] text-emerald-900">
+                Order ${o.shortId} • ✅ Released to seller.
+              </div>`;
+            }
+          }).join("") + `</div>`;
+        }
+
+        const manageLink = it.editToken ? `${location.origin}${location.pathname}?manage=${it.editToken}` : "";
+
+        card.innerHTML = `
+          <div class="flex items-start justify-between gap-3">
+            <div>
+              <h3 class="font-poppins text-lg">${it.group}</h3>
+              <p class="text-xs text-gray-500 mt-0.5">${it.date}${it.city ? " • " + it.city : ""}</p>
+              <p class="text-xs text-gray-600 mt-1">${it.seat || ""}</p>
+              <div class="mt-2 flex items-center gap-2">
+                <span class="chip inline-flex items-center gap-1 bg-gray-100 px-2 py-1 rounded-full">Face: ${money(it.face)}</span>
+                <span class="chip inline-flex items-center gap-1 bg-gray-100 px-2 py-1 rounded-full">Cap: ${money(cap)}</span>
+                <span class="chip inline-flex items-center gap-1 ${it.remaining>0?'bg-emerald-100':'bg-gray-200'} px-2 py-1 rounded-full">Available: ${it.remaining}/${it.qty}</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="flex items-center justify-between mt-3">
+            <div>
+              <div class="text-xl font-poppins ${ok ? "text-gray-900" : "text-rose-600"}">${money(it.price)}</div>
+              ${manageLink ? `<a href="${manageLink}" class="text-[11px] underline text-sky-600">Seller manage link</a>` : ""}
+            </div>
+            ${it.remaining > 0 ? `
+              <button data-buy="${it.id}" class="rounded-xl px-4 py-2 text-white gradient-brand hover:opacity-90">Buy Safely</button>
+            ` : `
+              <button disabled class="rounded-xl px-4 py-2 text-white bg-gray-400">Sold Out</button>
+            `}
+          </div>
+
+          <div class="mt-2 text-[11px] text-gray-500">Funds held until transfer is confirmed. Report issues to <a class="underline" href="mailto:support@fandomentrypass.com">support</a>.</div>
+          ${ok ? "" : `<div class="mt-3 text-[11px] text-rose-600">⚠️ This price exceeds the +15% cap and will be flagged.</div>`}
+          ${ordersHtml}
+        `;
+
+        elListings.appendChild(card);
+      }
+
+      // Wire buttons
+      for (const btn of document.querySelectorAll("[data-buy]")) {
+        btn.addEventListener("click", (e) => {
+          const id = e.currentTarget.getAttribute("data-buy");
+          openBuyerPrompt(id);
+        });
+      }
+      for (const btn of document.querySelectorAll("[data-confirm]")) {
+        btn.addEventListener("click", (e) => {
+          const oid = e.currentTarget.getAttribute("data-confirm");
+          confirmReceived(oid);
+        });
+      }
+    }
+
+    function applyFilters(evt) {
+      if (evt) evt.preventDefault();
+      const q = document.getElementById("q").value.trim().toLowerCase();
+      const city = document.getElementById("city").value.trim().toLowerCase();
+      const maxPrice = Number(document.getElementById("maxPrice").value || Infinity);
+
+      const list = load().filter(it => {
+        const hay = (it.group + " " + it.date + " " + (it.city || "")).toLowerCase();
+        const matchQ = !q || hay.includes(q);
+        const matchCity = !city || (it.city || "").toLowerCase().includes(city);
+        const matchPrice = !isFinite(maxPrice) || Number(it.price) <= maxPrice;
+        return matchQ && matchCity && matchPrice;
+      });
+
+      render(list);
+    }
+
+    document.getElementById("filters").addEventListener("submit", applyFilters);
+    document.getElementById("clearFilters").addEventListener("click", () => {
+      document.getElementById("q").value = "";
+      document.getElementById("city").value = "";
+      document.getElementById("maxPrice").value = "";
+      applyFilters();
+    });
+
+    // ======= Modals =======
+    const modal = document.getElementById("modal");
+    const manageModal = document.getElementById("manageModal");
+    const buyerModal = document.getElementById("buyerModal");
+    const openModal = () => modal.classList.remove("hidden");
+    const closeModal = () => modal.classList.add("hidden");
+    const openManage = () => manageModal.classList.remove("hidden");
+    const closeManage = () => manageModal.classList.add("hidden");
+    const openBuyer = () => buyerModal.classList.remove("hidden");
+    const closeBuyer = () => buyerModal.classList.add("hidden");
+
+    document.getElementById("openAdd")?.addEventListener("click", openModal);
+    document.getElementById("openAddFab").addEventListener("click", openModal);
+    document.getElementById("cancelAdd").addEventListener("click", closeModal);
+
+    document.getElementById("openManageByCode")?.addEventListener("click", promptManageByCode);
+    document.getElementById("openManageByCodeFab")?.addEventListener("click", promptManageByCode);
+    document.getElementById("closeManage").addEventListener("click", closeManage);
+
+    // Buyer modal controls
+    document.getElementById("buyerForm").addEventListener("submit", (e)=>{
+      e.preventDefault();
+      const id = e.target.elements["listingId"].value;
+      const email = String(e.target.elements["buyerEmail"].value || "").trim();
+      closeBuyer();
+      startCheckout(id, email);
+    });
+    document.getElementById("buyerSkip").addEventListener("click", ()=>{
+      const f = document.getElementById("buyerForm");
+      const id = f.elements["listingId"].value;
+      closeBuyer();
+      startCheckout(id, "");
+    });
+
+    function promptManageByCode() {
+      const code = prompt("Enter your 10-character manage code:");
+      if (!code) return;
+      const list = load();
+      const it = list.find(x => (x.manageCode||"").slice(0,10) === code.trim().toUpperCase());
+      if (!it) return alert("No listing found for that code.");
+      fillManageForm(it);
+      openManage();
+    }
+    function fillManageForm(it) {
+      const f = document.getElementById("manageForm");
+      f.elements["id"].value = it.id;
+      f.elements["group"].value = it.group;
+      f.elements["price"].value = it.price;
+      f.elements["remaining"].value = it.remaining;
+      f.elements["pay"].value = it.pay;
+    }
+    document.getElementById("manageForm").addEventListener("submit", (e)=>{
+      e.preventDefault();
+      const f = e.target;
+      const list = load();
+      const id = f.elements["id"].value;
+      const it = list.find(x=>x.id===id);
+      if (!it) return alert("Listing not found.");
+      const newPrice = Number(f.elements["price"].value || it.price);
+      const newRemaining = Number(f.elements["remaining"].value || it.remaining);
+      const newPay = String(f.elements["pay"].value || it.pay).trim();
+      if (!withinCap(it.face, newPrice)) return alert("This price exceeds the +15% cap. Please lower the price.");
+      if (newRemaining < 0 || newRemaining > it.qty) return alert(`Remaining must be between 0 and ${it.qty}.`);
+      it.price = newPrice; it.remaining = newRemaining; it.pay = newPay;
+      save(list); closeManage(); applyFilters();
+    });
+    document.getElementById("deleteListing").addEventListener("click", ()=>{
+      const f = document.getElementById("manageForm");
+      const id = f.elements["id"].value;
+      if (!confirm("Delete this listing? This cannot be undone.")) return;
+      const list = load().filter(x=>x.id!==id);
+      save(list); closeManage(); applyFilters();
+    });
+
+    // ======= ADD LISTING =======
+    document.getElementById("addForm").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const fd = new FormData(e.target);
+      const face = Number(fd.get("face"));
+      const price = Number(fd.get("price"));
+      const qty = Math.max(1, Number(fd.get("qty")||1));
+      if (!withinCap(face, price)) return alert("This price exceeds the +15% cap. Please lower the price.");
+      const proofFile = fd.get("proof");
+      if (!proofFile || !proofFile.size) return alert("Proof of ticket is required. Please upload your proof image.");
+      const sellerEmail = String(fd.get("sellerEmail") || "").trim();
+      if (!sellerEmail) return alert("Seller email is required for notifications.");
+      const editToken = token(); const manageCode = editToken.slice(0,10).toUpperCase();
+      const listing = {
+        id: crypto.randomUUID(),
+        group: String(fd.get("group") || "").trim(),
+        date: String(fd.get("date") || "").trim(),
+        city: String(fd.get("city") || "").trim(),
+        seat: String(fd.get("seat") || "").trim(),
+        face, price,
+        pay: String(fd.get("pay") || "").trim(),
+        seller: String(fd.get("seller") || "Seller").trim(),
+        sellerEmail, qty, remaining: qty, orders: [], editToken, manageCode
+      };
+      // Email proof to admin via Formspree
+      const emailFd = new FormData();
+      emailFd.append("_subject", "FEP: New Listing Proof of Ticket");
+      emailFd.append("message", `New listing submitted with proof:\n\nGroup: ${listing.group}\nDate & Venue: ${listing.date}\nCity: ${listing.city}\nSeat: ${listing.seat}\nFace: $${listing.face}\nPrice: $${listing.price}\nSeller: ${listing.seller} <${listing.sellerEmail}>\nQty: ${listing.qty}`);
+      emailFd.append("group", listing.group);
+      emailFd.append("date", listing.date);
+      emailFd.append("seller_email", listing.sellerEmail);
+      emailFd.append("proof", proofFile, proofFile.name);
+      try { await fetch(FORMSPREE, { method: "POST", body: emailFd, headers: { "Accept": "application/json" } }); } catch {}
+      // Save locally (until backend active)
+      const current = load(); current.unshift(listing); save(current);
+      try { const manageUrl = `${location.origin}${location.pathname}?manage=${editToken}`; await navigator.clipboard.writeText(manageUrl);
+        alert("Listing created!\n\nSeller manage code: " + manageCode + "\n(Manage link copied to clipboard.)");
+      } catch { alert("Listing created!\n\nSeller manage code: " + manageCode); }
+      closeModal(); e.target.reset(); applyFilters(); window.scrollTo({ top: 0, behavior: "smooth" });
+    });
+
+    // ======= BUYER FLOW =======
+    function openBuyerPrompt(listingId) {
+      const f = document.getElementById("buyerForm"); f.reset();
+      f.elements["listingId"].value = listingId; openBuyer();
+    }
+    async function startCheckout(listingId, buyerEmail) {
+      const list = load();
+      const it = list.find(x=>x.id===listingId);
+      if (!it) return alert("Listing not found."); if (it.remaining <= 0) return alert("Sold out.");
+
+      // If backend exists, call it; else fallback to local simulation
+      if (API_BASE) {
+        try {
+          const res = await fetch(`${API_BASE}/api/orders`, {
+            method: "POST",
+            headers: { "Content-Type":"application/json" },
+            body: JSON.stringify({ listingId, buyerEmail })
+          });
+          if (!res.ok) throw new Error("Order create failed");
+          const data = await res.json();
+          const clientSecret = data.clientSecret;
+          // In a real app you'd show a card form; for now we redirect to the seller pay link, too
+          // but confirm the intent on the backend-driven page. Here we just proceed locally:
+          console.log("Stripe clientSecret:", clientSecret);
+        } catch(e){ console.warn(e); alert("Payments backend not reachable. Using local escrow simulation for now."); }
+      }
+
+      // Open seller's pay link in new tab (manual for MVP; replace with Stripe checkout later)
+      if (it.pay && it.pay !== "#") window.open(it.pay, "_blank");
+
+      const order = { id: crypto.randomUUID(), shortId: Math.random().toString(36).slice(2,6).toUpperCase(), status: "authorized", authorizedAt: Date.now(), releasedAt: null, buyerEmail: buyerEmail || "" };
+      it.orders.push(order); it.remaining -= 1; save(list);
+      adminNotify("order_authorized_sim", it, order);
+      sellerNotify(it, "Ticket sold (authorized)", `Order ${order.shortId} for ${it.group} is authorized. Remember to transfer the ticket.`);
+      buyerNotify(it, order, "Purchase received – funds on hold", `We’ve placed your payment for order ${order.shortId} in escrow for up to 72 hours while the ticket is transferred.`);
+      applyFilters();
+    }
+    function confirmReceived(orderId) {
+      const list = load();
+      outer: for (const it of list) { for (const o of it.orders) {
+          if (o.id === orderId) { o.status = "released"; o.releasedAt = Date.now();
+            adminNotify("order_released_manual_sim", it, o);
+            sellerNotify(it, "Funds released", `Order ${o.shortId} for ${it.group} has been released to you.`);
+            buyerNotify(it, o, "Escrow released", `Your confirmation released funds for order ${o.shortId}. Enjoy the show!`);
+            break outer; } } }
+      save(list); applyFilters();
+    }
+
+    // Countdowns
+    function tick() {
+      const list = load();
+      let changed = false;
+      for (const it of list) {
+        for (const o of (it.orders||[])) {
+          if (o.status === "authorized") {
+            const ms = timeLeftMs(o);
+            if (ms <= 0) {
+              o.status = "released";
+              o.releasedAt = Date.now();
+              adminNotify("order_released_auto", it, o);
+              sellerNotify(it, "Funds released (auto)", `Order ${o.shortId} for ${it.group} was auto-released after 72h.`);
+              buyerNotify(it, o, "Escrow auto-released", `Your order ${o.shortId} was auto-released after 72h.`);
+              changed = true;
+            }
+          }
+        }
+      }
+      if (changed) save(list);
+      for (const el of document.querySelectorAll("[data-countdown]")) {
+        const oid = el.getAttribute("data-countdown");
+        let order = null; for (const it of list) { order = (it.orders||[]).find(o=>o.id===oid); if (order) break; }
+        if (!order) continue; el.textContent = fmt(timeLeftMs(order));
+      }
+    }
+    setInterval(tick, 1000);
+
+    (function init(){
+      try { emailjs.init(EMAILJS_PUBLIC); } catch {}
+      if ("serviceWorker" in navigator) navigator.serviceWorker.register("./service-worker.js");
+      gateCheck();
+      applyFilters();
+      const u = new URL(window.location.href); const manage = u.searchParams.get("manage") || "";
+      if (manage) { const it = load().find(x=>x.editToken === manage); if (it) { fillManageForm(it); openManage(); } }
+    })();
+  </script>
+</body>
+</html>
