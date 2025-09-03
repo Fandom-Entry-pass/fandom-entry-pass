@@ -1,0 +1,21 @@
+{
+  "name": "fandom-entry-pass",
+  "version": "1.0.0",
+  "description": "- Frontend PWA: index.html + manifest + service-worker + icons - Backend API: Vercel serverless functions in /api - Database schema: schema.sql",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "test": "echo \"No tests configured\""
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs"
+,
+  "dependencies": {
+    "@sendgrid/mail": "^7.7.0",
+    "express": "^4.18.2",
+    "node-cron": "^3.0.3",
+    "stripe": "^12.0.0"
+  }
+}
