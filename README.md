@@ -1,9 +1,9 @@
-# FandomEntryPass App (Frontend + Backend)
+# FandomEntryPass App (Frontend)
 
 ## Includes
 - Frontend PWA: index.html + manifest + service-worker + icons
-- Backend API: Vercel serverless functions in /api
-- Database schema: schema.sql
+
+This repository only contains the frontend portion of FandomEntryPass. Backend API functions and the database schema are not included; you'll need to supply your own implementations compatible with this frontend.
 
 ## Steps
 1. Upload all files to your GitHub repo (root).
@@ -17,14 +17,4 @@
    - FEP_PLATFORM_FEE_FLAT_CENTS = 350
    - FEP_SELLER_FEE_BPS = 500
    - ESCROW_HOURS = 72
-4. In Supabase → SQL Editor → paste schema.sql → Run. Also create a storage bucket named `proofs` for uploaded ticket images.
-5. Your app is live at your Vercel URL. Add to home screen on phones for app experience.
 
-## Admin Approval
-Listings submitted by sellers are stored with `status = pending` and are not shown to buyers until approved. Approve a listing via:
-```
-POST /api/admin/approve
-Authorization: Bearer <ADMIN_TOKEN>
-Body: { "id": "<listing-id>" }
-```
-Approved listings are returned by `GET /api/listings`.
