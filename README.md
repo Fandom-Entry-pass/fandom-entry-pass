@@ -1,9 +1,9 @@
-# FandomEntryPass App (Frontend + Backend)
+# FandomEntryPass App (Frontend)
 
 ## Includes
 - Frontend PWA: index.html + manifest + service-worker + icons
-- Backend API: Vercel serverless functions in /api
-- Database schema: schema.sql
+
+This repository only contains the frontend portion of FandomEntryPass. Backend API functions and the database schema are not included; you'll need to supply your own implementations compatible with this frontend.
 
 ## Steps
 1. Upload all files to your GitHub repo (root).
@@ -15,5 +15,5 @@
    - FEP_PLATFORM_FEE_FLAT_CENTS = 350
    - FEP_SELLER_FEE_BPS = 500
    - ESCROW_HOURS = 72
-4. In Supabase → SQL Editor → paste schema.sql → Run.
+4. Ensure your deployment includes backend endpoints under `/api` and a database schema matching your environment variables.
 5. Your app is live at your Vercel URL. Add to home screen on phones for app experience.
