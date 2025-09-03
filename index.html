@@ -269,6 +269,11 @@
             <input name="buyerEmail" type="email" placeholder="you@example.com" class="w-full mt-1 rounded-2xl bg-white px-4 py-3 ring-1 ring-gray-200 outline-none" />
             <p class="text-xs text-gray-500 mt-1">We’ll only use this for escrow status emails for this order.</p>
           </div>
+          <div>
+            <label class="text-sm text-gray-600">Card Details</label>
+            <div id="card-element" class="w-full mt-1 rounded-2xl bg-white px-4 py-3 ring-1 ring-gray-200"></div>
+            <div id="card-errors" class="text-red-600 text-sm mt-1"></div>
+          </div>
           <div class="flex items-center justify-end gap-2 pt-2">
             <button type="button" id="buyerSkip" class="px-4 py-2 rounded-xl bg-gray-100 hover:bg-gray-200">Skip</button>
             <button class="px-5 py-2 rounded-xl text-white gradient-brand hover:opacity-90">Continue</button>
@@ -319,6 +324,7 @@
     // Stripe publishable key (safe in frontend)
     const STRIPE_PK = "pk_live_51LcNBuF7BMVtRlnacvmpKOmS9gMBg3IOnkdgaOjdRjCCspQNjHuvPBwLXBdxIn2qC0bJpa1yO2GZjaTbMOvwvr7n00sb6AKo1u";
     const stripe = Stripe(STRIPE_PK);
+    let card;
 
     // ======= ACCESS GATE =======
     function gateCheck() {
@@ -586,7 +592,18 @@
     const closeModal = () => modal.classList.add("hidden");
     const openManage = () => manageModal.classList.remove("hidden");
     const closeManage = () => manageModal.classList.add("hidden");
-    const openBuyer = () => buyerModal.classList.remove("hidden");
+    const openBuyer = () => {
+      buyerModal.classList.remove("hidden");
+      if (!card) {
+        const elements = stripe.elements();
+        card = elements.create("card");
+        card.mount("#card-element");
+        card.on("change", (event) => {
+          const displayError = document.getElementById("card-errors");
+          displayError.textContent = event.error ? event.error.message : "";
+        });
+      }
+    };
     const closeBuyer = () => buyerModal.classList.add("hidden");
 
     document.getElementById("openAdd")?.addEventListener("click", openModal);
@@ -598,18 +615,16 @@
     document.getElementById("closeManage").addEventListener("click", closeManage);
 
     // Buyer modal controls
-    document.getElementById("buyerForm").addEventListener("submit", (e)=>{
+    document.getElementById("buyerForm").addEventListener("submit", async (e)=>{
       e.preventDefault();
       const id = e.target.elements["listingId"].value;
       const email = String(e.target.elements["buyerEmail"].value || "").trim();
-      closeBuyer();
-      startCheckout(id, email);
+      await startCheckout(id, email);
     });
-    document.getElementById("buyerSkip").addEventListener("click", ()=>{
+    document.getElementById("buyerSkip").addEventListener("click", async ()=>{
       const f = document.getElementById("buyerForm");
       const id = f.elements["listingId"].value;
-      closeBuyer();
-      startCheckout(id, "");
+      await startCheckout(id, "");
     });
 
     function promptManageByCode() {
@@ -696,28 +711,41 @@
     // ======= BUYER FLOW =======
     function openBuyerPrompt(listingId) {
       const f = document.getElementById("buyerForm"); f.reset();
-      f.elements["listingId"].value = listingId; openBuyer();
+      f.elements["listingId"].value = listingId;
+      if (card) { card.clear(); document.getElementById("card-errors").textContent = ""; }
+      openBuyer();
     }
     async function startCheckout(listingId, buyerEmail) {
       const list = load();
       const it = list.find(x=>x.id===listingId);
       if (!it) return alert("Listing not found."); if (it.remaining <= 0) return alert("Sold out.");
 
-      // If backend exists, call it; else fallback to local simulation
-      if (API_BASE) {
-        try {
-          const res = await fetch(`${API_BASE}/api/orders`, {
-            method: "POST",
-            headers: { "Content-Type":"application/json" },
-            body: JSON.stringify({ listingId, buyerEmail })
-          });
-          if (!res.ok) throw new Error("Order create failed");
-          const data = await res.json();
-          const clientSecret = data.clientSecret;
-          // In a real app you'd show a card form; for now we redirect to the seller pay link, too
-          // but confirm the intent on the backend-driven page. Here we just proceed locally:
-          console.log("Stripe clientSecret:", clientSecret);
-        } catch(e){ console.warn(e); alert("Payments backend not reachable. Using local escrow simulation for now."); }
+      if (!API_BASE) {
+        alert("Payments backend not reachable.");
+        return;
+      }
+
+      try {
+        const res = await fetch(`${API_BASE}/api/orders`, {
+          method: "POST",
+          headers: { "Content-Type":"application/json" },
+          body: JSON.stringify({ listingId, buyerEmail })
+        });
+        if (!res.ok) throw new Error("Order create failed");
+        const data = await res.json();
+        const clientSecret = data.clientSecret;
+        const { error } = await stripe.confirmCardPayment(clientSecret, {
+          payment_method: { card }
+        });
+        if (error) {
+          const displayError = document.getElementById("card-errors");
+          displayError.textContent = error.message || "Payment failed";
+          return;
+        }
+      } catch(e) {
+        console.warn(e);
+        alert("Payment failed. Please try again.");
+        return;
       }
 
       // Open seller's pay link in new tab (manual for MVP; replace with Stripe checkout later)
@@ -725,10 +753,11 @@
 
       const order = { id: crypto.randomUUID(), shortId: Math.random().toString(36).slice(2,6).toUpperCase(), status: "authorized", authorizedAt: Date.now(), releasedAt: null, buyerEmail: buyerEmail || "" };
       it.orders.push(order); it.remaining -= 1; save(list);
-      adminNotify("order_authorized_sim", it, order);
+      adminNotify("order_authorized", it, order);
       sellerNotify(it, "Ticket sold (authorized)", `Order ${order.shortId} for ${it.group} is authorized. Remember to transfer the ticket.`);
       buyerNotify(it, order, "Purchase received – funds on hold", `We’ve placed your payment for order ${order.shortId} in escrow for up to 72 hours while the ticket is transferred.`);
       applyFilters();
+      closeBuyer();
     }
     function confirmReceived(orderId) {
       const list = load();
