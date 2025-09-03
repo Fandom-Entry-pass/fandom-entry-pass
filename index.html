@@ -283,6 +283,7 @@
     <p>FandomEntryPass • Installable PWA • Fan-first, fair pricing. Seller notifications required; buyer notifications optional.</p>
   </footer>
 
+  <script src="config.js"></script>
   <script>
     // ======= PWA install + SW =======
     if ("serviceWorker" in navigator) {
@@ -305,20 +306,19 @@
     // ======= CONFIG =======
     const KEY = "fep_listings_v13";
     const ESCROW_HOURS = 72;
-    const FORMSPREE = "https://formspree.io/f/mvgqedqo";
-    const EMAILJS_PUBLIC = "PioDqOAQEpgJXFr7G";
-    const EMAILJS_SERVICE = "service_FEP0";
-    const EMAILJS_TEMPLATE_SELLER = "template_SellerNots";
-    const EMAILJS_TEMPLATE_BUYER = "template_BuyerNots";
+    const {
+      FORMSPREE,
+      EMAILJS_PUBLIC,
+      EMAILJS_SERVICE,
+      EMAILJS_TEMPLATE_SELLER,
+      EMAILJS_TEMPLATE_BUYER,
+      API_BASE,
+      STRIPE_PK,
+    } = window.APP_CONFIG || {};
     const ACCESS_KEY = "fep_gate_ok";
     const ACCESS_CODE = "FEPTEST"; // change anytime
 
-    // Backend base (set to "" if not live yet; when backend is live, set to your domain origin)
-    const API_BASE = "https://fandom-entry-pass-kmj3be28f-alexisdeshong-9388s-projects.vercel.app"; // e.g. "https://yourapp.vercel.app"
-
-    // Stripe publishable key (safe in frontend)
-    const STRIPE_PK = "pk_live_51LcNBuF7BMVtRlnacvmpKOmS9gMBg3IOnkdgaOjdRjCCspQNjHuvPBwLXBdxIn2qC0bJpa1yO2GZjaTbMOvwvr7n00sb6AKo1u";
-    const stripe = Stripe(STRIPE_PK);
+    const stripe = STRIPE_PK ? Stripe(STRIPE_PK) : null;
 
     // ======= ACCESS GATE =======
     function gateCheck() {
