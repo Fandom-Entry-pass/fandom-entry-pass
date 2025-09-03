@@ -150,7 +150,7 @@
       <div class="w-full sm:w-[860px] bg-white rounded-3xl shadow-2xl overflow-hidden">
         <div class="gradient-brand p-5 text-white">
           <h3 class="font-poppins text-xl">Add a Listing</h3>
-          <p class="text-white/90 text-sm">Blur barcodes on proof images. Above +15% is blocked. Seller email is required for notifications.</p>
+          <p class="text-white/90 text-sm">Blur barcodes on proof images. Above +15% is blocked. Seller email and phone are required for notifications.</p>
         </div>
         <form id="addForm" class="p-5 grid grid-cols-1 sm:grid-cols-3 gap-4">
           <div class="sm:col-span-2">
@@ -194,6 +194,11 @@
           <div>
             <label class="text-sm text-gray-600">Seller Name</label>
             <input name="seller" placeholder="Mina" class="w-full mt-1 rounded-2xl bg-white px-4 py-3 ring-1 ring-gray-200 focus:ring-sky-300 outline-none" />
+          </div>
+          <div class="sm:col-span-3">
+            <label class="text-sm text-gray-600">Seller Phone (required)</label>
+            <input name="sellerPhone" type="tel" required placeholder="555-123-4567" class="w-full mt-1 rounded-2xl bg-white px-4 py-3 ring-1 ring-gray-200 outline-none" />
+            <p class="text-xs text-gray-500 mt-1">Used for mandatory seller notifications.</p>
           </div>
           <div class="sm:col-span-3">
             <label class="text-sm text-gray-600">Seller Email (required)</label>
@@ -253,30 +258,30 @@
     </div>
   </section>
 
-  <!-- Buyer Email Prompt Modal -->
+  <!-- Buyer Contact Modal -->
   <section id="buyerModal" class="fixed inset-0 z-[60] hidden">
     <div class="absolute inset-0 bg-black/30"></div>
     <div class="absolute inset-0 flex items-end sm:items-center justify-center p-3">
       <div class="w-full sm:w-[480px] bg-white rounded-3xl shadow-2xl overflow-hidden">
         <div class="gradient-brand p-5 text-white">
-          <h3 class="font-poppins text-xl">Optional Buyer Notifications</h3>
-          <p class="text-white/90 text-sm">Add your email to get escrow status updates (hold, release, 72h fallback).</p>
+          <h3 class="font-poppins text-xl">Buyer Contact</h3>
+          <p class="text-white/90 text-sm">Add your email and phone to get escrow status updates.</p>
         </div>
         <form id="buyerForm" class="p-5 space-y-4">
           <input type="hidden" name="listingId"/>
           <div>
-            <label class="text-sm text-gray-600">Buyer Email (optional)</label>
-            <input name="buyerEmail" type="email" placeholder="you@example.com" class="w-full mt-1 rounded-2xl bg-white px-4 py-3 ring-1 ring-gray-200 outline-none" />
-            <p class="text-xs text-gray-500 mt-1">We’ll only use this for escrow status emails for this order.</p>
+            <label class="text-sm text-gray-600">Buyer Email <span class="text-rose-500">*</span></label>
+            <input name="buyerEmail" type="email" required placeholder="you@example.com" class="w-full mt-1 rounded-2xl bg-white px-4 py-3 ring-1 ring-gray-200 outline-none" />
+          </div>
+          <div>
+            <label class="text-sm text-gray-600">Buyer Phone <span class="text-rose-500">*</span></label>
+            <input name="buyerPhone" type="tel" required placeholder="555-123-4567" class="w-full mt-1 rounded-2xl bg-white px-4 py-3 ring-1 ring-gray-200 outline-none" />
           </div>
           <div>
             <label class="text-sm text-gray-600">Card Details</label>
             <div id="card-element" class="w-full mt-1 rounded-2xl bg-white px-4 py-3 ring-1 ring-gray-200"></div>
-            <div id="card-errors" class="text-red-600 text-sm mt-1"></div>
-          </div>
+
           <div class="flex items-center justify-end gap-2 pt-2">
-            <button type="button" id="buyerSkip" class="px-4 py-2 rounded-xl bg-gray-100 hover:bg-gray-200">Skip</button>
-            <button class="px-5 py-2 rounded-xl text-white gradient-brand hover:opacity-90">Continue</button>
           </div>
         </form>
       </div>
@@ -285,9 +290,10 @@
 
   <!-- Footer -->
   <footer class="mt-10 py-10 text-center text-sm text-gray-500">
-    <p>FandomEntryPass • Installable PWA • Fan-first, fair pricing. Seller notifications required; buyer notifications optional.</p>
+    <p>FandomEntryPass • Installable PWA • Fan-first, fair pricing. Buyer and seller contact required; data purged after payout.</p>
   </footer>
 
+  <script src="config.js"></script>
   <script>
     // ======= PWA install + SW =======
     if ("serviceWorker" in navigator) {
@@ -308,23 +314,11 @@
     });
 
     // ======= CONFIG =======
-    const KEY = "fep_listings_v13";
-    const ESCROW_HOURS = 72;
-    const FORMSPREE = "https://formspree.io/f/mvgqedqo";
-    const EMAILJS_PUBLIC = "PioDqOAQEpgJXFr7G";
-    const EMAILJS_SERVICE = "service_FEP0";
-    const EMAILJS_TEMPLATE_SELLER = "template_SellerNots";
-    const EMAILJS_TEMPLATE_BUYER = "template_BuyerNots";
+
     const ACCESS_KEY = "fep_gate_ok";
     const ACCESS_CODE = "FEPTEST"; // change anytime
 
-    // Backend base (set to "" if not live yet; when backend is live, set to your domain origin)
-    const API_BASE = "https://fandom-entry-pass-kmj3be28f-alexisdeshong-9388s-projects.vercel.app"; // e.g. "https://yourapp.vercel.app"
 
-    // Stripe publishable key (safe in frontend)
-    const STRIPE_PK = "pk_live_51LcNBuF7BMVtRlnacvmpKOmS9gMBg3IOnkdgaOjdRjCCspQNjHuvPBwLXBdxIn2qC0bJpa1yO2GZjaTbMOvwvr7n00sb6AKo1u";
-    const stripe = Stripe(STRIPE_PK);
-    let card;
 
     // ======= ACCESS GATE =======
     function gateCheck() {
@@ -355,9 +349,9 @@
     function save(list) { localStorage.setItem(KEY, JSON.stringify(list)); }
     if (!localStorage.getItem(KEY)) {
       const seed = [
-        { id: crypto.randomUUID(), group: "ATEEZ – Atlanta Day 1", date: "Nov 12, 2025 • Gas South Arena", city: "Atlanta", seat: "Sec 104 • Row F • Seat 12", face: 100, price: 118, pay: "#", seller: "Mina", sellerEmail:"mina@example.com", qty: 2, remaining: 2, orders: [] },
-        { id: crypto.randomUUID(), group: "xikers – Orlando", date: "Oct 3, 2025 • Kia Center", city: "Orlando", seat: "Floor • GA", face: 90, price: 95, pay: "#", seller: "Jay", sellerEmail:"jay@example.com", qty: 1, remaining: 1, orders: [] },
-        { id: crypto.randomUUID(), group: "SEVENTEEN – Newark", date: "Dec 2, 2025 • Prudential Center", city: "Newark", seat: "Sec 212 • Row J • Seat 8", face: 85, price: 95, pay: "#", seller: "Ara", sellerEmail:"ara@example.com", qty: 3, remaining: 3, orders: [] },
+        { id: crypto.randomUUID(), group: "ATEEZ – Atlanta Day 1", date: "Nov 12, 2025 • Gas South Arena", city: "Atlanta", seat: "Sec 104 • Row F • Seat 12", face: 100, price: 118, pay: "#", seller: "Mina", sellerEmail:"mina@example.com", sellerPhone:"555-000-1000", qty: 2, remaining: 2, orders: [] },
+        { id: crypto.randomUUID(), group: "xikers – Orlando", date: "Oct 3, 2025 • Kia Center", city: "Orlando", seat: "Floor • GA", face: 90, price: 95, pay: "#", seller: "Jay", sellerEmail:"jay@example.com", sellerPhone:"555-000-2000", qty: 1, remaining: 1, orders: [] },
+        { id: crypto.randomUUID(), group: "SEVENTEEN – Newark", date: "Dec 2, 2025 • Prudential Center", city: "Newark", seat: "Sec 212 • Row J • Seat 8", face: 85, price: 95, pay: "#", seller: "Ara", sellerEmail:"ara@example.com", sellerPhone:"555-000-3000", qty: 3, remaining: 3, orders: [] },
       ];
       save(seed);
     }
@@ -380,6 +374,11 @@
       const s = Math.floor((ms%60000)/1000);
       return `${h}h ${m}m ${s}s`;
     }
+    function purgeOrder(o) {
+      delete o.buyerEmail; delete o.buyerPhone;
+      delete o.sellerEmail; delete o.sellerPhone;
+      delete o.token; delete o.tokenExpiresAt;
+    }
     function token() { return Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2); }
 
     // ======= NOTIFICATIONS =======
@@ -393,8 +392,9 @@
         `City: ${listing.city}`,
         `Seat: ${listing.seat}`,
         `Price: $${listing.price}`,
-        `Seller: ${listing.seller} <${listing.sellerEmail||"-"}>`,
-        order ? `Order: ${order.shortId} (${order.status})` : "",
+        `Seller: ${listing.seller} <${(order && order.sellerEmail) || listing.sellerEmail || "-"}>${order && order.sellerPhone ? ` (${order.sellerPhone})` : ""}`,
+        order ? `Buyer: ${(order.buyerEmail||"-")} ${order.buyerPhone?`(${order.buyerPhone})`:""}` : "",
+        order ? `Order: ${order.token ? order.token.slice(0,8) : ""} (${order.status})` : "",
         extra.message || ""
       ].filter(Boolean).join("\n");
       fd.append("message", msg);
@@ -430,7 +430,7 @@
     `Seat: ${listing.seat}\n` +
     `Face: $${listing.face}\n` +
     `Price: $${listing.price}\n` +
-    `Seller: ${listing.seller} <${listing.sellerEmail}>\n` +
+    `Seller: ${listing.seller} <${listing.sellerEmail}> (${listing.sellerPhone})\n` +
     `Qty: ${listing.qty}`;
   form.appendChild(msg);
 
@@ -448,12 +448,12 @@
   setTimeout(() => form.remove(), 3000);
 }
     }
-    async function sellerNotify(listing, subject, text) {
-      if (!listing.sellerEmail) return;
+    async function sellerNotify(listing, order, subject, text) {
+      if (!order.sellerEmail) return;
       try {
         emailjs.init(EMAILJS_PUBLIC);
         await emailjs.send(EMAILJS_SERVICE, EMAILJS_TEMPLATE_SELLER, {
-          to_email: listing.sellerEmail,
+          to_email: order.sellerEmail,
           subject,
           message: text,
           group: listing.group,
@@ -479,7 +479,7 @@
 
     // ======= RENDER =======
     function render(list) {
-      elListings.innerHTML = "";
+      elListings.textContent = "";
       if (!list.length) { elEmpty.classList.remove("hidden"); return; }
       elEmpty.classList.add("hidden");
 
@@ -489,57 +489,103 @@
         const card = document.createElement("article");
         card.className = "rounded-3xl border border-gray-200 p-4 bg-white shadow-sm hover:shadow-md transition-shadow";
 
-        let ordersHtml = "";
-        if (it.orders && it.orders.length) {
-          ordersHtml = `<div class="mt-3 space-y-2">` + it.orders.map(o => {
-            if (o.status === "authorized") {
-              return `
-              <div class="rounded-xl bg-amber-50 border border-amber-200 p-2 text-[12px] text-amber-900">
-                Order ${o.shortId} • Authorized • Auto-release in
-                <span data-countdown="${o.id}">${fmt(timeLeftMs(o))}</span>
-                <button data-confirm="${o.id}" class="ml-2 rounded-lg px-2 py-0.5 bg-emerald-600 text-white">Confirm Received → Release</button>
-              </div>`;
-            } else {
-              return `
-              <div class="rounded-xl bg-emerald-50 border border-emerald-200 p-2 text-[12px] text-emerald-900">
-                Order ${o.shortId} • ✅ Released to seller.
-              </div>`;
-            }
-          }).join("") + `</div>`;
+        const top = document.createElement("div");
+        top.className = "flex items-start justify-between gap-3";
+
+        const left = document.createElement("div");
+
+        const h3 = document.createElement("h3");
+        h3.className = "font-poppins text-lg";
+        h3.textContent = it.group;
+
+        const pDate = document.createElement("p");
+        pDate.className = "text-xs text-gray-500 mt-0.5";
+        pDate.textContent = it.city ? `${it.date} • ${it.city}` : it.date;
+
+        const pSeat = document.createElement("p");
+        pSeat.className = "text-xs text-gray-600 mt-1";
+        pSeat.textContent = it.seat || "";
+
+        const chips = document.createElement("div");
+        chips.className = "mt-2 flex items-center gap-2";
+
+        const faceChip = document.createElement("span");
+        faceChip.className = "chip inline-flex items-center gap-1 bg-gray-100 px-2 py-1 rounded-full";
+        faceChip.textContent = `Face: ${money(it.face)}`;
+
+        const capChip = document.createElement("span");
+        capChip.className = "chip inline-flex items-center gap-1 bg-gray-100 px-2 py-1 rounded-full";
+        capChip.textContent = `Cap: ${money(cap)}`;
+
+        const availChip = document.createElement("span");
+        availChip.className = `chip inline-flex items-center gap-1 ${it.remaining>0?"bg-emerald-100":"bg-gray-200"} px-2 py-1 rounded-full`;
+        availChip.textContent = `Available: ${it.remaining}/${it.qty}`;
+
+        chips.append(faceChip, capChip, availChip);
+
+        left.append(h3, pDate, pSeat, chips);
+        top.append(left);
+        card.append(top);
+
+        const bottom = document.createElement("div");
+        bottom.className = "flex items-center justify-between mt-3";
+
+        const priceWrapper = document.createElement("div");
+
+        const priceDiv = document.createElement("div");
+        priceDiv.className = `text-xl font-poppins ${ok ? "text-gray-900" : "text-rose-600"}`;
+        priceDiv.textContent = money(it.price);
+
+        priceWrapper.append(priceDiv);
+
+        if (it.editToken) {
+          const manageLink = document.createElement("a");
+          manageLink.href = `${location.origin}${location.pathname}?manage=${it.editToken}`;
+          manageLink.className = "text-[11px] underline text-sky-600";
+          manageLink.textContent = "Seller manage link";
+          priceWrapper.append(manageLink);
         }
 
-        const manageLink = it.editToken ? `${location.origin}${location.pathname}?manage=${it.editToken}` : "";
+        bottom.append(priceWrapper);
 
-        card.innerHTML = `
-          <div class="flex items-start justify-between gap-3">
-            <div>
-              <h3 class="font-poppins text-lg">${it.group}</h3>
-              <p class="text-xs text-gray-500 mt-0.5">${it.date}${it.city ? " • " + it.city : ""}</p>
-              <p class="text-xs text-gray-600 mt-1">${it.seat || ""}</p>
-              <div class="mt-2 flex items-center gap-2">
-                <span class="chip inline-flex items-center gap-1 bg-gray-100 px-2 py-1 rounded-full">Face: ${money(it.face)}</span>
-                <span class="chip inline-flex items-center gap-1 bg-gray-100 px-2 py-1 rounded-full">Cap: ${money(cap)}</span>
-                <span class="chip inline-flex items-center gap-1 ${it.remaining>0?'bg-emerald-100':'bg-gray-200'} px-2 py-1 rounded-full">Available: ${it.remaining}/${it.qty}</span>
-              </div>
-            </div>
-          </div>
+        const buyBtn = document.createElement("button");
+        if (it.remaining > 0) {
+          buyBtn.setAttribute("data-buy", it.id);
+          buyBtn.className = "rounded-xl px-4 py-2 text-white gradient-brand hover:opacity-90";
+          buyBtn.textContent = "Buy Safely";
+        } else {
+          buyBtn.disabled = true;
+          buyBtn.className = "rounded-xl px-4 py-2 text-white bg-gray-400";
+          buyBtn.textContent = "Sold Out";
+        }
+        bottom.append(buyBtn);
 
-          <div class="flex items-center justify-between mt-3">
-            <div>
-              <div class="text-xl font-poppins ${ok ? "text-gray-900" : "text-rose-600"}">${money(it.price)}</div>
-              ${manageLink ? `<a href="${manageLink}" class="text-[11px] underline text-sky-600">Seller manage link</a>` : ""}
-            </div>
-            ${it.remaining > 0 ? `
-              <button data-buy="${it.id}" class="rounded-xl px-4 py-2 text-white gradient-brand hover:opacity-90">Buy Safely</button>
-            ` : `
-              <button disabled class="rounded-xl px-4 py-2 text-white bg-gray-400">Sold Out</button>
-            `}
-          </div>
+        card.append(bottom);
 
-          <div class="mt-2 text-[11px] text-gray-500">Funds held until transfer is confirmed. Report issues to <a class="underline" href="mailto:support@fandomentrypass.com">support</a>.</div>
-          ${ok ? "" : `<div class="mt-3 text-[11px] text-rose-600">⚠️ This price exceeds the +15% cap and will be flagged.</div>`}
-          ${ordersHtml}
-        `;
+        const info = document.createElement("div");
+        info.className = "mt-2 text-[11px] text-gray-500";
+        info.append(document.createTextNode("Funds held until transfer is confirmed. Report issues to "));
+        const supportLink = document.createElement("a");
+        supportLink.className = "underline";
+        supportLink.href = "mailto:support@fandomentrypass.com";
+        supportLink.textContent = "support";
+        info.append(supportLink, document.createTextNode("."));
+        card.append(info);
+
+        if (!ok) {
+          const warn = document.createElement("div");
+          warn.className = "mt-3 text-[11px] text-rose-600";
+          warn.textContent = "⚠️ This price exceeds the +15% cap and will be flagged.";
+          card.append(warn);
+        }
+
+        if (it.orders && it.orders.length) {
+
+            }
+            ordersDiv.append(od);
+          }
+          card.append(ordersDiv);
+        }
 
         elListings.appendChild(card);
       }
@@ -619,12 +665,7 @@
       e.preventDefault();
       const id = e.target.elements["listingId"].value;
       const email = String(e.target.elements["buyerEmail"].value || "").trim();
-      await startCheckout(id, email);
-    });
-    document.getElementById("buyerSkip").addEventListener("click", async ()=>{
-      const f = document.getElementById("buyerForm");
-      const id = f.elements["listingId"].value;
-      await startCheckout(id, "");
+
     });
 
     function promptManageByCode() {
@@ -678,7 +719,8 @@
       const proofFile = fd.get("proof");
       if (!proofFile || !proofFile.size) return alert("Proof of ticket is required. Please upload your proof image.");
       const sellerEmail = String(fd.get("sellerEmail") || "").trim();
-      if (!sellerEmail) return alert("Seller email is required for notifications.");
+      const sellerPhone = String(fd.get("sellerPhone") || "").trim();
+      if (!sellerEmail || !sellerPhone) return alert("Seller email and phone are required for notifications.");
       const editToken = token(); const manageCode = editToken.slice(0,10).toUpperCase();
       const listing = {
         id: crypto.randomUUID(),
@@ -689,17 +731,15 @@
         face, price,
         pay: String(fd.get("pay") || "").trim(),
         seller: String(fd.get("seller") || "Seller").trim(),
-        sellerEmail, qty, remaining: qty, orders: [], editToken, manageCode
+        sellerEmail, sellerPhone, qty, remaining: qty, orders: [], editToken, manageCode
       };
       // Email proof to admin via Formspree
       const emailFd = new FormData();
       emailFd.append("_subject", "FEP: New Listing Proof of Ticket");
-      emailFd.append("message", `New listing submitted with proof:\n\nGroup: ${listing.group}\nDate & Venue: ${listing.date}\nCity: ${listing.city}\nSeat: ${listing.seat}\nFace: $${listing.face}\nPrice: $${listing.price}\nSeller: ${listing.seller} <${listing.sellerEmail}>\nQty: ${listing.qty}`);
+      emailFd.append("message", `New listing submitted with proof:\n\nGroup: ${listing.group}\nDate & Venue: ${listing.date}\nCity: ${listing.city}\nSeat: ${listing.seat}\nFace: $${listing.face}\nPrice: $${listing.price}\nSeller: ${listing.seller} <${listing.sellerEmail}> (${listing.sellerPhone})\nQty: ${listing.qty}`);
       emailFd.append("group", listing.group);
       emailFd.append("date", listing.date);
       emailFd.append("seller_email", listing.sellerEmail);
-      emailFd.append("proof", proofFile, proofFile.name);
-      try { await fetch(FORMSPREE, { method: "POST", body: emailFd, headers: { "Accept": "application/json" } }); } catch {}
       // Save locally (until backend active)
       const current = load(); current.unshift(listing); save(current);
       try { const manageUrl = `${location.origin}${location.pathname}?manage=${editToken}`; await navigator.clipboard.writeText(manageUrl);
@@ -710,62 +750,32 @@
 
     // ======= BUYER FLOW =======
     function openBuyerPrompt(listingId) {
-      const f = document.getElementById("buyerForm"); f.reset();
-      f.elements["listingId"].value = listingId;
-      if (card) { card.clear(); document.getElementById("card-errors").textContent = ""; }
-      openBuyer();
+
     }
-    async function startCheckout(listingId, buyerEmail) {
+    async function startCheckout(listingId, buyerEmail, buyerPhone) {
       const list = load();
       const it = list.find(x=>x.id===listingId);
-      if (!it) return alert("Listing not found."); if (it.remaining <= 0) return alert("Sold out.");
 
-      if (!API_BASE) {
-        alert("Payments backend not reachable.");
-        return;
-      }
-
+    }
+    async function capturePayment(pi) {
+      if (!API_BASE || !pi) return;
       try {
-        const res = await fetch(`${API_BASE}/api/orders`, {
+        await fetch(`${API_BASE}/api/capture-intent`, {
           method: "POST",
           headers: { "Content-Type":"application/json" },
-          body: JSON.stringify({ listingId, buyerEmail })
+          body: JSON.stringify({ paymentIntentId: pi })
         });
-        if (!res.ok) throw new Error("Order create failed");
-        const data = await res.json();
-        const clientSecret = data.clientSecret;
-        const { error } = await stripe.confirmCardPayment(clientSecret, {
-          payment_method: { card }
-        });
-        if (error) {
-          const displayError = document.getElementById("card-errors");
-          displayError.textContent = error.message || "Payment failed";
-          return;
-        }
-      } catch(e) {
-        console.warn(e);
-        alert("Payment failed. Please try again.");
-        return;
-      }
-
-      // Open seller's pay link in new tab (manual for MVP; replace with Stripe checkout later)
-      if (it.pay && it.pay !== "#") window.open(it.pay, "_blank");
-
-      const order = { id: crypto.randomUUID(), shortId: Math.random().toString(36).slice(2,6).toUpperCase(), status: "authorized", authorizedAt: Date.now(), releasedAt: null, buyerEmail: buyerEmail || "" };
-      it.orders.push(order); it.remaining -= 1; save(list);
-      adminNotify("order_authorized", it, order);
-      sellerNotify(it, "Ticket sold (authorized)", `Order ${order.shortId} for ${it.group} is authorized. Remember to transfer the ticket.`);
-      buyerNotify(it, order, "Purchase received – funds on hold", `We’ve placed your payment for order ${order.shortId} in escrow for up to 72 hours while the ticket is transferred.`);
-      applyFilters();
-      closeBuyer();
+      } catch (e) { console.warn(e); }
     }
+
     function confirmReceived(orderId) {
       const list = load();
       outer: for (const it of list) { for (const o of it.orders) {
-          if (o.id === orderId) { o.status = "released"; o.releasedAt = Date.now();
+          if (o.id === orderId) { o.status = "released"; o.releasedAt = Date.now(); capturePayment(o.pi);
             adminNotify("order_released_manual_sim", it, o);
-            sellerNotify(it, "Funds released", `Order ${o.shortId} for ${it.group} has been released to you.`);
-            buyerNotify(it, o, "Escrow released", `Your confirmation released funds for order ${o.shortId}. Enjoy the show!`);
+            sellerNotify(it, o, "Funds released", `Order ${o.token.slice(0,8)} for ${it.group} has been released to you.`);
+            buyerNotify(it, o, "Escrow released", `Your confirmation released funds for order ${o.token.slice(0,8)}. Enjoy the show!`);
+            purgeOrder(o);
             break outer; } } }
       save(list); applyFilters();
     }
@@ -776,17 +786,21 @@
       let changed = false;
       for (const it of list) {
         for (const o of (it.orders||[])) {
+          const now = Date.now();
           if (o.status === "authorized") {
             const ms = timeLeftMs(o);
             if (ms <= 0) {
               o.status = "released";
-              o.releasedAt = Date.now();
+
               adminNotify("order_released_auto", it, o);
-              sellerNotify(it, "Funds released (auto)", `Order ${o.shortId} for ${it.group} was auto-released after 72h.`);
-              buyerNotify(it, o, "Escrow auto-released", `Your order ${o.shortId} was auto-released after 72h.`);
+              sellerNotify(it, o, "Funds released (auto)", `Order ${o.token.slice(0,8)} for ${it.group} was auto-released after 72h.`);
+              buyerNotify(it, o, "Escrow auto-released", `Your order ${o.token.slice(0,8)} was auto-released after 72h.`);
+              purgeOrder(o);
               changed = true;
             }
           }
+          if (o.tokenExpiresAt && now > o.tokenExpiresAt) { purgeOrder(o); changed = true; }
+          if (o.releasedAt && now - o.releasedAt > RETENTION_MS) { purgeOrder(o); changed = true; }
         }
       }
       if (changed) save(list);
@@ -800,11 +814,15 @@
 
     (function init(){
       try { emailjs.init(EMAILJS_PUBLIC); } catch {}
-      if ("serviceWorker" in navigator) navigator.serviceWorker.register("./service-worker.js");
       gateCheck();
       applyFilters();
       const u = new URL(window.location.href); const manage = u.searchParams.get("manage") || "";
       if (manage) { const it = load().find(x=>x.editToken === manage); if (it) { fillManageForm(it); openManage(); } }
+      const orderToken = u.searchParams.get("order") || "";
+      if (orderToken) {
+        const list = load();
+        outer: for (const it of list) { for (const o of (it.orders||[])) { if (o.token === orderToken) { alert(`Order ${orderToken.slice(0,8)} status: ${o.status}`); break outer; } } }
+      }
     })();
   </script>
 </body>
