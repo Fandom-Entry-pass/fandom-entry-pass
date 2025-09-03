@@ -280,10 +280,7 @@
           <div>
             <label class="text-sm text-gray-600">Card Details</label>
             <div id="card-element" class="w-full mt-1 rounded-2xl bg-white px-4 py-3 ring-1 ring-gray-200"></div>
-            <p id="card-error" class="text-xs text-rose-600 mt-1"></p>
-          </div>
-          <div id="card-element" class="mt-2"></div>
-          <div id="card-errors" class="text-sm text-rose-600"></div>
+
           <div class="flex items-center justify-end gap-2 pt-2">
           </div>
         </form>
@@ -320,6 +317,7 @@
 
     const ACCESS_KEY = "fep_gate_ok";
     const ACCESS_CODE = "FEPTEST"; // change anytime
+
 
     // ======= ACCESS GATE =======
     function gateCheck() {
@@ -639,7 +637,18 @@
     const closeModal = () => modal.classList.add("hidden");
     const openManage = () => manageModal.classList.remove("hidden");
     const closeManage = () => manageModal.classList.add("hidden");
-    const openBuyer = () => buyerModal.classList.remove("hidden");
+    const openBuyer = () => {
+      buyerModal.classList.remove("hidden");
+      if (!card) {
+        const elements = stripe.elements();
+        card = elements.create("card");
+        card.mount("#card-element");
+        card.on("change", (event) => {
+          const displayError = document.getElementById("card-errors");
+          displayError.textContent = event.error ? event.error.message : "";
+        });
+      }
+    };
     const closeBuyer = () => buyerModal.classList.add("hidden");
 
     document.getElementById("openAdd")?.addEventListener("click", openModal);
@@ -744,21 +753,7 @@
     async function startCheckout(listingId, buyerEmail, buyerPhone) {
       const list = load();
       const it = list.find(x=>x.id===listingId);
-      if (!it) { alert("Listing not found."); return false; }
-      if (it.remaining <= 0) { alert("Sold out."); return false; }
-      if (API_BASE) {
-        try {
-          const res = await fetch(`${API_BASE}/api/create-intent`, {
-            method: "POST",
-            headers: { "Content-Type":"application/json" },
-          });
-          if (!res.ok) throw new Error("Payment intent create failed");
-          const data = await res.json();
-      adminNotify("order_authorized_sim", it, order);
-      sellerNotify(it, order, "Ticket sold (authorized)", `Order ${order.token.slice(0,8)} for ${it.group} is authorized. Remember to transfer the ticket.`);
-      buyerNotify(it, order, "Purchase received – funds on hold", `We’ve placed your payment for order ${order.token.slice(0,8)} in escrow for up to 72 hours while the ticket is transferred.`);
-      applyFilters();
-      return true;
+
     }
     async function capturePayment(pi) {
       if (!API_BASE || !pi) return;
