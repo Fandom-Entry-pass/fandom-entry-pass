@@ -1,9 +1,16 @@
 const express = require('express');
+const path = require('path');
 const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 const db = require('./db');
 
 const app = express();
 app.use(express.json());
+app.use(express.static(__dirname));
+
+// Serve the main page
+app.get('/', (req, res) => {
+  res.sendFile(path.join(__dirname, 'index.html'));
+});
 
 const PLATFORM_FEE_PERCENT = 0.1; // 10%
 
