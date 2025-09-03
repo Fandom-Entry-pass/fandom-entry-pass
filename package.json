@@ -1,0 +1,14 @@
+{
+  "name": "fandom-entry-pass",
+  "version": "1.0.0",
+  "description": "- Frontend PWA: index.html + manifest + service-worker + icons",
+  "main": "server.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node server.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs"
+}
