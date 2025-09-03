@@ -5,5 +5,6 @@ window.APP_CONFIG = {
   EMAILJS_TEMPLATE_SELLER: "emailjs_template_id_for_seller",
   EMAILJS_TEMPLATE_BUYER: "emailjs_template_id_for_buyer",
   API_BASE: "https://your-backend.example.com",
-  STRIPE_PK: "pk_live_your_stripe_publishable_key"
+  STRIPE_PK: "pk_live_your_stripe_publishable_key",
+  ESCROW_HOURS: 72,
 };
