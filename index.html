@@ -473,7 +473,7 @@
 
     // ======= RENDER =======
     function render(list) {
-      elListings.innerHTML = "";
+      elListings.textContent = "";
       if (!list.length) { elEmpty.classList.remove("hidden"); return; }
       elEmpty.classList.add("hidden");
 
@@ -483,57 +483,121 @@
         const card = document.createElement("article");
         card.className = "rounded-3xl border border-gray-200 p-4 bg-white shadow-sm hover:shadow-md transition-shadow";
 
-        let ordersHtml = "";
-        if (it.orders && it.orders.length) {
-          ordersHtml = `<div class="mt-3 space-y-2">` + it.orders.map(o => {
-            if (o.status === "authorized") {
-              return `
-              <div class="rounded-xl bg-amber-50 border border-amber-200 p-2 text-[12px] text-amber-900">
-                Order ${o.shortId} • Authorized • Auto-release in
-                <span data-countdown="${o.id}">${fmt(timeLeftMs(o))}</span>
-                <button data-confirm="${o.id}" class="ml-2 rounded-lg px-2 py-0.5 bg-emerald-600 text-white">Confirm Received → Release</button>
-              </div>`;
-            } else {
-              return `
-              <div class="rounded-xl bg-emerald-50 border border-emerald-200 p-2 text-[12px] text-emerald-900">
-                Order ${o.shortId} • ✅ Released to seller.
-              </div>`;
-            }
-          }).join("") + `</div>`;
+        const top = document.createElement("div");
+        top.className = "flex items-start justify-between gap-3";
+
+        const left = document.createElement("div");
+
+        const h3 = document.createElement("h3");
+        h3.className = "font-poppins text-lg";
+        h3.textContent = it.group;
+
+        const pDate = document.createElement("p");
+        pDate.className = "text-xs text-gray-500 mt-0.5";
+        pDate.textContent = it.city ? `${it.date} • ${it.city}` : it.date;
+
+        const pSeat = document.createElement("p");
+        pSeat.className = "text-xs text-gray-600 mt-1";
+        pSeat.textContent = it.seat || "";
+
+        const chips = document.createElement("div");
+        chips.className = "mt-2 flex items-center gap-2";
+
+        const faceChip = document.createElement("span");
+        faceChip.className = "chip inline-flex items-center gap-1 bg-gray-100 px-2 py-1 rounded-full";
+        faceChip.textContent = `Face: ${money(it.face)}`;
+
+        const capChip = document.createElement("span");
+        capChip.className = "chip inline-flex items-center gap-1 bg-gray-100 px-2 py-1 rounded-full";
+        capChip.textContent = `Cap: ${money(cap)}`;
+
+        const availChip = document.createElement("span");
+        availChip.className = `chip inline-flex items-center gap-1 ${it.remaining>0?"bg-emerald-100":"bg-gray-200"} px-2 py-1 rounded-full`;
+        availChip.textContent = `Available: ${it.remaining}/${it.qty}`;
+
+        chips.append(faceChip, capChip, availChip);
+
+        left.append(h3, pDate, pSeat, chips);
+        top.append(left);
+        card.append(top);
+
+        const bottom = document.createElement("div");
+        bottom.className = "flex items-center justify-between mt-3";
+
+        const priceWrapper = document.createElement("div");
+
+        const priceDiv = document.createElement("div");
+        priceDiv.className = `text-xl font-poppins ${ok ? "text-gray-900" : "text-rose-600"}`;
+        priceDiv.textContent = money(it.price);
+
+        priceWrapper.append(priceDiv);
+
+        if (it.editToken) {
+          const manageLink = document.createElement("a");
+          manageLink.href = `${location.origin}${location.pathname}?manage=${it.editToken}`;
+          manageLink.className = "text-[11px] underline text-sky-600";
+          manageLink.textContent = "Seller manage link";
+          priceWrapper.append(manageLink);
         }
 
-        const manageLink = it.editToken ? `${location.origin}${location.pathname}?manage=${it.editToken}` : "";
+        bottom.append(priceWrapper);
 
-        card.innerHTML = `
-          <div class="flex items-start justify-between gap-3">
-            <div>
-              <h3 class="font-poppins text-lg">${it.group}</h3>
-              <p class="text-xs text-gray-500 mt-0.5">${it.date}${it.city ? " • " + it.city : ""}</p>
-              <p class="text-xs text-gray-600 mt-1">${it.seat || ""}</p>
-              <div class="mt-2 flex items-center gap-2">
-                <span class="chip inline-flex items-center gap-1 bg-gray-100 px-2 py-1 rounded-full">Face: ${money(it.face)}</span>
-                <span class="chip inline-flex items-center gap-1 bg-gray-100 px-2 py-1 rounded-full">Cap: ${money(cap)}</span>
-                <span class="chip inline-flex items-center gap-1 ${it.remaining>0?'bg-emerald-100':'bg-gray-200'} px-2 py-1 rounded-full">Available: ${it.remaining}/${it.qty}</span>
-              </div>
-            </div>
-          </div>
+        const buyBtn = document.createElement("button");
+        if (it.remaining > 0) {
+          buyBtn.setAttribute("data-buy", it.id);
+          buyBtn.className = "rounded-xl px-4 py-2 text-white gradient-brand hover:opacity-90";
+          buyBtn.textContent = "Buy Safely";
+        } else {
+          buyBtn.disabled = true;
+          buyBtn.className = "rounded-xl px-4 py-2 text-white bg-gray-400";
+          buyBtn.textContent = "Sold Out";
+        }
+        bottom.append(buyBtn);
 
-          <div class="flex items-center justify-between mt-3">
-            <div>
-              <div class="text-xl font-poppins ${ok ? "text-gray-900" : "text-rose-600"}">${money(it.price)}</div>
-              ${manageLink ? `<a href="${manageLink}" class="text-[11px] underline text-sky-600">Seller manage link</a>` : ""}
-            </div>
-            ${it.remaining > 0 ? `
-              <button data-buy="${it.id}" class="rounded-xl px-4 py-2 text-white gradient-brand hover:opacity-90">Buy Safely</button>
-            ` : `
-              <button disabled class="rounded-xl px-4 py-2 text-white bg-gray-400">Sold Out</button>
-            `}
-          </div>
+        card.append(bottom);
 
-          <div class="mt-2 text-[11px] text-gray-500">Funds held until transfer is confirmed. Report issues to <a class="underline" href="mailto:support@fandomentrypass.com">support</a>.</div>
-          ${ok ? "" : `<div class="mt-3 text-[11px] text-rose-600">⚠️ This price exceeds the +15% cap and will be flagged.</div>`}
-          ${ordersHtml}
-        `;
+        const info = document.createElement("div");
+        info.className = "mt-2 text-[11px] text-gray-500";
+        info.append(document.createTextNode("Funds held until transfer is confirmed. Report issues to "));
+        const supportLink = document.createElement("a");
+        supportLink.className = "underline";
+        supportLink.href = "mailto:support@fandomentrypass.com";
+        supportLink.textContent = "support";
+        info.append(supportLink, document.createTextNode("."));
+        card.append(info);
+
+        if (!ok) {
+          const warn = document.createElement("div");
+          warn.className = "mt-3 text-[11px] text-rose-600";
+          warn.textContent = "⚠️ This price exceeds the +15% cap and will be flagged.";
+          card.append(warn);
+        }
+
+        if (it.orders && it.orders.length) {
+          const ordersDiv = document.createElement("div");
+          ordersDiv.className = "mt-3 space-y-2";
+          for (const o of it.orders) {
+            const od = document.createElement("div");
+            if (o.status === "authorized") {
+              od.className = "rounded-xl bg-amber-50 border border-amber-200 p-2 text-[12px] text-amber-900";
+              od.append(document.createTextNode(`Order ${o.shortId} • Authorized • Auto-release in `));
+              const span = document.createElement("span");
+              span.setAttribute("data-countdown", o.id);
+              span.textContent = fmt(timeLeftMs(o));
+              od.append(span);
+              const btn = document.createElement("button");
+              btn.setAttribute("data-confirm", o.id);
+              btn.className = "ml-2 rounded-lg px-2 py-0.5 bg-emerald-600 text-white";
+              btn.textContent = "Confirm Received → Release";
+              od.append(btn);
+            } else {
+              od.className = "rounded-xl bg-emerald-50 border border-emerald-200 p-2 text-[12px] text-emerald-900";
+              od.textContent = `Order ${o.shortId} • ✅ Released to seller.`;
+            }
+            ordersDiv.append(od);
+          }
+          card.append(ordersDiv);
+        }
 
         elListings.appendChild(card);
       }
