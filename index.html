@@ -205,6 +205,11 @@
             <input name="sellerEmail" type="email" required placeholder="you@example.com" class="w-full mt-1 rounded-2xl bg-white px-4 py-3 ring-1 ring-gray-200 outline-none" />
             <p class="text-xs text-gray-500 mt-1">Used for mandatory seller notifications (ticket sold, funds released, auto-release).</p>
           </div>
+          <div class="sm:col-span-3">
+            <label class="text-sm text-gray-600">Seller Phone (required)</label>
+            <input name="sellerPhone" type="tel" required placeholder="555-123-4567" class="w-full mt-1 rounded-2xl bg-white px-4 py-3 ring-1 ring-gray-200 outline-none" />
+            <p class="text-xs text-gray-500 mt-1">Phone number for transaction coordination.</p>
+          </div>
           <div class="sm:col-span-3 flex items-center gap-2 mt-2">
             <input id="agree" type="checkbox" required class="w-4 h-4" />
             <label for="agree" class="text-sm text-gray-700">I agree to fair-pricing rules (+15% cap) and safe transfer.</label>
@@ -258,23 +263,17 @@
     </div>
   </section>
 
-  <!-- Buyer Contact Modal -->
   <section id="buyerModal" class="fixed inset-0 z-[60] hidden">
     <div class="absolute inset-0 bg-black/30"></div>
     <div class="absolute inset-0 flex items-end sm:items-center justify-center p-3">
       <div class="w-full sm:w-[480px] bg-white rounded-3xl shadow-2xl overflow-hidden">
         <div class="gradient-brand p-5 text-white">
-          <h3 class="font-poppins text-xl">Buyer Contact</h3>
-          <p class="text-white/90 text-sm">Add your email and phone to get escrow status updates.</p>
+
         </div>
         <form id="buyerForm" class="p-5 space-y-4">
           <input type="hidden" name="listingId"/>
           <div>
-            <label class="text-sm text-gray-600">Buyer Email <span class="text-rose-500">*</span></label>
-            <input name="buyerEmail" type="email" required placeholder="you@example.com" class="w-full mt-1 rounded-2xl bg-white px-4 py-3 ring-1 ring-gray-200 outline-none" />
-          </div>
-          <div>
-            <label class="text-sm text-gray-600">Buyer Phone <span class="text-rose-500">*</span></label>
+
             <input name="buyerPhone" type="tel" required placeholder="555-123-4567" class="w-full mt-1 rounded-2xl bg-white px-4 py-3 ring-1 ring-gray-200 outline-none" />
           </div>
           <div>
@@ -282,6 +281,7 @@
             <div id="card-element" class="w-full mt-1 rounded-2xl bg-white px-4 py-3 ring-1 ring-gray-200"></div>
 
           <div class="flex items-center justify-end gap-2 pt-2">
+
           </div>
         </form>
       </div>
@@ -349,9 +349,7 @@
     function save(list) { localStorage.setItem(KEY, JSON.stringify(list)); }
     if (!localStorage.getItem(KEY)) {
       const seed = [
-        { id: crypto.randomUUID(), group: "ATEEZ – Atlanta Day 1", date: "Nov 12, 2025 • Gas South Arena", city: "Atlanta", seat: "Sec 104 • Row F • Seat 12", face: 100, price: 118, pay: "#", seller: "Mina", sellerEmail:"mina@example.com", sellerPhone:"555-000-1000", qty: 2, remaining: 2, orders: [] },
-        { id: crypto.randomUUID(), group: "xikers – Orlando", date: "Oct 3, 2025 • Kia Center", city: "Orlando", seat: "Floor • GA", face: 90, price: 95, pay: "#", seller: "Jay", sellerEmail:"jay@example.com", sellerPhone:"555-000-2000", qty: 1, remaining: 1, orders: [] },
-        { id: crypto.randomUUID(), group: "SEVENTEEN – Newark", date: "Dec 2, 2025 • Prudential Center", city: "Newark", seat: "Sec 212 • Row J • Seat 8", face: 85, price: 95, pay: "#", seller: "Ara", sellerEmail:"ara@example.com", sellerPhone:"555-000-3000", qty: 3, remaining: 3, orders: [] },
+
       ];
       save(seed);
     }
@@ -392,9 +390,7 @@
         `City: ${listing.city}`,
         `Seat: ${listing.seat}`,
         `Price: $${listing.price}`,
-        `Seller: ${listing.seller} <${(order && order.sellerEmail) || listing.sellerEmail || "-"}>${order && order.sellerPhone ? ` (${order.sellerPhone})` : ""}`,
-        order ? `Buyer: ${(order.buyerEmail||"-")} ${order.buyerPhone?`(${order.buyerPhone})`:""}` : "",
-        order ? `Order: ${order.token ? order.token.slice(0,8) : ""} (${order.status})` : "",
+
         extra.message || ""
       ].filter(Boolean).join("\n");
       fd.append("message", msg);
@@ -661,12 +657,6 @@
     document.getElementById("closeManage").addEventListener("click", closeManage);
 
     // Buyer modal controls
-    document.getElementById("buyerForm").addEventListener("submit", async (e)=>{
-      e.preventDefault();
-      const id = e.target.elements["listingId"].value;
-      const email = String(e.target.elements["buyerEmail"].value || "").trim();
-
-    });
 
     function promptManageByCode() {
       const code = prompt("Enter your 10-character manage code:");
@@ -731,15 +721,12 @@
         face, price,
         pay: String(fd.get("pay") || "").trim(),
         seller: String(fd.get("seller") || "Seller").trim(),
-        sellerEmail, sellerPhone, qty, remaining: qty, orders: [], editToken, manageCode
+
       };
       // Email proof to admin via Formspree
       const emailFd = new FormData();
       emailFd.append("_subject", "FEP: New Listing Proof of Ticket");
-      emailFd.append("message", `New listing submitted with proof:\n\nGroup: ${listing.group}\nDate & Venue: ${listing.date}\nCity: ${listing.city}\nSeat: ${listing.seat}\nFace: $${listing.face}\nPrice: $${listing.price}\nSeller: ${listing.seller} <${listing.sellerEmail}> (${listing.sellerPhone})\nQty: ${listing.qty}`);
-      emailFd.append("group", listing.group);
-      emailFd.append("date", listing.date);
-      emailFd.append("seller_email", listing.sellerEmail);
+
       // Save locally (until backend active)
       const current = load(); current.unshift(listing); save(current);
       try { const manageUrl = `${location.origin}${location.pathname}?manage=${editToken}`; await navigator.clipboard.writeText(manageUrl);
@@ -773,9 +760,7 @@
       outer: for (const it of list) { for (const o of it.orders) {
           if (o.id === orderId) { o.status = "released"; o.releasedAt = Date.now(); capturePayment(o.pi);
             adminNotify("order_released_manual_sim", it, o);
-            sellerNotify(it, o, "Funds released", `Order ${o.token.slice(0,8)} for ${it.group} has been released to you.`);
-            buyerNotify(it, o, "Escrow released", `Your confirmation released funds for order ${o.token.slice(0,8)}. Enjoy the show!`);
-            purgeOrder(o);
+
             break outer; } } }
       save(list); applyFilters();
     }
@@ -793,9 +778,6 @@
               o.status = "released";
 
               adminNotify("order_released_auto", it, o);
-              sellerNotify(it, o, "Funds released (auto)", `Order ${o.token.slice(0,8)} for ${it.group} was auto-released after 72h.`);
-              buyerNotify(it, o, "Escrow auto-released", `Your order ${o.token.slice(0,8)} was auto-released after 72h.`);
-              purgeOrder(o);
               changed = true;
             }
           }
@@ -811,6 +793,28 @@
       }
     }
     setInterval(tick, 1000);
+
+    function purgeContacts() {
+      const list = load();
+      let changed = false;
+      const now = Date.now();
+      for (const it of list) {
+        for (const o of (it.orders||[])) {
+          if (o.lookupExpires && now > o.lookupExpires) { delete o.lookupToken; delete o.lookupExpires; changed = true; }
+          if (o.status === "released" && o.releasedAt && now - o.releasedAt > CONTACT_RETENTION_MS && !o.contactPurged) {
+            delete o.buyerEmail; delete o.buyerPhone; delete o.sellerEmail; delete o.sellerPhone;
+            o.contactPurged = true; changed = true;
+          }
+        }
+        if (it.lookupExpires && now > it.lookupExpires) { delete it.lookupToken; delete it.lookupExpires; changed = true; }
+        if (it.orders && it.orders.length && it.orders.every(o=>o.contactPurged)) {
+          delete it.sellerEmail; delete it.sellerPhone;
+        }
+      }
+      if (changed) save(list);
+    }
+    setInterval(purgeContacts, hoursMs(1));
+    purgeContacts();
 
     (function init(){
       try { emailjs.init(EMAILJS_PUBLIC); } catch {}
