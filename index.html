@@ -150,7 +150,7 @@
       <div class="w-full sm:w-[860px] bg-white rounded-3xl shadow-2xl overflow-hidden">
         <div class="gradient-brand p-5 text-white">
           <h3 class="font-poppins text-xl">Add a Listing</h3>
-          <p class="text-white/90 text-sm">Blur barcodes on proof images. Above +15% is blocked. Seller email is required for notifications.</p>
+          <p class="text-white/90 text-sm">Blur barcodes on proof images. Above +15% is blocked. Seller email and phone are required for notifications.</p>
         </div>
         <form id="addForm" class="p-5 grid grid-cols-1 sm:grid-cols-3 gap-4">
           <div class="sm:col-span-2">
@@ -194,6 +194,11 @@
           <div>
             <label class="text-sm text-gray-600">Seller Name</label>
             <input name="seller" placeholder="Mina" class="w-full mt-1 rounded-2xl bg-white px-4 py-3 ring-1 ring-gray-200 focus:ring-sky-300 outline-none" />
+          </div>
+          <div class="sm:col-span-3">
+            <label class="text-sm text-gray-600">Seller Phone (required)</label>
+            <input name="sellerPhone" type="tel" required placeholder="555-123-4567" class="w-full mt-1 rounded-2xl bg-white px-4 py-3 ring-1 ring-gray-200 outline-none" />
+            <p class="text-xs text-gray-500 mt-1">Used for mandatory seller notifications.</p>
           </div>
           <div class="sm:col-span-3">
             <label class="text-sm text-gray-600">Seller Email (required)</label>
@@ -253,21 +258,24 @@
     </div>
   </section>
 
-  <!-- Buyer Email Prompt Modal -->
+  <!-- Buyer Contact Modal -->
   <section id="buyerModal" class="fixed inset-0 z-[60] hidden">
     <div class="absolute inset-0 bg-black/30"></div>
     <div class="absolute inset-0 flex items-end sm:items-center justify-center p-3">
       <div class="w-full sm:w-[480px] bg-white rounded-3xl shadow-2xl overflow-hidden">
         <div class="gradient-brand p-5 text-white">
-          <h3 class="font-poppins text-xl">Optional Buyer Notifications</h3>
-          <p class="text-white/90 text-sm">Add your email to get escrow status updates (hold, release, 72h fallback).</p>
+          <h3 class="font-poppins text-xl">Buyer Contact</h3>
+          <p class="text-white/90 text-sm">Add your email and phone to get escrow status updates.</p>
         </div>
         <form id="buyerForm" class="p-5 space-y-4">
           <input type="hidden" name="listingId"/>
           <div>
-            <label class="text-sm text-gray-600">Buyer Email (optional)</label>
-            <input name="buyerEmail" type="email" placeholder="you@example.com" class="w-full mt-1 rounded-2xl bg-white px-4 py-3 ring-1 ring-gray-200 outline-none" />
-            <p class="text-xs text-gray-500 mt-1">We’ll only use this for escrow status emails for this order.</p>
+            <label class="text-sm text-gray-600">Buyer Email <span class="text-rose-500">*</span></label>
+            <input name="buyerEmail" type="email" required placeholder="you@example.com" class="w-full mt-1 rounded-2xl bg-white px-4 py-3 ring-1 ring-gray-200 outline-none" />
+          </div>
+          <div>
+            <label class="text-sm text-gray-600">Buyer Phone <span class="text-rose-500">*</span></label>
+            <input name="buyerPhone" type="tel" required placeholder="555-123-4567" class="w-full mt-1 rounded-2xl bg-white px-4 py-3 ring-1 ring-gray-200 outline-none" />
           </div>
           <div>
             <label class="text-sm text-gray-600">Card Details</label>
@@ -275,7 +283,6 @@
             <p id="card-error" class="text-xs text-rose-600 mt-1"></p>
           </div>
           <div class="flex items-center justify-end gap-2 pt-2">
-            <button class="px-5 py-2 rounded-xl text-white gradient-brand hover:opacity-90">Pay</button>
           </div>
         </form>
       </div>
@@ -284,7 +291,7 @@
 
   <!-- Footer -->
   <footer class="mt-10 py-10 text-center text-sm text-gray-500">
-    <p>FandomEntryPass • Installable PWA • Fan-first, fair pricing. Seller notifications required; buyer notifications optional.</p>
+    <p>FandomEntryPass • Installable PWA • Fan-first, fair pricing. Buyer and seller contact required; data purged after payout.</p>
   </footer>
 
   <script src="config.js"></script>
@@ -308,17 +315,7 @@
     });
 
     // ======= CONFIG =======
-    const KEY = "fep_listings_v13";
-    const {
-      FORMSPREE,
-      EMAILJS_PUBLIC,
-      EMAILJS_SERVICE,
-      EMAILJS_TEMPLATE_SELLER,
-      EMAILJS_TEMPLATE_BUYER,
-      API_BASE,
-      STRIPE_PK,
-      ESCROW_HOURS = 72,
-    } = window.APP_CONFIG || {};
+
     const ACCESS_KEY = "fep_gate_ok";
     const ACCESS_CODE = "FEPTEST"; // change anytime
 
@@ -351,9 +348,9 @@
     function save(list) { localStorage.setItem(KEY, JSON.stringify(list)); }
     if (!localStorage.getItem(KEY)) {
       const seed = [
-        { id: crypto.randomUUID(), group: "ATEEZ – Atlanta Day 1", date: "Nov 12, 2025 • Gas South Arena", city: "Atlanta", seat: "Sec 104 • Row F • Seat 12", face: 100, price: 118, pay: "#", seller: "Mina", sellerEmail:"mina@example.com", qty: 2, remaining: 2, orders: [] },
-        { id: crypto.randomUUID(), group: "xikers – Orlando", date: "Oct 3, 2025 • Kia Center", city: "Orlando", seat: "Floor • GA", face: 90, price: 95, pay: "#", seller: "Jay", sellerEmail:"jay@example.com", qty: 1, remaining: 1, orders: [] },
-        { id: crypto.randomUUID(), group: "SEVENTEEN – Newark", date: "Dec 2, 2025 • Prudential Center", city: "Newark", seat: "Sec 212 • Row J • Seat 8", face: 85, price: 95, pay: "#", seller: "Ara", sellerEmail:"ara@example.com", qty: 3, remaining: 3, orders: [] },
+        { id: crypto.randomUUID(), group: "ATEEZ – Atlanta Day 1", date: "Nov 12, 2025 • Gas South Arena", city: "Atlanta", seat: "Sec 104 • Row F • Seat 12", face: 100, price: 118, pay: "#", seller: "Mina", sellerEmail:"mina@example.com", sellerPhone:"555-000-1000", qty: 2, remaining: 2, orders: [] },
+        { id: crypto.randomUUID(), group: "xikers – Orlando", date: "Oct 3, 2025 • Kia Center", city: "Orlando", seat: "Floor • GA", face: 90, price: 95, pay: "#", seller: "Jay", sellerEmail:"jay@example.com", sellerPhone:"555-000-2000", qty: 1, remaining: 1, orders: [] },
+        { id: crypto.randomUUID(), group: "SEVENTEEN – Newark", date: "Dec 2, 2025 • Prudential Center", city: "Newark", seat: "Sec 212 • Row J • Seat 8", face: 85, price: 95, pay: "#", seller: "Ara", sellerEmail:"ara@example.com", sellerPhone:"555-000-3000", qty: 3, remaining: 3, orders: [] },
       ];
       save(seed);
     }
@@ -376,6 +373,11 @@
       const s = Math.floor((ms%60000)/1000);
       return `${h}h ${m}m ${s}s`;
     }
+    function purgeOrder(o) {
+      delete o.buyerEmail; delete o.buyerPhone;
+      delete o.sellerEmail; delete o.sellerPhone;
+      delete o.token; delete o.tokenExpiresAt;
+    }
     function token() { return Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2); }
 
     // ======= NOTIFICATIONS =======
@@ -389,8 +391,9 @@
         `City: ${listing.city}`,
         `Seat: ${listing.seat}`,
         `Price: $${listing.price}`,
-        `Seller: ${listing.seller} <${listing.sellerEmail||"-"}>`,
-        order ? `Order: ${order.shortId} (${order.status})` : "",
+        `Seller: ${listing.seller} <${(order && order.sellerEmail) || listing.sellerEmail || "-"}>${order && order.sellerPhone ? ` (${order.sellerPhone})` : ""}`,
+        order ? `Buyer: ${(order.buyerEmail||"-")} ${order.buyerPhone?`(${order.buyerPhone})`:""}` : "",
+        order ? `Order: ${order.token ? order.token.slice(0,8) : ""} (${order.status})` : "",
         extra.message || ""
       ].filter(Boolean).join("\n");
       fd.append("message", msg);
@@ -426,7 +429,7 @@
     `Seat: ${listing.seat}\n` +
     `Face: $${listing.face}\n` +
     `Price: $${listing.price}\n` +
-    `Seller: ${listing.seller} <${listing.sellerEmail}>\n` +
+    `Seller: ${listing.seller} <${listing.sellerEmail}> (${listing.sellerPhone})\n` +
     `Qty: ${listing.qty}`;
   form.appendChild(msg);
 
@@ -444,12 +447,12 @@
   setTimeout(() => form.remove(), 3000);
 }
     }
-    async function sellerNotify(listing, subject, text) {
-      if (!listing.sellerEmail) return;
+    async function sellerNotify(listing, order, subject, text) {
+      if (!order.sellerEmail) return;
       try {
         emailjs.init(EMAILJS_PUBLIC);
         await emailjs.send(EMAILJS_SERVICE, EMAILJS_TEMPLATE_SELLER, {
-          to_email: listing.sellerEmail,
+          to_email: order.sellerEmail,
           subject,
           message: text,
           group: listing.group,
@@ -576,25 +579,7 @@
         }
 
         if (it.orders && it.orders.length) {
-          const ordersDiv = document.createElement("div");
-          ordersDiv.className = "mt-3 space-y-2";
-          for (const o of it.orders) {
-            const od = document.createElement("div");
-            if (o.status === "authorized") {
-              od.className = "rounded-xl bg-amber-50 border border-amber-200 p-2 text-[12px] text-amber-900";
-              od.append(document.createTextNode(`Order ${o.shortId} • Authorized • Auto-release in `));
-              const span = document.createElement("span");
-              span.setAttribute("data-countdown", o.id);
-              span.textContent = fmt(timeLeftMs(o));
-              od.append(span);
-              const btn = document.createElement("button");
-              btn.setAttribute("data-confirm", o.id);
-              btn.className = "ml-2 rounded-lg px-2 py-0.5 bg-emerald-600 text-white";
-              btn.textContent = "Confirm Received → Release";
-              od.append(btn);
-            } else {
-              od.className = "rounded-xl bg-emerald-50 border border-emerald-200 p-2 text-[12px] text-emerald-900";
-              od.textContent = `Order ${o.shortId} • ✅ Released to seller.`;
+
             }
             ordersDiv.append(od);
           }
@@ -668,8 +653,6 @@
       e.preventDefault();
       const id = e.target.elements["listingId"].value;
       const email = String(e.target.elements["buyerEmail"].value || "").trim();
-      const ok = await startCheckout(id, email);
-      if (ok) { closeBuyer(); card.clear(); }
     });
 
     function promptManageByCode() {
@@ -723,7 +706,8 @@
       const proofFile = fd.get("proof");
       if (!proofFile || !proofFile.size) return alert("Proof of ticket is required. Please upload your proof image.");
       const sellerEmail = String(fd.get("sellerEmail") || "").trim();
-      if (!sellerEmail) return alert("Seller email is required for notifications.");
+      const sellerPhone = String(fd.get("sellerPhone") || "").trim();
+      if (!sellerEmail || !sellerPhone) return alert("Seller email and phone are required for notifications.");
       const editToken = token(); const manageCode = editToken.slice(0,10).toUpperCase();
       const listing = {
         id: crypto.randomUUID(),
@@ -734,27 +718,15 @@
         face, price,
         pay: String(fd.get("pay") || "").trim(),
         seller: String(fd.get("seller") || "Seller").trim(),
-        sellerEmail, qty, remaining: qty, orders: [], editToken, manageCode
+        sellerEmail, sellerPhone, qty, remaining: qty, orders: [], editToken, manageCode
       };
       // Email proof to admin via Formspree
       const emailFd = new FormData();
       emailFd.append("_subject", "FEP: New Listing Proof of Ticket");
-      emailFd.append("message", `New listing submitted with proof:\n\nGroup: ${listing.group}\nDate & Venue: ${listing.date}\nCity: ${listing.city}\nSeat: ${listing.seat}\nFace: $${listing.face}\nPrice: $${listing.price}\nSeller: ${listing.seller} <${listing.sellerEmail}>\nQty: ${listing.qty}`);
+      emailFd.append("message", `New listing submitted with proof:\n\nGroup: ${listing.group}\nDate & Venue: ${listing.date}\nCity: ${listing.city}\nSeat: ${listing.seat}\nFace: $${listing.face}\nPrice: $${listing.price}\nSeller: ${listing.seller} <${listing.sellerEmail}> (${listing.sellerPhone})\nQty: ${listing.qty}`);
       emailFd.append("group", listing.group);
       emailFd.append("date", listing.date);
       emailFd.append("seller_email", listing.sellerEmail);
-      emailFd.append("attachment", proofFile, proofFile.name);
-      try {
-        const res = await fetch(FORMSPREE, { method: "POST", body: emailFd, headers: { Accept: "application/json" } });
-        if (!res.ok) {
-          const err = await res.json().catch(() => ({}));
-          console.error("Formspree error", err);
-          alert("Failed to send proof. Please try again later.");
-        }
-      } catch (err) {
-        console.error("Formspree error", err);
-        alert("Failed to send proof. Please try again later.");
-      }
       // Save locally (until backend active)
       const current = load(); current.unshift(listing); save(current);
       try { const manageUrl = `${location.origin}${location.pathname}?manage=${editToken}`; await navigator.clipboard.writeText(manageUrl);
@@ -768,7 +740,7 @@
       const f = document.getElementById("buyerForm"); f.reset(); card.clear();
       f.elements["listingId"].value = listingId; openBuyer();
     }
-    async function startCheckout(listingId, buyerEmail) {
+    async function startCheckout(listingId, buyerEmail, buyerPhone) {
       const list = load();
       const it = list.find(x=>x.id===listingId);
       if (!it) { alert("Listing not found."); return false; }
@@ -780,7 +752,6 @@
           const res = await fetch(`${API_BASE}/api/create-intent`, {
             method: "POST",
             headers: { "Content-Type":"application/json" },
-            body: JSON.stringify({ amount: Math.round(it.price * 100), buyerEmail })
           });
           if (!res.ok) throw new Error("Payment intent create failed");
           const data = await res.json();
@@ -794,11 +765,9 @@
 
       if (!paymentIntentId && it.pay && it.pay !== "#") window.open(it.pay, "_blank");
 
-      const order = { id: crypto.randomUUID(), shortId: Math.random().toString(36).slice(2,6).toUpperCase(), status: "authorized", authorizedAt: Date.now(), releasedAt: null, buyerEmail: buyerEmail || "", pi: paymentIntentId };
-      it.orders.push(order); it.remaining -= 1; save(list);
       adminNotify("order_authorized_sim", it, order);
-      sellerNotify(it, "Ticket sold (authorized)", `Order ${order.shortId} for ${it.group} is authorized. Remember to transfer the ticket.`);
-      buyerNotify(it, order, "Purchase received – funds on hold", `We’ve placed your payment for order ${order.shortId} in escrow for up to 72 hours while the ticket is transferred.`);
+      sellerNotify(it, order, "Ticket sold (authorized)", `Order ${order.token.slice(0,8)} for ${it.group} is authorized. Remember to transfer the ticket.`);
+      buyerNotify(it, order, "Purchase received – funds on hold", `We’ve placed your payment for order ${order.token.slice(0,8)} in escrow for up to 72 hours while the ticket is transferred.`);
       applyFilters();
       return true;
     }
@@ -818,8 +787,9 @@
       outer: for (const it of list) { for (const o of it.orders) {
           if (o.id === orderId) { o.status = "released"; o.releasedAt = Date.now(); capturePayment(o.pi);
             adminNotify("order_released_manual_sim", it, o);
-            sellerNotify(it, "Funds released", `Order ${o.shortId} for ${it.group} has been released to you.`);
-            buyerNotify(it, o, "Escrow released", `Your confirmation released funds for order ${o.shortId}. Enjoy the show!`);
+            sellerNotify(it, o, "Funds released", `Order ${o.token.slice(0,8)} for ${it.group} has been released to you.`);
+            buyerNotify(it, o, "Escrow released", `Your confirmation released funds for order ${o.token.slice(0,8)}. Enjoy the show!`);
+            purgeOrder(o);
             break outer; } } }
       save(list); applyFilters();
     }
@@ -830,17 +800,21 @@
       let changed = false;
       for (const it of list) {
         for (const o of (it.orders||[])) {
+          const now = Date.now();
           if (o.status === "authorized") {
             const ms = timeLeftMs(o);
             if (ms <= 0) {
               o.status = "released";
-              o.releasedAt = Date.now(); capturePayment(o.pi);
+
               adminNotify("order_released_auto", it, o);
-              sellerNotify(it, "Funds released (auto)", `Order ${o.shortId} for ${it.group} was auto-released after 72h.`);
-              buyerNotify(it, o, "Escrow auto-released", `Your order ${o.shortId} was auto-released after 72h.`);
+              sellerNotify(it, o, "Funds released (auto)", `Order ${o.token.slice(0,8)} for ${it.group} was auto-released after 72h.`);
+              buyerNotify(it, o, "Escrow auto-released", `Your order ${o.token.slice(0,8)} was auto-released after 72h.`);
+              purgeOrder(o);
               changed = true;
             }
           }
+          if (o.tokenExpiresAt && now > o.tokenExpiresAt) { purgeOrder(o); changed = true; }
+          if (o.releasedAt && now - o.releasedAt > RETENTION_MS) { purgeOrder(o); changed = true; }
         }
       }
       if (changed) save(list);
@@ -858,6 +832,11 @@
       applyFilters();
       const u = new URL(window.location.href); const manage = u.searchParams.get("manage") || "";
       if (manage) { const it = load().find(x=>x.editToken === manage); if (it) { fillManageForm(it); openManage(); } }
+      const orderToken = u.searchParams.get("order") || "";
+      if (orderToken) {
+        const list = load();
+        outer: for (const it of list) { for (const o of (it.orders||[])) { if (o.token === orderToken) { alert(`Order ${orderToken.slice(0,8)} status: ${o.status}`); break outer; } } }
+      }
     })();
   </script>
 </body>
