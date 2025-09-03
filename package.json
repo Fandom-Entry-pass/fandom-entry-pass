@@ -1,13 +1,14 @@
 {
   "name": "fandom-entry-pass",
   "version": "1.0.0",
-  "description": "Short description of the project",
-  "main": "index.js",
+  "description": "- Frontend PWA: index.html + manifest + service-worker + icons",
+  "main": "config.example.js",
   "scripts": {
-    "start": "node index.js",
-    "test": "echo \"No tests specified\" && exit 0"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node server.js"
   },
   "keywords": [],
   "author": "",
-  "license": "MIT"
+  "license": "ISC",
+  "type": "commonjs"
 }
