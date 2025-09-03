@@ -1,13 +1,4 @@
 {
   "name": "fandom-entry-pass",
   "version": "1.0.0",
-  "main": "index.js",
-  "license": "MIT",
-  "scripts": {
-    "test": "echo \"No tests\""
-  },
-  "dependencies": {
-    "pg": "^8.11.0",
-    "stripe": "^12.0.0"
-  }
 }
