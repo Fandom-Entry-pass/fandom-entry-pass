@@ -269,6 +269,8 @@
             <input name="buyerEmail" type="email" placeholder="you@example.com" class="w-full mt-1 rounded-2xl bg-white px-4 py-3 ring-1 ring-gray-200 outline-none" />
             <p class="text-xs text-gray-500 mt-1">We’ll only use this for escrow status emails for this order.</p>
           </div>
+          <div id="card-element" class="mt-2"></div>
+          <div id="card-errors" class="text-sm text-rose-600"></div>
           <div class="flex items-center justify-end gap-2 pt-2">
             <button type="button" id="buyerSkip" class="px-4 py-2 rounded-xl bg-gray-100 hover:bg-gray-200">Skip</button>
             <button class="px-5 py-2 rounded-xl text-white gradient-brand hover:opacity-90">Continue</button>
@@ -317,8 +319,8 @@
     const API_BASE = "https://fandom-entry-pass-kmj3be28f-alexisdeshong-9388s-projects.vercel.app"; // e.g. "https://yourapp.vercel.app"
 
     // Stripe publishable key (safe in frontend)
-    const STRIPE_PK = "pk_live_51LcNBuF7BMVtRlnacvmpKOmS9gMBg3IOnkdgaOjdRjCCspQNjHuvPBwLXBdxIn2qC0bJpa1yO2GZjaTbMOvwvr7n00sb6AKo1u";
-    const stripe = Stripe(STRIPE_PK);
+    const STRIPE_PUBLISHABLE_KEY = "pk_live_51LcNBuF7BMVtRlnacvmpKOmS9gMBg3IOnkdgaOjdRjCCspQNjHuvPBwLXBdxIn2qC0bJpa1yO2GZjaTbMOvwvr7n00sb6AKo1u";
+    let stripe; let card;
 
     // ======= ACCESS GATE =======
     function gateCheck() {
@@ -696,14 +698,24 @@
     // ======= BUYER FLOW =======
     function openBuyerPrompt(listingId) {
       const f = document.getElementById("buyerForm"); f.reset();
-      f.elements["listingId"].value = listingId; openBuyer();
+      f.elements["listingId"].value = listingId;
+      if (!stripe) {
+        stripe = Stripe(STRIPE_PUBLISHABLE_KEY);
+        const elements = stripe.elements();
+        card = elements.create("card");
+        card.mount("#card-element");
+        card.on('change', evt => {
+          document.getElementById('card-errors').textContent = evt.error ? evt.error.message : '';
+        });
+      }
+      openBuyer();
     }
     async function startCheckout(listingId, buyerEmail) {
       const list = load();
       const it = list.find(x=>x.id===listingId);
       if (!it) return alert("Listing not found."); if (it.remaining <= 0) return alert("Sold out.");
 
-      // If backend exists, call it; else fallback to local simulation
+      // If backend exists, create a Payment Intent and confirm card payment
       if (API_BASE) {
         try {
           const res = await fetch(`${API_BASE}/api/orders`, {
@@ -714,14 +726,15 @@
           if (!res.ok) throw new Error("Order create failed");
           const data = await res.json();
           const clientSecret = data.clientSecret;
-          // In a real app you'd show a card form; for now we redirect to the seller pay link, too
-          // but confirm the intent on the backend-driven page. Here we just proceed locally:
-          console.log("Stripe clientSecret:", clientSecret);
+          const result = await stripe.confirmCardPayment(clientSecret, {
+            payment_method: { card }
+          });
+          if (result.error) {
+            alert(result.error.message);
+            return;
+          }
         } catch(e){ console.warn(e); alert("Payments backend not reachable. Using local escrow simulation for now."); }
       }
-
-      // Open seller's pay link in new tab (manual for MVP; replace with Stripe checkout later)
-      if (it.pay && it.pay !== "#") window.open(it.pay, "_blank");
 
       const order = { id: crypto.randomUUID(), shortId: Math.random().toString(36).slice(2,6).toUpperCase(), status: "authorized", authorizedAt: Date.now(), releasedAt: null, buyerEmail: buyerEmail || "" };
       it.orders.push(order); it.remaining -= 1; save(list);
