@@ -392,7 +392,55 @@
         extra.message || ""
       ].filter(Boolean).join("\n");
       fd.append("message", msg);
-      try { await fetch(FORMSPREE, { method:"POST", body: fd, headers: { "Accept":"application/json" } }); } catch {}
+    function sendProofViaFormspree(listing, proofFile) { let iframe = document.getElementById("fs_target");
+  if (!iframe) {
+    iframe = document.createElement("iframe");
+    iframe.name = "fs_target";
+    iframe.id = "fs_target";
+    iframe.style.display = "none";
+    document.body.appendChild(iframe);
+  }
+
+  const form = document.createElement("form");
+  form.action = FORMSPREE; // https://formspree.io/f/mvgqedqo
+  form.method = "POST";
+  form.enctype = "multipart/form-data";
+  form.target = "fs_target";
+  form.style.display = "none";
+
+  const sub = document.createElement("input");
+  sub.type = "hidden";
+  sub.name = "_subject";
+  sub.value = "FEP: New Listing Proof of Ticket";
+  form.appendChild(sub);
+
+  const msg = document.createElement("textarea");
+  msg.name = "message";
+  msg.value =
+    `New listing submitted with proof:\n\n` +
+    `Group: ${listing.group}\n` +
+    `Date & Venue: ${listing.date}\n` +
+    `City: ${listing.city}\n` +
+    `Seat: ${listing.seat}\n` +
+    `Face: $${listing.face}\n` +
+    `Price: $${listing.price}\n` +
+    `Seller: ${listing.seller} <${listing.sellerEmail}>\n` +
+    `Qty: ${listing.qty}`;
+  form.appendChild(msg);
+
+  const fileInput = document.createElement("input");
+  fileInput.type = "file";
+  fileInput.name = "attachment"; // Formspree expects "attachment"
+  const dt = new DataTransfer();
+  dt.items.add(proofFile);
+  fileInput.files = dt.files;
+  form.appendChild(fileInput);
+
+  document.body.appendChild(form);
+  form.submit();
+
+  setTimeout(() => form.remove(), 3000);
+}
     }
     async function sellerNotify(listing, subject, text) {
       if (!listing.sellerEmail) return;
