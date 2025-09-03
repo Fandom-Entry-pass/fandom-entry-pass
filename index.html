@@ -683,8 +683,18 @@
       emailFd.append("group", listing.group);
       emailFd.append("date", listing.date);
       emailFd.append("seller_email", listing.sellerEmail);
-      emailFd.append("proof", proofFile, proofFile.name);
-      try { await fetch(FORMSPREE, { method: "POST", body: emailFd, headers: { "Accept": "application/json" } }); } catch {}
+      emailFd.append("attachment", proofFile, proofFile.name);
+      try {
+        const res = await fetch(FORMSPREE, { method: "POST", body: emailFd, headers: { Accept: "application/json" } });
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          console.error("Formspree error", err);
+          alert("Failed to send proof. Please try again later.");
+        }
+      } catch (err) {
+        console.error("Formspree error", err);
+        alert("Failed to send proof. Please try again later.");
+      }
       // Save locally (until backend active)
       const current = load(); current.unshift(listing); save(current);
       try { const manageUrl = `${location.origin}${location.pathname}?manage=${editToken}`; await navigator.clipboard.writeText(manageUrl);
