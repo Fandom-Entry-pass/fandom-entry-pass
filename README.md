@@ -15,7 +15,7 @@ This repository only contains the frontend portion of FandomEntryPass. Backend A
    - FEP_PLATFORM_FEE_FLAT_CENTS = 350
    - FEP_SELLER_FEE_BPS = 500
    - ESCROW_HOURS = 72
-4. Ensure your deployment includes backend endpoints under `/api` and a database schema matching your environment variables.
+4. Ensure your deployment includes backend endpoints under `/api`, serves the frontend via Express static middleware (e.g., `app.use(express.static(__dirname))` so `/` returns `index.html`), and a database schema matching your environment variables.
 5. Your app is live at your Vercel URL. Add to home screen on phones for app experience.
 
 ## Frontend Configuration
