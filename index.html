@@ -344,16 +344,19 @@
       else { alert("Wrong code"); }
     });
 
-    // ======= STORAGE (local demo until backend is connected) =======
+    // ======= STORAGE =======
     function load() { try { return JSON.parse(localStorage.getItem(KEY) || "null") || []; } catch { return []; } }
     function save(list) { localStorage.setItem(KEY, JSON.stringify(list)); }
-    if (!localStorage.getItem(KEY)) {
-      const seed = [
-        { id: crypto.randomUUID(), group: "ATEEZ – Atlanta Day 1", date: "Nov 12, 2025 • Gas South Arena", city: "Atlanta", seat: "Sec 104 • Row F • Seat 12", face: 100, price: 118, pay: "#", seller: "Mina", sellerEmail:"mina@example.com", qty: 2, remaining: 2, orders: [] },
-        { id: crypto.randomUUID(), group: "xikers – Orlando", date: "Oct 3, 2025 • Kia Center", city: "Orlando", seat: "Floor • GA", face: 90, price: 95, pay: "#", seller: "Jay", sellerEmail:"jay@example.com", qty: 1, remaining: 1, orders: [] },
-        { id: crypto.randomUUID(), group: "SEVENTEEN – Newark", date: "Dec 2, 2025 • Prudential Center", city: "Newark", seat: "Sec 212 • Row J • Seat 8", face: 85, price: 95, pay: "#", seller: "Ara", sellerEmail:"ara@example.com", qty: 3, remaining: 3, orders: [] },
-      ];
-      save(seed);
+    async function syncListings() {
+      if (!API_BASE) return;
+      try {
+        const res = await fetch(`${API_BASE}/api/listings`);
+        if (!res.ok) throw new Error('bad');
+        const serverList = await res.json();
+        const local = load();
+        const pending = local.filter(l => l.status === 'pending' && !serverList.find(s => s.id === l.id));
+        save([...serverList, ...pending]);
+      } catch (e) { console.warn('syncListings failed', e); }
     }
 
     // ======= HELPERS =======
@@ -559,7 +562,7 @@
       const city = document.getElementById("city").value.trim().toLowerCase();
       const maxPrice = Number(document.getElementById("maxPrice").value || Infinity);
 
-      const list = load().filter(it => {
+        const list = load().filter(it => it.status === 'approved').filter(it => {
         const hay = (it.group + " " + it.date + " " + (it.city || "")).toLowerCase();
         const matchQ = !q || hay.includes(q);
         const matchCity = !city || (it.city || "").toLowerCase().includes(city);
@@ -674,23 +677,32 @@
         face, price,
         pay: String(fd.get("pay") || "").trim(),
         seller: String(fd.get("seller") || "Seller").trim(),
-        sellerEmail, qty, remaining: qty, orders: [], editToken, manageCode
+        sellerEmail, qty, remaining: qty, orders: [], editToken, manageCode, status: "pending"
       };
-      // Email proof to admin via Formspree
-      const emailFd = new FormData();
-      emailFd.append("_subject", "FEP: New Listing Proof of Ticket");
-      emailFd.append("message", `New listing submitted with proof:\n\nGroup: ${listing.group}\nDate & Venue: ${listing.date}\nCity: ${listing.city}\nSeat: ${listing.seat}\nFace: $${listing.face}\nPrice: $${listing.price}\nSeller: ${listing.seller} <${listing.sellerEmail}>\nQty: ${listing.qty}`);
-      emailFd.append("group", listing.group);
-      emailFd.append("date", listing.date);
-      emailFd.append("seller_email", listing.sellerEmail);
-      emailFd.append("proof", proofFile, proofFile.name);
-      try { await fetch(FORMSPREE, { method: "POST", body: emailFd, headers: { "Accept": "application/json" } }); } catch {}
-      // Save locally (until backend active)
+      const proofBase64 = await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result.split(',')[1]);
+        reader.onerror = reject;
+        reader.readAsDataURL(proofFile);
+      });
+      try {
+        await fetch(`${API_BASE}/api/listings`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ ...listing, proof: proofBase64, proofName: proofFile.name, proofType: proofFile.type })
+        });
+      } catch (err) {
+        return alert("Failed to submit listing. Please try again later.");
+      }
       const current = load(); current.unshift(listing); save(current);
-      try { const manageUrl = `${location.origin}${location.pathname}?manage=${editToken}`; await navigator.clipboard.writeText(manageUrl);
-        alert("Listing created!\n\nSeller manage code: " + manageCode + "\n(Manage link copied to clipboard.)");
-      } catch { alert("Listing created!\n\nSeller manage code: " + manageCode); }
-      closeModal(); e.target.reset(); applyFilters(); window.scrollTo({ top: 0, behavior: "smooth" });
+      try {
+        const manageUrl = `${location.origin}${location.pathname}?manage=${editToken}`;
+        await navigator.clipboard.writeText(manageUrl);
+        alert("Listing submitted!\n\nSeller manage code: " + manageCode + "\n(Manage link copied to clipboard.)");
+      } catch {
+        alert("Listing submitted!\n\nSeller manage code: " + manageCode);
+      }
+      closeModal(); e.target.reset(); await syncListings(); applyFilters(); window.scrollTo({ top: 0, behavior: "smooth" });
     });
 
     // ======= BUYER FLOW =======
@@ -769,10 +781,11 @@
     }
     setInterval(tick, 1000);
 
-    (function init(){
+    (async function init(){
       try { emailjs.init(EMAILJS_PUBLIC); } catch {}
       if ("serviceWorker" in navigator) navigator.serviceWorker.register("./service-worker.js");
       gateCheck();
+      await syncListings();
       applyFilters();
       const u = new URL(window.location.href); const manage = u.searchParams.get("manage") || "";
       if (manage) { const it = load().find(x=>x.editToken === manage); if (it) { fillManageForm(it); openManage(); } }
