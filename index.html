@@ -269,9 +269,13 @@
             <input name="buyerEmail" type="email" placeholder="you@example.com" class="w-full mt-1 rounded-2xl bg-white px-4 py-3 ring-1 ring-gray-200 outline-none" />
             <p class="text-xs text-gray-500 mt-1">We’ll only use this for escrow status emails for this order.</p>
           </div>
+          <div>
+            <label class="text-sm text-gray-600">Card Details</label>
+            <div id="card-element" class="w-full mt-1 rounded-2xl bg-white px-4 py-3 ring-1 ring-gray-200"></div>
+            <p id="card-error" class="text-xs text-rose-600 mt-1"></p>
+          </div>
           <div class="flex items-center justify-end gap-2 pt-2">
-            <button type="button" id="buyerSkip" class="px-4 py-2 rounded-xl bg-gray-100 hover:bg-gray-200">Skip</button>
-            <button class="px-5 py-2 rounded-xl text-white gradient-brand hover:opacity-90">Continue</button>
+            <button class="px-5 py-2 rounded-xl text-white gradient-brand hover:opacity-90">Pay</button>
           </div>
         </form>
       </div>
@@ -319,6 +323,12 @@
     // Stripe publishable key (safe in frontend)
     const STRIPE_PK = "pk_live_51LcNBuF7BMVtRlnacvmpKOmS9gMBg3IOnkdgaOjdRjCCspQNjHuvPBwLXBdxIn2qC0bJpa1yO2GZjaTbMOvwvr7n00sb6AKo1u";
     const stripe = Stripe(STRIPE_PK);
+    const elements = stripe.elements();
+    const card = elements.create('card');
+    card.mount('#card-element');
+    card.on('change', (event) => {
+      document.getElementById('card-error').textContent = event.error ? event.error.message : '';
+    });
 
     // ======= ACCESS GATE =======
     function gateCheck() {
@@ -598,18 +608,12 @@
     document.getElementById("closeManage").addEventListener("click", closeManage);
 
     // Buyer modal controls
-    document.getElementById("buyerForm").addEventListener("submit", (e)=>{
+    document.getElementById("buyerForm").addEventListener("submit", async (e)=>{
       e.preventDefault();
       const id = e.target.elements["listingId"].value;
       const email = String(e.target.elements["buyerEmail"].value || "").trim();
-      closeBuyer();
-      startCheckout(id, email);
-    });
-    document.getElementById("buyerSkip").addEventListener("click", ()=>{
-      const f = document.getElementById("buyerForm");
-      const id = f.elements["listingId"].value;
-      closeBuyer();
-      startCheckout(id, "");
+      const ok = await startCheckout(id, email);
+      if (ok) { closeBuyer(); card.clear(); }
     });
 
     function promptManageByCode() {
@@ -695,45 +699,58 @@
 
     // ======= BUYER FLOW =======
     function openBuyerPrompt(listingId) {
-      const f = document.getElementById("buyerForm"); f.reset();
+      const f = document.getElementById("buyerForm"); f.reset(); card.clear();
       f.elements["listingId"].value = listingId; openBuyer();
     }
     async function startCheckout(listingId, buyerEmail) {
       const list = load();
       const it = list.find(x=>x.id===listingId);
-      if (!it) return alert("Listing not found."); if (it.remaining <= 0) return alert("Sold out.");
+      if (!it) { alert("Listing not found."); return false; }
+      if (it.remaining <= 0) { alert("Sold out."); return false; }
 
-      // If backend exists, call it; else fallback to local simulation
+      let paymentIntentId = null;
       if (API_BASE) {
         try {
-          const res = await fetch(`${API_BASE}/api/orders`, {
+          const res = await fetch(`${API_BASE}/api/create-intent`, {
             method: "POST",
             headers: { "Content-Type":"application/json" },
-            body: JSON.stringify({ listingId, buyerEmail })
+            body: JSON.stringify({ amount: Math.round(it.price * 100), buyerEmail })
           });
-          if (!res.ok) throw new Error("Order create failed");
+          if (!res.ok) throw new Error("Payment intent create failed");
           const data = await res.json();
-          const clientSecret = data.clientSecret;
-          // In a real app you'd show a card form; for now we redirect to the seller pay link, too
-          // but confirm the intent on the backend-driven page. Here we just proceed locally:
-          console.log("Stripe clientSecret:", clientSecret);
+          const result = await stripe.confirmCardPayment(data.clientSecret, {
+            payment_method: { card }
+          });
+          if (result.error) throw result.error;
+          paymentIntentId = result.paymentIntent.id;
         } catch(e){ console.warn(e); alert("Payments backend not reachable. Using local escrow simulation for now."); }
       }
 
-      // Open seller's pay link in new tab (manual for MVP; replace with Stripe checkout later)
-      if (it.pay && it.pay !== "#") window.open(it.pay, "_blank");
+      if (!paymentIntentId && it.pay && it.pay !== "#") window.open(it.pay, "_blank");
 
-      const order = { id: crypto.randomUUID(), shortId: Math.random().toString(36).slice(2,6).toUpperCase(), status: "authorized", authorizedAt: Date.now(), releasedAt: null, buyerEmail: buyerEmail || "" };
+      const order = { id: crypto.randomUUID(), shortId: Math.random().toString(36).slice(2,6).toUpperCase(), status: "authorized", authorizedAt: Date.now(), releasedAt: null, buyerEmail: buyerEmail || "", pi: paymentIntentId };
       it.orders.push(order); it.remaining -= 1; save(list);
       adminNotify("order_authorized_sim", it, order);
       sellerNotify(it, "Ticket sold (authorized)", `Order ${order.shortId} for ${it.group} is authorized. Remember to transfer the ticket.`);
       buyerNotify(it, order, "Purchase received – funds on hold", `We’ve placed your payment for order ${order.shortId} in escrow for up to 72 hours while the ticket is transferred.`);
       applyFilters();
+      return true;
     }
+    async function capturePayment(pi) {
+      if (!API_BASE || !pi) return;
+      try {
+        await fetch(`${API_BASE}/api/capture-intent`, {
+          method: "POST",
+          headers: { "Content-Type":"application/json" },
+          body: JSON.stringify({ paymentIntentId: pi })
+        });
+      } catch (e) { console.warn(e); }
+    }
+
     function confirmReceived(orderId) {
       const list = load();
       outer: for (const it of list) { for (const o of it.orders) {
-          if (o.id === orderId) { o.status = "released"; o.releasedAt = Date.now();
+          if (o.id === orderId) { o.status = "released"; o.releasedAt = Date.now(); capturePayment(o.pi);
             adminNotify("order_released_manual_sim", it, o);
             sellerNotify(it, "Funds released", `Order ${o.shortId} for ${it.group} has been released to you.`);
             buyerNotify(it, o, "Escrow released", `Your confirmation released funds for order ${o.shortId}. Enjoy the show!`);
@@ -751,7 +768,7 @@
             const ms = timeLeftMs(o);
             if (ms <= 0) {
               o.status = "released";
-              o.releasedAt = Date.now();
+              o.releasedAt = Date.now(); capturePayment(o.pi);
               adminNotify("order_released_auto", it, o);
               sellerNotify(it, "Funds released (auto)", `Order ${o.shortId} for ${it.group} was auto-released after 72h.`);
               buyerNotify(it, o, "Escrow auto-released", `Your order ${o.shortId} was auto-released after 72h.`);
