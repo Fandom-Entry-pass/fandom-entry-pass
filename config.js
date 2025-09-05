@@ -1,4 +1,3 @@
-// config.js
 window.APP_CONFIG = {
   FORMSPREE: "https://formspree.io/f/mvgqedqo",
   EMAILJS_PUBLIC: "PioDqOAQEpgJXFr7G",
