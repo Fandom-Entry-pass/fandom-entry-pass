@@ -19,34 +19,18 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;700&family=Nunito:wght@400;600;700&family=Poppins:wght@600;700&display=swap" rel="stylesheet">
 
-  <!-- Tailwind (CDN) -->
+  <!-- Tailwind -->
   <script src="https://cdn.tailwindcss.com"></script>
-  <script>
-    tailwind.config = {
-      theme: {
-        extend: {
-          fontFamily: {
-            poppins: ['Poppins', 'ui-sans-serif', 'system-ui'],
-            baloo: ['Baloo 2', 'ui-sans-serif', 'system-ui'],
-            nunito: ['Nunito', 'ui-sans-serif', 'system-ui'],
-          }
-        }
-      }
-    }
-  </script>
 
-  <!-- EmailJS -->
+  <!-- EmailJS + Stripe -->
   <script src="https://cdn.jsdelivr.net/npm/emailjs-com@3/dist/email.min.js"></script>
-
-  <!-- Stripe.js (publishable key used only for frontend; real charges are via backend) -->
   <script src="https://js.stripe.com/v3/"></script>
 
   <style>
     html, body { font-family: Nunito, ui-sans-serif, system-ui; background:#f7f7f8; }
     .gradient-brand { background: linear-gradient(90deg, #f9a8d4, #93c5fd, #86efac); }
     .glass { backdrop-filter: blur(10px); background: rgba(255,255,255,.70); }
-    .badge-step { font-size: 11px; }
-    .chip { font-size: 11px; }
+    .badge-step, .chip { font-size: 11px; }
     .ios-safe { padding-bottom: constant(safe-area-inset-bottom); padding-bottom: env(safe-area-inset-bottom); }
   </style>
 </head>
@@ -198,17 +182,10 @@
           <div class="sm:col-span-3">
             <label class="text-sm text-gray-600">Seller Phone (required)</label>
             <input name="sellerPhone" type="tel" required placeholder="555-123-4567" class="w-full mt-1 rounded-2xl bg-white px-4 py-3 ring-1 ring-gray-200 outline-none" />
-            <p class="text-xs text-gray-500 mt-1">Used for mandatory seller notifications.</p>
           </div>
           <div class="sm:col-span-3">
             <label class="text-sm text-gray-600">Seller Email (required)</label>
             <input name="sellerEmail" type="email" required placeholder="you@example.com" class="w-full mt-1 rounded-2xl bg-white px-4 py-3 ring-1 ring-gray-200 outline-none" />
-            <p class="text-xs text-gray-500 mt-1">Used for mandatory seller notifications (ticket sold, funds released, auto-release).</p>
-          </div>
-          <div class="sm:col-span-3">
-            <label class="text-sm text-gray-600">Seller Phone (required)</label>
-            <input name="sellerPhone" type="tel" required placeholder="555-123-4567" class="w-full mt-1 rounded-2xl bg-white px-4 py-3 ring-1 ring-gray-200 outline-none" />
-            <p class="text-xs text-gray-500 mt-1">Phone number for transaction coordination.</p>
           </div>
           <div class="sm:col-span-3 flex items-center gap-2 mt-2">
             <input id="agree" type="checkbox" required class="w-4 h-4" />
@@ -223,698 +200,342 @@
     </div>
   </section>
 
-  <!-- Manage Listing Modal -->
-  <section id="manageModal" class="fixed inset-0 z-50 hidden">
-    <div class="absolute inset-0 bg-black/40"></div>
-    <div class="absolute inset-0 flex items-end sm:items-center justify-center p-3">
-      <div class="w-full sm:w-[700px] bg-white rounded-3xl shadow-2xl overflow-hidden">
-        <div class="gradient-brand p-5 text-white">
-          <h3 class="font-poppins text-xl">Manage Listing</h3>
-          <p class="text-white/90 text-sm">Edit price, payment link, and remaining quantity.</p>
-        </div>
-        <form id="manageForm" class="p-5 grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <input type="hidden" name="id"/>
-          <div class="sm:col-span-2">
-            <label class="text-sm text-gray-600">Group / Show</label>
-            <input name="group" disabled class="w-full mt-1 rounded-2xl bg-gray-100 px-4 py-3 ring-1 ring-gray-200 outline-none" />
-          </div>
-          <div>
-            <label class="text-sm text-gray-600">Your Price (USD)</label>
-            <input name="price" type="number" min="1" step="1" class="w-full mt-1 rounded-2xl bg-white px-4 py-3 ring-1 ring-gray-200 outline-none" />
-            <p class="text-xs text-gray-500 mt-1">Must be within +15% of face value.</p>
-          </div>
-          <div>
-            <label class="text-sm text-gray-600">Remaining Quantity</label>
-            <input name="remaining" type="number" min="0" step="1" class="w-full mt-1 rounded-2xl bg-white px-4 py-3 ring-1 ring-gray-200 outline-none" />
-          </div>
-          <div class="sm:col-span-2">
-            <label class="text-sm text-gray-600">Payment Link</label>
-            <input name="pay" class="w-full mt-1 rounded-2xl bg-white px-4 py-3 ring-1 ring-gray-200 outline-none" />
-          </div>
-          <div class="sm:col-span-2 flex items-center justify-between gap-3 pt-2">
-            <button type="button" id="closeManage" class="px-4 py-2 rounded-xl bg-gray-100 hover:bg-gray-200">Close</button>
-            <div class="flex items-center gap-2">
-              <button type="button" id="deleteListing" class="px-4 py-2 rounded-xl bg-rose-50 text-rose-600 ring-1 ring-rose-200 hover:bg-rose-100">Delete</button>
-              <button class="px-5 py-2 rounded-xl text-white gradient-brand hover:opacity-90">Save Changes</button>
-            </div>
-          </div>
-        </form>
-      </div>
-    </div>
-  </section>
-
-  <section id="buyerModal" class="fixed inset-0 z-[60] hidden">
-    <div class="absolute inset-0 bg-black/30"></div>
-    <div class="absolute inset-0 flex items-end sm:items-center justify-center p-3">
-      <div class="w-full sm:w-[480px] bg-white rounded-3xl shadow-2xl overflow-hidden">
-        <div class="gradient-brand p-5 text-white">
-
-        </div>
-        <form id="buyerForm" class="p-5 space-y-4">
-          <input type="hidden" name="listingId"/>
-          <div>
-
-            <input name="buyerPhone" type="tel" required placeholder="555-123-4567" class="w-full mt-1 rounded-2xl bg-white px-4 py-3 ring-1 ring-gray-200 outline-none" />
-          </div>
-          <div>
-            <label class="text-sm text-gray-600">Card Details</label>
-            <div id="card-element" class="w-full mt-1 rounded-2xl bg-white px-4 py-3 ring-1 ring-gray-200"></div>
-
-          <div class="flex items-center justify-end gap-2 pt-2">
-
-          </div>
-        </form>
-      </div>
-    </div>
-  </section>
-
   <!-- Footer -->
   <footer class="mt-10 py-10 text-center text-sm text-gray-500">
     <p>FandomEntryPass • Installable PWA • Fan-first, fair pricing. Buyer and seller contact required; data purged after payout.</p>
   </footer>
 
-  <script src="config.js"></script>
   <script>
-    // ======= PWA install + SW =======
+    /* ===========================
+       CONFIG (frontend)
+       =========================== */
+    const STRIPE_PK = "pk_live_51LcNBuF7BMVtRlnacvmpKOmS9gMBg3IOnkdgaOjdRjCCspQNjHuvPBwLXBdxIn2qC0bJpa1yO2GZjaTbMOvwvr7n00sb6AKo1u"; // your publishable key
+    const API_BASE  = "https://fandom-entry-pass-kmj3be28f-alexisdeshong-9388s-projects.vercel.app"; // your Vercel project URL
+    const FORMSPREE = "https://formspree.io/f/mvgqedqo"; // proof goes here (attachment)
+    // EmailJS (optional; safe if unconfigured)
+    const EMAILJS_PUBLIC  = "PioDqOAQEpgJXFr7G";
+    const EMAILJS_SERVICE = "service_FEP0";
+    const EMAILJS_TPL_BUYER  = "template_BuyerNots";
+    const EMAILJS_TPL_SELLER = "template_SellerNots";
+
+    const ACCESS_KEY = "fep_gate_ok";
+    const ACCESS_CODE = "FEPTEST";
+    const KEY = "fep_listings_v1";
+    const ESCROW_HOURS = 72;                // auto-release after 72h
+    const CONTACT_RETENTION_MS = 24*3600*1000; // purge contacts 24h after release (demo)
+    const RETENTION_MS = 7*24*3600*1000;       // purge order data after 7d (demo)
+
+    let stripe = Stripe(STRIPE_PK);
+
+    /* ===========================
+       PWA install + Service Worker
+       =========================== */
     if ("serviceWorker" in navigator) {
       navigator.serviceWorker.register("./service-worker.js");
     }
-    let deferredPrompt = null;
-    window.addEventListener("beforeinstallprompt", (e) => {
-      e.preventDefault();
-      deferredPrompt = e;
+    let deferredPrompt=null;
+    window.addEventListener("beforeinstallprompt",(e)=>{
+      e.preventDefault(); deferredPrompt=e;
       document.getElementById("installBtn").classList.remove("hidden");
     });
-    document.getElementById("installBtn").addEventListener("click", async () => {
-      if (!deferredPrompt) return;
-      deferredPrompt.prompt();
-      await deferredPrompt.userChoice;
-      deferredPrompt = null;
+    document.getElementById("installBtn").addEventListener("click", async ()=>{
+      if(!deferredPrompt) return; deferredPrompt.prompt();
+      await deferredPrompt.userChoice; deferredPrompt=null;
       document.getElementById("installBtn").classList.add("hidden");
     });
 
-    // ======= CONFIG =======
-
-    const ACCESS_KEY = "fep_gate_ok";
-    const ACCESS_CODE = "FEPTEST"; // change anytime
-
-
-
-    // ======= ACCESS GATE =======
-    function gateCheck() {
-      const ok = localStorage.getItem(ACCESS_KEY) === "1";
-      const showButtons = (v) => {
-        for (const id of ["openAdd", "openAddFab"]) {
-          const el = document.getElementById(id);
-          if (!el) continue;
-          el.style.display = v ? "" : "none";
+    /* ===========================
+       Access Gate
+       =========================== */
+    function gateCheck(){
+      const ok = localStorage.getItem(ACCESS_KEY)==="1";
+      const show = v => {
+        for(const id of ["openAdd","openAddFab"]){
+          const el=document.getElementById(id); if(el) el.style.display = v?"":"none";
         }
       };
-      if (ok) {
-        document.getElementById("gate").classList.add("hidden");
-        showButtons(true);
-      } else {
-        document.getElementById("gate").classList.remove("hidden");
-        showButtons(false);
-      }
+      if(ok){ document.getElementById("gate").classList.add("hidden"); show(true); }
+      else  { document.getElementById("gate").classList.remove("hidden"); show(false); }
     }
-    document.getElementById("gateBtn").addEventListener("click", () => {
-      const code = (document.getElementById("gateCode").value || "").trim().toUpperCase();
-      if (code === ACCESS_CODE) { localStorage.setItem(ACCESS_KEY, "1"); gateCheck(); }
-      else { alert("Wrong code"); }
+    document.getElementById("gateBtn").addEventListener("click", ()=>{
+      const code = (document.getElementById("gateCode").value||"").trim().toUpperCase();
+      if(code===ACCESS_CODE){ localStorage.setItem(ACCESS_KEY,"1"); gateCheck(); }
+      else alert("Wrong code");
     });
 
-    // ======= STORAGE (local demo until backend is connected) =======
-    function load() { try { return JSON.parse(localStorage.getItem(KEY) || "null") || []; } catch { return []; } }
-    function save(list) { localStorage.setItem(KEY, JSON.stringify(list)); }
-    if (!localStorage.getItem(KEY)) {
-      const seed = [
-
-      ];
-      save(seed);
-    }
-
-    // ======= HELPERS =======
-    const elListings = document.getElementById("listings");
-    const elEmpty = document.getElementById("emptyState");
-    const money = (n) => "$" + Number(n).toFixed(0);
-    const capFor = (face) => Math.round(Number(face) * 1.15);
+    /* ===========================
+       Storage + Helpers
+       =========================== */
+    function load(){ try{ return JSON.parse(localStorage.getItem(KEY) || "[]") }catch{ return [] } }
+    function save(list){ localStorage.setItem(KEY, JSON.stringify(list)) }
+    const money = n => "$"+Number(n).toFixed(0);
+    const capFor = face => Math.round(Number(face)*1.15);
     const withinCap = (face, price) => Number(price) <= capFor(face) + 0.0001;
-    const hoursMs = (h)=> h*60*60*1000;
-    function timeLeftMs(order) {
-      if (order.status !== "authorized" || !order.authorizedAt) return 0;
-      const end = order.authorizedAt + hoursMs(ESCROW_HOURS);
-      return Math.max(0, end - Date.now());
-    }
-    function fmt(ms) {
-      const h = Math.floor(ms/3600000);
-      const m = Math.floor((ms%3600000)/60000);
-      const s = Math.floor((ms%60000)/1000);
-      return `${h}h ${m}m ${s}s`;
-    }
-    function purgeOrder(o) {
-      delete o.buyerEmail; delete o.buyerPhone;
-      delete o.sellerEmail; delete o.sellerPhone;
-      delete o.token; delete o.tokenExpiresAt;
-    }
-    function token() { return Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2); }
+    const hoursMs = h => h*60*60*1000;
+    const token = () => Math.random().toString(36).slice(2)+Math.random().toString(36).slice(2);
 
-    // ======= NOTIFICATIONS =======
-    async function adminNotify(type, listing, order, extra = {}) {
-      const fd = new FormData();
-      fd.append("_subject", `FEP: ${type}`);
-      const msg = [
-        `Type: ${type}`,
-        `Group: ${listing.group}`,
-        `Date: ${listing.date}`,
-        `City: ${listing.city}`,
-        `Seat: ${listing.seat}`,
-        `Price: $${listing.price}`,
+    /* ===========================
+       Formspree (attachment) — free plan safe
+       =========================== */
+    function sendProofViaFormspree(listing, proofFile){
+      let iframe = document.getElementById("fs_target");
+      if(!iframe){ iframe=document.createElement("iframe"); iframe.name="fs_target"; iframe.id="fs_target"; iframe.style.display="none"; document.body.appendChild(iframe); }
+      const form=document.createElement("form");
+      form.action=FORMSPREE; form.method="POST"; form.enctype="multipart/form-data"; form.target="fs_target"; form.style.display="none";
 
-        extra.message || ""
-      ].filter(Boolean).join("\n");
-      fd.append("message", msg);
-    function sendProofViaFormspree(listing, proofFile) { let iframe = document.getElementById("fs_target");
-  if (!iframe) {
-    iframe = document.createElement("iframe");
-    iframe.name = "fs_target";
-    iframe.id = "fs_target";
-    iframe.style.display = "none";
-    document.body.appendChild(iframe);
-  }
+      const sub=document.createElement("input"); sub.type="hidden"; sub.name="_subject"; sub.value="FEP: New Listing Proof of Ticket"; form.appendChild(sub);
+      const msg=document.createElement("textarea"); msg.name="message";
+      msg.value = `New listing submitted with proof:\n\n`+
+                  `Group: ${listing.group}\n`+
+                  `Date & Venue: ${listing.date}\n`+
+                  `City: ${listing.city}\n`+
+                  `Seat: ${listing.seat}\n`+
+                  `Face: $${listing.face}\n`+
+                  `Price: $${listing.price}\n`+
+                  `Qty: ${listing.qty}\n`+
+                  `Seller: ${listing.seller} <${listing.sellerEmail}> (${listing.sellerPhone})`;
+      form.appendChild(msg);
 
-  const form = document.createElement("form");
-  form.action = FORMSPREE; // https://formspree.io/f/mvgqedqo
-  form.method = "POST";
-  form.enctype = "multipart/form-data";
-  form.target = "fs_target";
-  form.style.display = "none";
+      const fileInput=document.createElement("input"); fileInput.type="file"; fileInput.name="attachment";
+      const dt=new DataTransfer(); dt.items.add(proofFile); fileInput.files=dt.files; form.appendChild(fileInput);
 
-  const sub = document.createElement("input");
-  sub.type = "hidden";
-  sub.name = "_subject";
-  sub.value = "FEP: New Listing Proof of Ticket";
-  form.appendChild(sub);
-
-  const msg = document.createElement("textarea");
-  msg.name = "message";
-  msg.value =
-    `New listing submitted with proof:\n\n` +
-    `Group: ${listing.group}\n` +
-    `Date & Venue: ${listing.date}\n` +
-    `City: ${listing.city}\n` +
-    `Seat: ${listing.seat}\n` +
-    `Face: $${listing.face}\n` +
-    `Price: $${listing.price}\n` +
-    `Seller: ${listing.seller} <${listing.sellerEmail}> (${listing.sellerPhone})\n` +
-    `Qty: ${listing.qty}`;
-  form.appendChild(msg);
-
-  const fileInput = document.createElement("input");
-  fileInput.type = "file";
-  fileInput.name = "attachment"; // Formspree expects "attachment"
-  const dt = new DataTransfer();
-  dt.items.add(proofFile);
-  fileInput.files = dt.files;
-  form.appendChild(fileInput);
-
-  document.body.appendChild(form);
-  form.submit();
-
-  setTimeout(() => form.remove(), 3000);
-}
-    }
-    async function sellerNotify(listing, order, subject, text) {
-      if (!order.sellerEmail) return;
-      try {
-        emailjs.init(EMAILJS_PUBLIC);
-        await emailjs.send(EMAILJS_SERVICE, EMAILJS_TEMPLATE_SELLER, {
-          to_email: order.sellerEmail,
-          subject,
-          message: text,
-          group: listing.group,
-          price: listing.price,
-          seller: listing.seller
-        });
-      } catch(e) { console.warn("Seller EmailJS failed", e); }
-    }
-    async function buyerNotify(listing, order, subject, text) {
-      if (!order.buyerEmail) return;
-      try {
-        emailjs.init(EMAILJS_PUBLIC);
-        await emailjs.send(EMAILJS_SERVICE, EMAILJS_TEMPLATE_BUYER, {
-          to_email: order.buyerEmail,
-          subject,
-          message: text,
-          group: listing.group,
-          price: listing.price,
-          seller: listing.seller
-        });
-      } catch(e) { console.warn("Buyer EmailJS failed", e); }
+      document.body.appendChild(form); form.submit(); setTimeout(()=>form.remove(),3000);
     }
 
-    // ======= RENDER =======
-    function render(list) {
-      elListings.textContent = "";
-      if (!list.length) { elEmpty.classList.remove("hidden"); return; }
-      elEmpty.classList.add("hidden");
+    /* ===========================
+       Email notifications (optional)
+       =========================== */
+    try{ emailjs.init(EMAILJS_PUBLIC); }catch{}
+    function sellerNotify(email, vars={}) {
+      if(!email) return;
+      try { emailjs.send(EMAILJS_SERVICE, EMAILJS_TPL_SELLER, { to_email: email, ...vars }); } catch(e){}
+    }
+    function buyerNotify(email, vars={}) {
+      if(!email) return;
+      try { emailjs.send(EMAILJS_SERVICE, EMAILJS_TPL_BUYER, { to_email: email, ...vars }); } catch(e){}
+    }
 
-      for (const it of list) {
-        const cap = capFor(it.face);
+    /* ===========================
+       Render Listings
+       =========================== */
+    const elListings=document.getElementById("listings"), elEmpty=document.getElementById("emptyState");
+    function render(list=load()){
+      elListings.textContent=""; if(!list.length){ elEmpty.classList.remove("hidden"); return; } elEmpty.classList.add("hidden");
+      for(const it of list){
         const ok = withinCap(it.face, it.price);
-        const card = document.createElement("article");
-        card.className = "rounded-3xl border border-gray-200 p-4 bg-white shadow-sm hover:shadow-md transition-shadow";
+        const cap = capFor(it.face);
+        const card=document.createElement("article");
+        card.className="rounded-3xl border border-gray-200 p-4 bg-white shadow-sm hover:shadow-md transition-shadow";
 
-        const top = document.createElement("div");
-        top.className = "flex items-start justify-between gap-3";
-
-        const left = document.createElement("div");
-
-        const h3 = document.createElement("h3");
-        h3.className = "font-poppins text-lg";
-        h3.textContent = it.group;
-
-        const pDate = document.createElement("p");
-        pDate.className = "text-xs text-gray-500 mt-0.5";
-        pDate.textContent = it.city ? `${it.date} • ${it.city}` : it.date;
-
-        const pSeat = document.createElement("p");
-        pSeat.className = "text-xs text-gray-600 mt-1";
-        pSeat.textContent = it.seat || "";
-
-        const chips = document.createElement("div");
-        chips.className = "mt-2 flex items-center gap-2";
-
-        const faceChip = document.createElement("span");
-        faceChip.className = "chip inline-flex items-center gap-1 bg-gray-100 px-2 py-1 rounded-full";
-        faceChip.textContent = `Face: ${money(it.face)}`;
-
-        const capChip = document.createElement("span");
-        capChip.className = "chip inline-flex items-center gap-1 bg-gray-100 px-2 py-1 rounded-full";
-        capChip.textContent = `Cap: ${money(cap)}`;
-
-        const availChip = document.createElement("span");
-        availChip.className = `chip inline-flex items-center gap-1 ${it.remaining>0?"bg-emerald-100":"bg-gray-200"} px-2 py-1 rounded-full`;
-        availChip.textContent = `Available: ${it.remaining}/${it.qty}`;
-
-        chips.append(faceChip, capChip, availChip);
-
-        left.append(h3, pDate, pSeat, chips);
-        top.append(left);
-        card.append(top);
-
-        const bottom = document.createElement("div");
-        bottom.className = "flex items-center justify-between mt-3";
-
-        const priceWrapper = document.createElement("div");
-
-        const priceDiv = document.createElement("div");
-        priceDiv.className = `text-xl font-poppins ${ok ? "text-gray-900" : "text-rose-600"}`;
-        priceDiv.textContent = money(it.price);
-
-        priceWrapper.append(priceDiv);
-
-        if (it.editToken) {
-          const manageLink = document.createElement("a");
-          manageLink.href = `${location.origin}${location.pathname}?manage=${it.editToken}`;
-          manageLink.className = "text-[11px] underline text-sky-600";
-          manageLink.textContent = "Seller manage link";
-          priceWrapper.append(manageLink);
-        }
-
-        bottom.append(priceWrapper);
-
-        const buyBtn = document.createElement("button");
-        if (it.remaining > 0) {
-          buyBtn.setAttribute("data-buy", it.id);
-          buyBtn.className = "rounded-xl px-4 py-2 text-white gradient-brand hover:opacity-90";
-          buyBtn.textContent = "Buy Safely";
-        } else {
-          buyBtn.disabled = true;
-          buyBtn.className = "rounded-xl px-4 py-2 text-white bg-gray-400";
-          buyBtn.textContent = "Sold Out";
-        }
-        bottom.append(buyBtn);
-
-        card.append(bottom);
-
-        const info = document.createElement("div");
-        info.className = "mt-2 text-[11px] text-gray-500";
-        info.append(document.createTextNode("Funds held until transfer is confirmed. Report issues to "));
-        const supportLink = document.createElement("a");
-        supportLink.className = "underline";
-        supportLink.href = "mailto:support@fandomentrypass.com";
-        supportLink.textContent = "support";
-        info.append(supportLink, document.createTextNode("."));
-        card.append(info);
-
-        if (!ok) {
-          const warn = document.createElement("div");
-          warn.className = "mt-3 text-[11px] text-rose-600";
-          warn.textContent = "⚠️ This price exceeds the +15% cap and will be flagged.";
-          card.append(warn);
-        }
-
-        if (it.orders && it.orders.length) {
-
-            }
-            ordersDiv.append(od);
-          }
-          card.append(ordersDiv);
-        }
+        card.innerHTML = `
+          <div class="flex items-start justify-between gap-3">
+            <div>
+              <h3 class="font-poppins text-lg">${it.group}</h3>
+              <p class="text-xs text-gray-500 mt-0.5">${it.city ? `${it.date} • ${it.city}` : it.date}</p>
+              <p class="text-xs text-gray-600 mt-1">${it.seat||""}</p>
+              <div class="mt-2 flex items-center gap-2">
+                <span class="chip inline-flex items-center gap-1 bg-gray-100 px-2 py-1 rounded-full">Face: ${money(it.face)}</span>
+                <span class="chip inline-flex items-center gap-1 bg-gray-100 px-2 py-1 rounded-full">Cap: ${money(cap)}</span>
+                <span class="chip inline-flex items-center gap-1 ${it.remaining>0?"bg-emerald-100":"bg-gray-200"} px-2 py-1 rounded-full">Available: ${(it.remaining ?? it.qty)}/${it.qty}</span>
+              </div>
+            </div>
+          </div>
+          <div class="flex items-center justify-between mt-3">
+            <div>
+              <div class="text-xl font-poppins ${ok?"text-gray-900":"text-rose-600"}">${money(it.price)}</div>
+            </div>
+            <button data-buy="${it.id}" ${ (it.remaining ?? it.qty) > 0 ? "" : "disabled" }
+              class="rounded-xl px-4 py-2 text-white ${ (it.remaining ?? it.qty) > 0 ? "gradient-brand hover:opacity-90" : "bg-gray-400" }">
+              ${ (it.remaining ?? it.qty) > 0 ? "Buy Safely" : "Sold Out" }
+            </button>
+          </div>
+          ${ ok ? "" : `<div class="mt-3 text-[11px] text-rose-600">⚠️ This price exceeds the +15% cap and will be blocked.</div>` }
+          <div class="mt-2 text-[11px] text-gray-500">Funds held until transfer is confirmed. Report issues to <a class="underline" href="mailto:support@fandomentrypass.com">support</a>.</div>
+        `;
 
         elListings.appendChild(card);
       }
-
-      // Wire buttons
-      for (const btn of document.querySelectorAll("[data-buy]")) {
-        btn.addEventListener("click", (e) => {
-          const id = e.currentTarget.getAttribute("data-buy");
-          openBuyerPrompt(id);
+      document.querySelectorAll("[data-buy]").forEach(btn=>{
+        btn.addEventListener("click", ()=>{
+          const id = btn.getAttribute("data-buy");
+          startBuy(id);
         });
-      }
-      for (const btn of document.querySelectorAll("[data-confirm]")) {
-        btn.addEventListener("click", (e) => {
-          const oid = e.currentTarget.getAttribute("data-confirm");
-          confirmReceived(oid);
-        });
-      }
+      });
     }
 
-    function applyFilters(evt) {
-      if (evt) evt.preventDefault();
+    /* ===========================
+       Filters
+       =========================== */
+    function applyFilters(evt){
+      if(evt) evt.preventDefault();
       const q = document.getElementById("q").value.trim().toLowerCase();
       const city = document.getElementById("city").value.trim().toLowerCase();
       const maxPrice = Number(document.getElementById("maxPrice").value || Infinity);
-
-      const list = load().filter(it => {
-        const hay = (it.group + " " + it.date + " " + (it.city || "")).toLowerCase();
-        const matchQ = !q || hay.includes(q);
-        const matchCity = !city || (it.city || "").toLowerCase().includes(city);
-        const matchPrice = !isFinite(maxPrice) || Number(it.price) <= maxPrice;
+      const list = load().filter(it=>{
+        const hay=(it.group+" "+it.date+" "+(it.city||"")).toLowerCase();
+        const matchQ=!q || hay.includes(q);
+        const matchCity=!city || (it.city||"").toLowerCase().includes(city);
+        const matchPrice=!isFinite(maxPrice) || Number(it.price) <= maxPrice;
         return matchQ && matchCity && matchPrice;
       });
-
       render(list);
     }
-
     document.getElementById("filters").addEventListener("submit", applyFilters);
-    document.getElementById("clearFilters").addEventListener("click", () => {
-      document.getElementById("q").value = "";
-      document.getElementById("city").value = "";
-      document.getElementById("maxPrice").value = "";
+    document.getElementById("clearFilters").addEventListener("click", ()=>{
+      document.getElementById("q").value=""; document.getElementById("city").value=""; document.getElementById("maxPrice").value="";
       applyFilters();
     });
 
-    // ======= Modals =======
+    /* ===========================
+       Modals
+       =========================== */
     const modal = document.getElementById("modal");
-    const manageModal = document.getElementById("manageModal");
-    const buyerModal = document.getElementById("buyerModal");
-    const openModal = () => modal.classList.remove("hidden");
-    const closeModal = () => modal.classList.add("hidden");
-    const openManage = () => manageModal.classList.remove("hidden");
-    const closeManage = () => manageModal.classList.add("hidden");
-    const openBuyer = () => {
-      buyerModal.classList.remove("hidden");
-      if (!card) {
-        const elements = stripe.elements();
-        card = elements.create("card");
-        card.mount("#card-element");
-        card.on("change", (event) => {
-          const displayError = document.getElementById("card-errors");
-          displayError.textContent = event.error ? event.error.message : "";
-        });
-      }
-    };
-    const closeBuyer = () => buyerModal.classList.add("hidden");
-
+    const openModal = ()=> modal.classList.remove("hidden");
+    const closeModal = ()=> modal.classList.add("hidden");
     document.getElementById("openAdd")?.addEventListener("click", openModal);
     document.getElementById("openAddFab").addEventListener("click", openModal);
     document.getElementById("cancelAdd").addEventListener("click", closeModal);
 
     document.getElementById("openManageByCode")?.addEventListener("click", promptManageByCode);
     document.getElementById("openManageByCodeFab")?.addEventListener("click", promptManageByCode);
-    document.getElementById("closeManage").addEventListener("click", closeManage);
 
-    // Buyer modal controls
-
-    function promptManageByCode() {
-      const code = prompt("Enter your 10-character manage code:");
-      if (!code) return;
-      const list = load();
-      const it = list.find(x => (x.manageCode||"").slice(0,10) === code.trim().toUpperCase());
-      if (!it) return alert("No listing found for that code.");
-      fillManageForm(it);
-      openManage();
+    function promptManageByCode(){
+      const code=prompt("Enter your 10-character manage code:"); if(!code) return;
+      const list=load();
+      const it=list.find(x => (x.manageCode||"").slice(0,10) === code.trim().toUpperCase());
+      if(!it) return alert("No listing found for that code.");
+      alert("Editing from phone not yet enabled in this build. (Coming soon)");
     }
-    function fillManageForm(it) {
-      const f = document.getElementById("manageForm");
-      f.elements["id"].value = it.id;
-      f.elements["group"].value = it.group;
-      f.elements["price"].value = it.price;
-      f.elements["remaining"].value = it.remaining;
-      f.elements["pay"].value = it.pay;
-    }
-    document.getElementById("manageForm").addEventListener("submit", (e)=>{
-      e.preventDefault();
-      const f = e.target;
-      const list = load();
-      const id = f.elements["id"].value;
-      const it = list.find(x=>x.id===id);
-      if (!it) return alert("Listing not found.");
-      const newPrice = Number(f.elements["price"].value || it.price);
-      const newRemaining = Number(f.elements["remaining"].value || it.remaining);
-      const newPay = String(f.elements["pay"].value || it.pay).trim();
-      if (!withinCap(it.face, newPrice)) return alert("This price exceeds the +15% cap. Please lower the price.");
-      if (newRemaining < 0 || newRemaining > it.qty) return alert(`Remaining must be between 0 and ${it.qty}.`);
-      it.price = newPrice; it.remaining = newRemaining; it.pay = newPay;
-      save(list); closeManage(); applyFilters();
-    });
-    document.getElementById("deleteListing").addEventListener("click", ()=>{
-      const f = document.getElementById("manageForm");
-      const id = f.elements["id"].value;
-      if (!confirm("Delete this listing? This cannot be undone.")) return;
-      const list = load().filter(x=>x.id!==id);
-      save(list); closeManage(); applyFilters();
-    });
 
-    // ======= ADD LISTING =======
-    document.getElementById("addForm").addEventListener("submit", async (e) => {
+    /* ===========================
+       Add Listing
+       =========================== */
+    document.getElementById("addForm").addEventListener("submit", async (e)=>{
       e.preventDefault();
-      const fd = new FormData(e.target);
-      const face = Number(fd.get("face"));
-      const price = Number(fd.get("price"));
-      const qty = Math.max(1, Number(fd.get("qty")||1));
-      if (!withinCap(face, price)) return alert("This price exceeds the +15% cap. Please lower the price.");
-      const proofFile = fd.get("proof");
-      if (!proofFile || !proofFile.size) return alert("Proof of ticket is required. Please upload your proof image.");
-      const sellerEmail = String(fd.get("sellerEmail") || "").trim();
-      const sellerPhone = String(fd.get("sellerPhone") || "").trim();
-      if (!sellerEmail || !sellerPhone) return alert("Seller email and phone are required for notifications.");
-      const editToken = token(); const manageCode = editToken.slice(0,10).toUpperCase();
+      const fd=new FormData(e.target);
+      const face=Number(fd.get("face"));
+      const price=Number(fd.get("price"));
+      const qty=Math.max(1, Number(fd.get("qty")||1));
+      if(!withinCap(face,price)) return alert("This price exceeds the +15% cap. Please lower the price.");
+      const proofFile=fd.get("proof");
+      if(!proofFile || !proofFile.size) return alert("Proof of ticket is required. Please upload your proof image.");
+
+      const sellerEmail=String(fd.get("sellerEmail")||"").trim();
+      const sellerPhone=String(fd.get("sellerPhone")||"").trim();
+      if(!sellerEmail || !sellerPhone) return alert("Seller email and phone are required for notifications.");
+
+      const editToken = token();
+      const manageCode = editToken.slice(0,10).toUpperCase();
+
       const listing = {
         id: crypto.randomUUID(),
-        group: String(fd.get("group") || "").trim(),
-        date: String(fd.get("date") || "").trim(),
-        city: String(fd.get("city") || "").trim(),
-        seat: String(fd.get("seat") || "").trim(),
-        face, price,
-        pay: String(fd.get("pay") || "").trim(),
-        seller: String(fd.get("seller") || "Seller").trim(),
-
+        group: String(fd.get("group")||"").trim(),
+        date: String(fd.get("date")||"").trim(),
+        city: String(fd.get("city")||"").trim(),
+        seat: String(fd.get("seat")||"").trim(),
+        face, price, qty,
+        remaining: qty,
+        pay: String(fd.get("pay")||"").trim(),
+        seller: String(fd.get("seller")||"Seller").trim(),
+        sellerEmail, sellerPhone,
+        editToken, manageCode
       };
-      // Email proof to admin via Formspree
-      const emailFd = new FormData();
-      emailFd.append("_subject", "FEP: New Listing Proof of Ticket");
 
-      // Save locally (until backend active)
-      const current = load(); current.unshift(listing); save(current);
-      try { const manageUrl = `${location.origin}${location.pathname}?manage=${editToken}`; await navigator.clipboard.writeText(manageUrl);
-        alert("Listing created!\n\nSeller manage code: " + manageCode + "\n(Manage link copied to clipboard.)");
-      } catch { alert("Listing created!\n\nSeller manage code: " + manageCode); }
-      closeModal(); e.target.reset(); applyFilters(); window.scrollTo({ top: 0, behavior: "smooth" });
+      // email proof (attachment) to admin
+      sendProofViaFormspree(listing, proofFile);
+
+      // save locally (until backend moderation is live)
+      const list=load(); list.unshift(listing); save(list);
+
+      try{
+        const manageUrl = `${location.origin}${location.pathname}?manage=${editToken}`;
+        await navigator.clipboard.writeText(manageUrl);
+        alert(`Listing created!\n\nSeller manage code: ${manageCode}\n(Manage link copied to clipboard.)`);
+      }catch{
+        alert(`Listing created!\n\nSeller manage code: ${manageCode}`);
+      }
+
+      closeModal(); e.target.reset(); applyFilters(); window.scrollTo({ top:0, behavior:"smooth" });
     });
 
-    // ======= BUYER FLOW =======
-    function openBuyerPrompt(listingId) {
-      const list = load();
-      const it = list.find(x=>x.id===listingId);
-      if (!it) return;
+    /* ===========================
+       Buy → Backend (Stripe Checkout) with fallback sim
+       =========================== */
+    async function startBuy(listingId){
+      const list=load();
+      const it=list.find(x=>x.id===listingId); if(!it) return;
+      if(it.remaining<=0){ alert("Sorry, this listing is sold out."); return; }
 
-      const buyerEmail = prompt("Enter your email for the seller:");
-      if (!buyerEmail) return;
-      const buyerPhone = prompt("Enter your phone number:");
-      if (!buyerPhone) return;
+      // Optional: ask buyer email (for notifications)
+      const buyerEmail = prompt("Enter your email for updates (optional):") || "";
 
-      const form = document.getElementById("buyerForm");
-      form.reset();
-      form.elements["listingId"].value = listingId;
-
-      const header = document.querySelector("#buyerModal .gradient-brand");
-      if (header) {
-        header.innerHTML = `<h3 class="font-poppins text-xl">Buy ${it.group}</h3><p class="text-white/90 text-sm">${money(it.price)}</p>`;
-      }
-
-      const actions = form.querySelector("div.flex.items-center.justify-end.gap-2.pt-2");
-      if (actions) {
-        actions.innerHTML = `<button type="button" id="cancelBuyer" class="px-4 py-2 rounded-xl bg-gray-100 hover:bg-gray-200">Cancel</button><button class="px-5 py-2 rounded-xl text-white gradient-brand hover:opacity-90">Pay</button>`;
-        document.getElementById("cancelBuyer").addEventListener("click", closeBuyer, { once:true });
-      }
-
-      form.onsubmit = (e) => {
-        e.preventDefault();
-        startCheckout(listingId, buyerEmail.trim(), buyerPhone.trim());
-      };
-
-      if (typeof stripe === "undefined") {
-        stripe = Stripe(STRIPE_PK);
-      }
-      if (typeof card === "undefined") {
-        card = null;
-      }
-      openBuyer();
-    }
-    async function startCheckout(listingId, buyerEmail, buyerPhone) {
-      const list = load();
-      const it = list.find(x=>x.id===listingId);
-      if (!it) return;
-
-      let clientSecret = null;
-      let paymentIntentId = null;
-      if (API_BASE) {
-        try {
-          const res = await fetch(`${API_BASE}/api/create-intent`, {
-            method: "POST",
-            headers: { "Content-Type":"application/json" },
-            body: JSON.stringify({ amount: Math.round(Number(it.price) * 100) })
-          });
-          const data = await res.json();
-          if (!res.ok) throw new Error(data.error || "Payment error");
-          clientSecret = data.clientSecret;
-        } catch (err) {
-          alert(err.message);
-          return;
-        }
-      }
-      if (clientSecret) {
-        const result = await stripe.confirmCardPayment(clientSecret, {
-          payment_method: { card, billing_details: { email: buyerEmail } }
+      // Call your backend to create a Checkout Session.
+      try{
+        const res = await fetch(`${API_BASE}/api/create-checkout-session`, {
+          method: "POST",
+          headers: { "Content-Type":"application/json" },
+          body: JSON.stringify({
+            listingId: it.id,
+            group: it.group, date: it.date, city: it.city, seat: it.seat,
+            face: it.face, price: it.price, qty: 1,
+            sellerEmail: it.sellerEmail, buyerEmail
+          })
         });
-        if (result.error) {
-          alert(result.error.message);
+        const data = await res.json();
+        if(!res.ok) throw new Error(data.error || "Checkout error");
+        if(data.sessionId){
+          await stripe.redirectToCheckout({ sessionId: data.sessionId });
           return;
         }
-        paymentIntentId = result.paymentIntent.id;
+      }catch(e){
+        console.warn("Backend not ready, falling back to demo auth:", e.message);
       }
 
-      const order = {
+      // Fallback simulation (authorized → auto-release in 72h)
+      it.remaining = Math.max(0, (it.remaining||it.qty||1)-1);
+      it.orders = it.orders || [];
+      it.orders.push({
         id: crypto.randomUUID(),
         status: "authorized",
         authorizedAt: Date.now(),
-        buyerEmail, buyerPhone,
-        sellerEmail: it.sellerEmail,
-        sellerPhone: it.sellerPhone,
-        pi: paymentIntentId,
+        buyerEmail,
         token: token(),
         tokenExpiresAt: Date.now() + hoursMs(ESCROW_HOURS)
-      };
-      if (!it.orders) it.orders = [];
-      it.orders.push(order);
-      it.remaining = Math.max(0, (it.remaining || it.qty || 0) - 1);
-      save(list);
-      applyFilters();
-      closeBuyer();
-
-      adminNotify("order_authorized", it, order);
-      sellerNotify(it, order, "Order Authorized", "A buyer has authorized payment. Please transfer the ticket and confirm.");
-      buyerNotify(it, order, "Payment Authorized", "Your payment is authorized. The seller will reach out with transfer details.");
-
-      alert("Payment authorized! You'll be contacted by the seller shortly.");
-    }
-    async function capturePayment(pi) {
-      if (!API_BASE || !pi) return;
-      try {
-        await fetch(`${API_BASE}/api/capture-intent`, {
-          method: "POST",
-          headers: { "Content-Type":"application/json" },
-          body: JSON.stringify({ paymentIntentId: pi })
-        });
-      } catch (e) { console.warn(e); }
+      });
+      save(list); render(list);
+      buyerNotify(buyerEmail, { group: it.group, price: money(it.price) });
+      sellerNotify(it.sellerEmail, { group: it.group, price: money(it.price) });
+      alert("Payment authorized (demo). Funds auto-release in 72h unless buyer confirms received earlier.");
     }
 
-    function confirmReceived(orderId) {
-      const list = load();
-      outer: for (const it of list) { for (const o of it.orders) {
-          if (o.id === orderId) { o.status = "released"; o.releasedAt = Date.now(); capturePayment(o.pi);
-            adminNotify("order_released_manual_sim", it, o);
-
-            break outer; } } }
-      save(list); applyFilters();
-    }
-
-    // Countdowns
-    function tick() {
-      const list = load();
-      let changed = false;
-      for (const it of list) {
-        for (const o of (it.orders||[])) {
-          const now = Date.now();
-          if (o.status === "authorized") {
-            const ms = timeLeftMs(o);
-            if (ms <= 0) {
-              o.status = "released";
-
-              adminNotify("order_released_auto", it, o);
-              changed = true;
-            }
+    /* ===========================
+       Auto-release + Privacy purge (demo)
+       =========================== */
+    function tick(){
+      const list=load(); let changed=false; const now=Date.now();
+      for(const it of list){
+        for(const o of (it.orders||[])){
+          if(o.status==="authorized" && o.tokenExpiresAt && now>o.tokenExpiresAt){
+            o.status="released"; o.releasedAt=Date.now(); changed=true;
           }
-          if (o.tokenExpiresAt && now > o.tokenExpiresAt) { purgeOrder(o); changed = true; }
-          if (o.releasedAt && now - o.releasedAt > RETENTION_MS) { purgeOrder(o); changed = true; }
-        }
-      }
-      if (changed) save(list);
-      for (const el of document.querySelectorAll("[data-countdown]")) {
-        const oid = el.getAttribute("data-countdown");
-        let order = null; for (const it of list) { order = (it.orders||[]).find(o=>o.id===oid); if (order) break; }
-        if (!order) continue; el.textContent = fmt(timeLeftMs(order));
-      }
-    }
-    setInterval(tick, 1000);
-
-    function purgeContacts() {
-      const list = load();
-      let changed = false;
-      const now = Date.now();
-      for (const it of list) {
-        for (const o of (it.orders||[])) {
-          if (o.lookupExpires && now > o.lookupExpires) { delete o.lookupToken; delete o.lookupExpires; changed = true; }
-          if (o.status === "released" && o.releasedAt && now - o.releasedAt > CONTACT_RETENTION_MS && !o.contactPurged) {
-            delete o.buyerEmail; delete o.buyerPhone; delete o.sellerEmail; delete o.sellerPhone;
-            o.contactPurged = true; changed = true;
+          if(o.releasedAt && now-o.releasedAt>RETENTION_MS && !o.purged){
+            delete o.buyerEmail; o.purged=true; changed=true;
           }
         }
-        if (it.lookupExpires && now > it.lookupExpires) { delete it.lookupToken; delete it.lookupExpires; changed = true; }
-        if (it.orders && it.orders.length && it.orders.every(o=>o.contactPurged)) {
-          delete it.sellerEmail; delete it.sellerPhone;
-        }
       }
-      if (changed) save(list);
+      if(changed) save(list);
     }
-    setInterval(purgeContacts, hoursMs(1));
-    purgeContacts();
+    setInterval(tick, 30000);
 
+    /* ===========================
+       Init
+       =========================== */
     (function init(){
-      try { emailjs.init(EMAILJS_PUBLIC); } catch {}
+      try{ emailjs.init(EMAILJS_PUBLIC); }catch{}
       gateCheck();
       applyFilters();
-      const u = new URL(window.location.href); const manage = u.searchParams.get("manage") || "";
-      if (manage) { const it = load().find(x=>x.editToken === manage); if (it) { fillManageForm(it); openManage(); } }
-      const orderToken = u.searchParams.get("order") || "";
-      if (orderToken) {
-        const list = load();
-        outer: for (const it of list) { for (const o of (it.orders||[])) { if (o.token === orderToken) { alert(`Order ${orderToken.slice(0,8)} status: ${o.status}`); break outer; } } }
-      }
     })();
   </script>
 </body>
 </html>
+
