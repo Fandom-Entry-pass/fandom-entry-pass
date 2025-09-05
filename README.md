@@ -26,13 +26,13 @@ The frontend reads sensitive values from a runtime configuration file.  Copy
 ```js
 // config.js
 window.APP_CONFIG = {
-  FORMSPREE: "https://formspree.io/f/your_form_id",
-  EMAILJS_PUBLIC: "your_emailjs_public_key",
-  EMAILJS_SERVICE: "your_emailjs_service_id",
-  EMAILJS_TEMPLATE_SELLER: "template_id_for_seller_notifications",
-  EMAILJS_TEMPLATE_BUYER: "template_id_for_buyer_notifications",
-  API_BASE: "https://your-backend.example.com",
-  STRIPE_PK: "pk_live_your_stripe_publishable_key",
+  FORMSPREE: "https://formspree.io/f/mvgqedqo",
+  EMAILJS_PUBLIC: "PioDqOAQEpgJXFr7G",
+  EMAILJS_SERVICE: "service_FEP0",
+  EMAILJS_TEMPLATE_SELLER: "template_SellerNots",
+  EMAILJS_TEMPLATE_BUYER: "template_BuyerNots",
+  API_BASE: "https://fandom-entry-pass-kmj3be28f-alexisdeshong-9388s-projects.vercel.app",
+  STRIPE_PK: "pk_live_51LcNBuF7BMVtRlnacvmpKOmS9gMBg3IOnkdgaOjdRjCCspQNjHuvPBwLXBdxIn2qC0bJpa1yO2GZjaTbMOvwvr7n00sb6AKo1u",
 };
 ```
 
