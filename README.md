@@ -27,6 +27,19 @@ Configure the following variables for the backend:
    - `POST /api/orders/:id/cancel` – cancel or refund an order
 5. Access the app at your deployed URL and add to a phone's home screen for a native-like experience.
 
+## Serverless Functions
+
+The project uses CommonJS modules (see `"type": "commonjs"` in `package.json`). When adding new API routes or other serverless functions, export handlers with `module.exports`:
+
+```js
+// api/some-function.js
+module.exports = async function handler(req, res) {
+  // ...
+};
+```
+
+If you prefer ES modules, rename files to `.mjs` and change `"type"` to `"module"` in `package.json`.
+
 ## Frontend Configuration
 
 The frontend reads sensitive values from a runtime configuration file.  Copy
