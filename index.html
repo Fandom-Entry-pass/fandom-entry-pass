@@ -212,19 +212,22 @@
     /* ===========================
        CONFIG (frontend)
        =========================== */
-    const STRIPE_PK = "pk_live_51LcNBuF7BMVtRlnacvmpKOmS9gMBg3IOnkdgaOjdRjCCspQNjHuvPBwLXBdxIn2qC0bJpa1yO2GZjaTbMOvwvr7n00sb6AKo1u"; // your publishable key
-    const API_BASE  = "https://fandom-entry-pass-kmj3be28f-alexisdeshong-9388s-projects.vercel.app"; // your Vercel project URL
-    const FORMSPREE = "https://formspree.io/f/mvgqedqo"; // proof goes here (attachment)
+    const {
+      STRIPE_PK = "pk_live_51LcNBuF7BMVtRlnacvmpKOmS9gMBg3IOnkdgaOjdRjCCspQNjHuvPBwLXBdxIn2qC0bJpa1yO2GZjaTbMOvwvr7n00sb6AKo1u",
+      API_BASE = "https://fandom-entry-pass-kmj3be28f-alexisdeshong-9388s-projects.vercel.app",
+      FORMSPREE = "https://formspree.io/f/mvgqedqo",
+      EMAILJS_PUBLIC = "PioDqOAQEpgJXFr7G",
+      EMAILJS_SERVICE = "service_FEP0",
+      EMAILJS_TPL_BUYER = "template_BuyerNots",
+      EMAILJS_TPL_SELLER = "template_SellerNots",
+      ESCROW_HOURS = 72
+    } = window.APP_CONFIG;
+
     // EmailJS (optional; safe if unconfigured)
-    const EMAILJS_PUBLIC  = "PioDqOAQEpgJXFr7G";
-    const EMAILJS_SERVICE = "service_FEP0";
-    const EMAILJS_TPL_BUYER  = "template_BuyerNots";
-    const EMAILJS_TPL_SELLER = "template_SellerNots";
 
     const ACCESS_KEY = "fep_gate_ok";
     const ACCESS_CODE = "FEPTEST";
     const KEY = "fep_listings_v1";
-    const ESCROW_HOURS = 72;                // auto-release after 72h
     const CONTACT_RETENTION_MS = 24*3600*1000; // purge contacts 24h after release (demo)
     const RETENTION_MS = 7*24*3600*1000;       // purge order data after 7d (demo)
 
