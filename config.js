@@ -4,7 +4,7 @@ window.APP_CONFIG = {
   EMAILJS_SERVICE: "service_FEP0",
   EMAILJS_TPL_SELLER: "template_SellerNots",
   EMAILJS_TPL_BUYER: "template_BuyerNots",
-  API_BASE: "https://fandom-entry-pass-kmj3be28f-alexisdeshong-9388s-projects.vercel.app",
+  API_BASE: "http://localhost:3000",
   STRIPE_PK: "pk_live_51LcNBuF7BMVtRlnacvmpKOmS9gMBg3IOnkdgaOjdRjCCspQNjHuvPBwLXBdxIn2qC0bJpa1yO2GZjaTbMOvwvr7n00sb6AKo1u",
-    ESCROW_HOURS: 72,
+  ESCROW_HOURS: 72,
 };
