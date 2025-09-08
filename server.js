@@ -5,8 +5,8 @@ const db = require('./db');
 
 const app = express();
 app.use(express.json());
-// Serve static assets from the repository root
-app.use(express.static(path.join(__dirname)));
+// Serve static assets from the public directory
+app.use(express.static(path.join(__dirname, 'public')));
 
 // Serve the main page
 app.get('/', (req, res) => {
