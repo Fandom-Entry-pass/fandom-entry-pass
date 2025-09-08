@@ -14,6 +14,57 @@ app.get('/', (req, res) => {
 
 const PLATFORM_FEE_PERCENT = 0.1; // 10%
 
+// Create Stripe Checkout Session
+app.post('/api/create-checkout-session', async (req, res) => {
+  const {
+    listingId,
+    price,
+    qty = 1,
+    group,
+    date,
+    city,
+    seat,
+    sellerEmail,
+    buyerEmail
+  } = req.body || {};
+
+  const amount = Number(price);
+  const quantity = Number(qty);
+
+  if (!listingId || !amount || amount <= 0 || !quantity || quantity <= 0) {
+    return res
+      .status(400)
+      .json({ error: 'listingId, positive price, and quantity are required' });
+  }
+
+  try {
+    const session = await stripe.checkout.sessions.create({
+      mode: 'payment',
+      line_items: [
+        {
+          price_data: {
+            currency: 'usd',
+            unit_amount: Math.round(amount * 100),
+            product_data: {
+              name: group || 'Listing',
+              metadata: { listingId, date, city, seat }
+            }
+          },
+          quantity
+        }
+      ],
+      metadata: { listingId, sellerEmail, buyerEmail },
+      success_url: `${req.headers.origin}/?success=true&session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${req.headers.origin}/?canceled=true`
+    });
+
+    res.json({ sessionId: session.id });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+
 // Create order and PaymentIntent
 app.post('/api/orders', async (req, res) => {
   const { amount, currency = 'usd', sellerAccountId } = req.body;
