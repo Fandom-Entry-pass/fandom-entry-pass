@@ -64,6 +64,11 @@ app.post('/api/create-checkout-session', async (req, res) => {
   }
 });
 
+if (!process.env.STRIPE_SECRET_KEY) {
+  console.error('Missing STRIPE_SECRET_KEY');
+  process.exit(1);
+}
+
 
 // Create order and PaymentIntent
 app.post('/api/orders', async (req, res) => {
