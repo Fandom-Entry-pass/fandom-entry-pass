@@ -24,7 +24,11 @@
 
     <!-- ✅ Config file must load before app scripts -->
   <script src="config.js"></script>
-  
+  <script>
+    const ORIGIN = (window.APP_CONFIG?.API_BASE || window.location.origin).replace(/\/+$/,'');
+    if (!window.APP_CONFIG?.STRIPE_PK) console.warn("Missing STRIPE_PK in config.js");
+  </script>
+
   <!-- EmailJS + Stripe -->
   <script src="https://cdn.jsdelivr.net/npm/emailjs-com@3/dist/email.min.js"></script>
   <script src="https://js.stripe.com/v3/"></script>
