@@ -214,14 +214,14 @@
        =========================== */
     const {
       STRIPE_PK = "pk_live_51LcNBuF7BMVtRlnacvmpKOmS9gMBg3IOnkdgaOjdRjCCspQNjHuvPBwLXBdxIn2qC0bJpa1yO2GZjaTbMOvwvr7n00sb6AKo1u",
-      API_BASE = "https://fandom-entry-pass-kmj3be28f-alexisdeshong-9388s-projects.vercel.app",
-      FORMSPREE = "https://formspree.io/f/mvgqedqo",
       EMAILJS_PUBLIC = "PioDqOAQEpgJXFr7G",
       EMAILJS_SERVICE = "service_FEP0",
-      EMAILJS_TPL_BUYER = "template_BuyerNots",
-      EMAILJS_TPL_SELLER = "template_SellerNots",
-      ESCROW_HOURS = 72
-    } = window.APP_CONFIG;
+      EMAILJS_TEMPLATE_BUYER = "template_BuyerNots",
+      EMAILJS_TEMPLATE_SELLER = "template_SellerNots"
+    } = window.APP_CONFIG || {};
+
+    const ORIGIN = (window.APP_CONFIG?.API_BASE || window.location.origin).replace(/\/+$/,'');
+    const ESCROW_HOURS = 72;
 
     // EmailJS (optional; safe if unconfigured)
 
@@ -281,45 +281,45 @@
     const token = () => Math.random().toString(36).slice(2)+Math.random().toString(36).slice(2);
 
     /* ===========================
-       Formspree (attachment) — free plan safe
+       Proof upload via Supabase
        =========================== */
-    async function sendProofViaFormspree(listing, proofFile){
-      const fd = new FormData();
-      fd.append("_subject", "FEP: New Listing Proof of Ticket");
-      fd.append("message",
-                `New listing submitted with proof:\n\n`+
-                `Group: ${listing.group}\n`+
-                `Date & Venue: ${listing.date}\n`+
-                `City: ${listing.city}\n`+
-                `Seat: ${listing.seat}\n`+
-                `Face: $${listing.face}\n`+
-                `Price: $${listing.price}\n`+
-                `Qty: ${listing.qty}\n`+
-                `Seller: ${listing.seller} <${listing.sellerEmail}> (${listing.sellerPhone})`);
-       if(listing.sellerEmail) fd.append("_replyto", listing.sellerEmail);
-      fd.append("attachment", proofFile);
-
-      const status=document.createElement("div");
-      status.textContent="Sending proof...";
+    async function uploadProof(listing, proofFile){
+      const status = document.createElement("div");
+      status.textContent = "Uploading proof...";
       document.body.appendChild(status);
       try{
-              const res = await fetch(FORMSPREE, {
-          method:"POST",
-          headers:{ "Accept":"application/json" },
-          body: fd
+        const res = await fetch(`${ORIGIN}/api/upload-proof-url`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ filename: proofFile.name })
         });
-        const data = await res.json();
-        if(!res.ok || data.error || (Array.isArray(data.errors) && data.errors.length)){
-          status.textContent="Error sending proof.";
-          const msg = data.error || (data.errors||[]).map(e=>e.message).join(", ") || res.statusText;
-          alert(`Error sending proof: ${msg}`);
-          return false;
+        if(!res.ok){
+          const txt = await res.text();
+          throw new Error(txt || res.statusText);
         }
-        status.textContent="Proof sent!";
+        const { uploadUrl, viewUrl } = await res.json();
+        const upRes = await fetch(uploadUrl, {
+          method: "PUT",
+          headers: {
+            "Content-Type": proofFile.type || "application/octet-stream",
+            "x-upsert": "true"
+          },
+          body: proofFile
+        });
+        if(!upRes.ok){
+          const txt = await upRes.text();
+          throw new Error(txt || upRes.statusText);
+        }
+
+        const ADMIN_EMAIL = "support@fandomentrypass.com";
+        sellerNotify(ADMIN_EMAIL, { ...listing, proof_url: viewUrl });
+        sellerNotify(listing.sellerEmail, { ...listing, proof_url: viewUrl });
+
+        status.textContent = "Proof uploaded!";
         return true;
       }catch(e){
-        status.textContent="Error sending proof.";
-        alert(`Error sending proof: ${e.message}`);
+        status.textContent = "Error uploading proof.";
+        alert(`Error uploading proof: ${e.message}`);
         return false;
       }finally{
         setTimeout(()=>status.remove(),3000);
@@ -332,11 +332,11 @@
     try{ emailjs.init(EMAILJS_PUBLIC); }catch{}
     function sellerNotify(email, vars={}) {
       if(!email) return;
-      try { emailjs.send(EMAILJS_SERVICE, EMAILJS_TPL_SELLER, { to_email: email, ...vars }); } catch(e){}
+      try { emailjs.send(EMAILJS_SERVICE, EMAILJS_TEMPLATE_SELLER, { to_email: email, ...vars }); } catch(e){}
     }
     function buyerNotify(email, vars={}) {
       if(!email) return;
-      try { emailjs.send(EMAILJS_SERVICE, EMAILJS_TPL_BUYER, { to_email: email, ...vars }); } catch(e){}
+      try { emailjs.send(EMAILJS_SERVICE, EMAILJS_TEMPLATE_BUYER, { to_email: email, ...vars }); } catch(e){}
     }
 
     /* ===========================
@@ -465,8 +465,8 @@
         editToken, manageCode
       };
 
-      // email proof (attachment) to admin
-      await sendProofViaFormspree(listing, proofFile);
+      // upload proof and notify
+      await uploadProof(listing, proofFile);
 
       // save locally (until backend moderation is live)
       const list=load(); list.unshift(listing); save(list);
@@ -495,7 +495,7 @@
 
       // Call your backend to create a Checkout Session.
         try{
-          const res = await fetch(`${API_BASE}/api/create-checkout-session`, {
+          const res = await fetch(`${ORIGIN}/api/create-checkout-session`, {
             method: "POST",
             headers: { "Content-Type":"application/json" },
             body: JSON.stringify({
