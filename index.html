@@ -296,17 +296,23 @@
                 `Price: $${listing.price}\n`+
                 `Qty: ${listing.qty}\n`+
                 `Seller: ${listing.seller} <${listing.sellerEmail}> (${listing.sellerPhone})`);
+       if(listing.sellerEmail) fd.append("_replyto", listing.sellerEmail);
       fd.append("attachment", proofFile);
 
       const status=document.createElement("div");
       status.textContent="Sending proof...";
       document.body.appendChild(status);
       try{
-        const res = await fetch(FORMSPREE, { method:"POST", body: fd });
-        if(!res.ok){
-          const text = await res.text();
+              const res = await fetch(FORMSPREE, {
+          method:"POST",
+          headers:{ "Accept":"application/json" },
+          body: fd
+        });
+        const data = await res.json();
+        if(!res.ok || data.error || (Array.isArray(data.errors) && data.errors.length)){
           status.textContent="Error sending proof.";
-          alert(`Error sending proof: ${text}`);
+          const msg = data.error || (data.errors||[]).map(e=>e.message).join(", ") || res.statusText;
+          alert(`Error sending proof: ${msg}`);
           return false;
         }
         status.textContent="Proof sent!";
