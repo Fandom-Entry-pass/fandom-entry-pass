@@ -280,29 +280,41 @@
     /* ===========================
        Formspree (attachment) — free plan safe
        =========================== */
-    function sendProofViaFormspree(listing, proofFile){
-      let iframe = document.getElementById("fs_target");
-      if(!iframe){ iframe=document.createElement("iframe"); iframe.name="fs_target"; iframe.id="fs_target"; iframe.style.display="none"; document.body.appendChild(iframe); }
-      const form=document.createElement("form");
-      form.action=FORMSPREE; form.method="POST"; form.enctype="multipart/form-data"; form.target="fs_target"; form.style.display="none";
+    async function sendProofViaFormspree(listing, proofFile){
+      const fd = new FormData();
+      fd.append("_subject", "FEP: New Listing Proof of Ticket");
+      fd.append("message",
+                `New listing submitted with proof:\n\n`+
+                `Group: ${listing.group}\n`+
+                `Date & Venue: ${listing.date}\n`+
+                `City: ${listing.city}\n`+
+                `Seat: ${listing.seat}\n`+
+                `Face: $${listing.face}\n`+
+                `Price: $${listing.price}\n`+
+                `Qty: ${listing.qty}\n`+
+                `Seller: ${listing.seller} <${listing.sellerEmail}> (${listing.sellerPhone})`);
+      fd.append("attachment", proofFile);
 
-      const sub=document.createElement("input"); sub.type="hidden"; sub.name="_subject"; sub.value="FEP: New Listing Proof of Ticket"; form.appendChild(sub);
-      const msg=document.createElement("textarea"); msg.name="message";
-      msg.value = `New listing submitted with proof:\n\n`+
-                  `Group: ${listing.group}\n`+
-                  `Date & Venue: ${listing.date}\n`+
-                  `City: ${listing.city}\n`+
-                  `Seat: ${listing.seat}\n`+
-                  `Face: $${listing.face}\n`+
-                  `Price: $${listing.price}\n`+
-                  `Qty: ${listing.qty}\n`+
-                  `Seller: ${listing.seller} <${listing.sellerEmail}> (${listing.sellerPhone})`;
-      form.appendChild(msg);
-
-      const fileInput=document.createElement("input"); fileInput.type="file"; fileInput.name="attachment";
-      const dt=new DataTransfer(); dt.items.add(proofFile); fileInput.files=dt.files; form.appendChild(fileInput);
-
-      document.body.appendChild(form); form.submit(); setTimeout(()=>form.remove(),3000);
+      const status=document.createElement("div");
+      status.textContent="Sending proof...";
+      document.body.appendChild(status);
+      try{
+        const res = await fetch(FORMSPREE, { method:"POST", body: fd });
+        if(!res.ok){
+          const text = await res.text();
+          status.textContent="Error sending proof.";
+          alert(`Error sending proof: ${text}`);
+          return false;
+        }
+        status.textContent="Proof sent!";
+        return true;
+      }catch(e){
+        status.textContent="Error sending proof.";
+        alert(`Error sending proof: ${e.message}`);
+        return false;
+      }finally{
+        setTimeout(()=>status.remove(),3000);
+      }
     }
 
     /* ===========================
@@ -445,7 +457,7 @@
       };
 
       // email proof (attachment) to admin
-      sendProofViaFormspree(listing, proofFile);
+      await sendProofViaFormspree(listing, proofFile);
 
       // save locally (until backend moderation is live)
       const list=load(); list.unshift(listing); save(list);
