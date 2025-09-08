@@ -42,8 +42,9 @@ If you prefer ES modules, rename files to `.mjs` and change `"type"` to `"module
 
 ## Frontend Configuration
 
-The frontend reads sensitive values from a runtime configuration file.  Copy
-`config.example.js` to `config.js` and provide your own values:
+The frontend reads sensitive values from a runtime configuration file. Copy
+`config.example.js` to `config.js` and provide your own values. API calls use
+the same origin by default; set `API_BASE` if your backend lives elsewhere:
 
 ```js
 // config.js
@@ -53,7 +54,8 @@ window.APP_CONFIG = {
   EMAILJS_SERVICE: "service_FEP0",
   EMAILJS_TEMPLATE_SELLER: "template_SellerNots",
   EMAILJS_TEMPLATE_BUYER: "template_BuyerNots",
-  API_BASE: "https://fandom-entry-pass-kmj3be28f-alexisdeshong-9388s-projects.vercel.app",
+  // Leave API_BASE empty (or omit) to default to same-origin.
+  API_BASE: "",
   STRIPE_PK: "pk_live_51LcNBuF7BMVtRlnacvmpKOmS9gMBg3IOnkdgaOjdRjCCspQNjHuvPBwLXBdxIn2qC0bJpa1yO2GZjaTbMOvwvr7n00sb6AKo1u",
 };
 ```
