@@ -5,7 +5,7 @@ const db = require('./db');
 
 const app = express();
 app.use(express.json());
-pp.use(express.static(path.join(__dirname, 'public'));
+app.use(express.static(path.join(__dirname, 'public'));
 
 // Serve the main page
 app.get('/', (req, res) => {
