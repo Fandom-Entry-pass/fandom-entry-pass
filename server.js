@@ -7,11 +7,10 @@ const db = require('./db');
 
 const app = express();
 app.use(express.json());
-app.use(express.static(path.join(__dirname, 'public')));
 
 // Serve the main page
 app.get('/', (req, res) => {
- res.sendFile(path.join(__dirname, 'public', 'index.html'));
+  res.sendFile(path.join(__dirname, 'index.html'));
 });
 
 const PLATFORM_FEE_PERCENT = 0.1; // 10%

@@ -482,26 +482,31 @@
       const buyerEmail = prompt("Enter your email for updates (optional):") || "";
 
       // Call your backend to create a Checkout Session.
-      try{
-        const res = await fetch(`${API_BASE}/api/create-checkout-session`, {
-          method: "POST",
-          headers: { "Content-Type":"application/json" },
-          body: JSON.stringify({
-            listingId: it.id,
-            group: it.group, date: it.date, city: it.city, seat: it.seat,
-            face: it.face, price: it.price, qty: 1,
-            sellerEmail: it.sellerEmail, buyerEmail
-          })
-        });
-        const data = await res.json();
-        if(!res.ok) throw new Error(data.error || "Checkout error");
-        if(data.sessionId){
-          await stripe.redirectToCheckout({ sessionId: data.sessionId });
-          return;
+        try{
+          const res = await fetch(`${API_BASE}/api/create-checkout-session`, {
+            method: "POST",
+            headers: { "Content-Type":"application/json" },
+            body: JSON.stringify({
+              listingId: it.id,
+              group: it.group, date: it.date, city: it.city, seat: it.seat,
+              face: it.face, price: it.price, qty: 1,
+              sellerEmail: it.sellerEmail, buyerEmail
+            })
+          });
+          if(!res.ok){
+            const errText = await res.text();
+            console.error("Checkout session HTTP error", res.status, errText);
+            throw new Error(errText || `HTTP ${res.status}`);
+          }
+          const data = await res.json();
+          if(data.sessionId){
+            await stripe.redirectToCheckout({ sessionId: data.sessionId });
+            return;
+          }
+        }catch(e){
+          console.error("Checkout session request failed", e);
+          console.warn("Backend not ready, falling back to demo auth:", e.message);
         }
-      }catch(e){
-        console.warn("Backend not ready, falling back to demo auth:", e.message);
-      }
 
       // Fallback simulation (authorized → auto-release in 72h)
       it.remaining = Math.max(0, (it.remaining||it.qty||1)-1);
