@@ -24,7 +24,11 @@
 
     <!-- ✅ Config file must load before app scripts -->
   <script src="config.js"></script>
-  
+  <script>
+    const ORIGIN = (window.APP_CONFIG?.API_BASE || window.location.origin).replace(/\/+$/,'');
+    if (!window.APP_CONFIG?.STRIPE_PK) console.warn("Missing STRIPE_PK in config.js");
+  </script>
+
   <!-- EmailJS + Stripe -->
   <script src="https://cdn.jsdelivr.net/npm/emailjs-com@3/dist/email.min.js"></script>
   <script src="https://js.stripe.com/v3/"></script>
@@ -214,7 +218,6 @@
        =========================== */
     const {
       STRIPE_PK = "pk_live_51LcNBuF7BMVtRlnacvmpKOmS9gMBg3IOnkdgaOjdRjCCspQNjHuvPBwLXBdxIn2qC0bJpa1yO2GZjaTbMOvwvr7n00sb6AKo1u",
-      API_BASE = "https://fandom-entry-pass-kmj3be28f-alexisdeshong-9388s-projects.vercel.app",
       FORMSPREE = "https://formspree.io/f/mvgqedqo",
       EMAILJS_PUBLIC = "PioDqOAQEpgJXFr7G",
       EMAILJS_SERVICE = "service_FEP0",
@@ -495,7 +498,7 @@
 
       // Call your backend to create a Checkout Session.
         try{
-          const res = await fetch(`${API_BASE}/api/create-checkout-session`, {
+          const res = await fetch(`${ORIGIN}/api/create-checkout-session`, {
             method: "POST",
             headers: { "Content-Type":"application/json" },
             body: JSON.stringify({
