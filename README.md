@@ -25,6 +25,7 @@ Configure the following variables for the backend:
    - `POST /api/orders` – create a PaymentIntent and persist order details
    - `POST /api/orders/:id/capture` – capture funds within the escrow window
    - `POST /api/orders/:id/cancel` – cancel or refund an order
+   - `POST /api/upload-proof` – receive proof-of-ticket images
 5. Access the app at your deployed URL and add to a phone's home screen for a native-like experience.
 
 ## Frontend Configuration
@@ -35,7 +36,6 @@ The frontend reads sensitive values from a runtime configuration file.  Copy
 ```js
 // config.js
 window.APP_CONFIG = {
-  FORMSPREE: "https://formspree.io/f/mvgqedqo",
   EMAILJS_PUBLIC: "PioDqOAQEpgJXFr7G",
   EMAILJS_SERVICE: "service_FEP0",
   EMAILJS_TEMPLATE_SELLER: "template_SellerNots",

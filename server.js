@@ -1,11 +1,13 @@
 const express = require('express');
 const path = require('path');
+const fs = require('fs');
+const multer = require('multer');
 const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 const db = require('./db');
 
 const app = express();
 app.use(express.json());
-app.use(express.static(path.join(__dirname, 'public'));
+app.use(express.static(path.join(__dirname, 'public')));
 
 // Serve the main page
 app.get('/', (req, res) => {
@@ -157,6 +159,26 @@ app.post('/api/orders/:id/cancel', async (req, res) => {
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
+});
+
+const upload = multer({ storage: multer.memoryStorage() });
+const uploadDir = path.join(__dirname, 'uploads');
+if (!fs.existsSync(uploadDir)) {
+  fs.mkdirSync(uploadDir);
+}
+
+app.post('/api/upload-proof', upload.single('proof'), (req, res) => {
+  if (!req.file) {
+    return res.status(400).json({ error: 'Proof file is required' });
+  }
+  const filePath = path.join(uploadDir, `${Date.now()}-${req.file.originalname}`);
+  fs.writeFile(filePath, req.file.buffer, (err) => {
+    if (err) {
+      console.error('Failed to save proof', err);
+      return res.status(500).json({ error: 'Failed to save proof' });
+    }
+    res.json({ ok: true });
+  });
 });
 
 const PORT = process.env.PORT || 3000;

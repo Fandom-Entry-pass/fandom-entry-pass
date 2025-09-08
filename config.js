@@ -1,5 +1,4 @@
 window.APP_CONFIG = {
-  FORMSPREE: "https://formspree.io/f/mvgqedqo",
   EMAILJS_PUBLIC: "PioDqOAQEpgJXFr7G",
   EMAILJS_SERVICE: "service_FEP0",
   EMAILJS_TPL_SELLER: "template_SellerNots",
