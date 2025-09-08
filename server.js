@@ -87,17 +87,15 @@ app.post('/api/orders', async (req, res) => {
       transfer_data: { destination: sellerAccountId }
     });
 
-    db.run(
-      `INSERT INTO orders (id, amount, currency, seller_account_id, status, created_at)
-       VALUES (?, ?, ?, ?, ?, ?)`,
-      [intent.id, amount, currency, sellerAccountId, 'requires_capture', Date.now()],
-      (err) => {
-        if (err) {
-          return res.status(500).json({ error: 'DB error' });
-        }
-        res.json({ id: intent.id, clientSecret: intent.client_secret });
-      }
-    );
+    await db.createOrder({
+      id: intent.id,
+      amount,
+      currency,
+      sellerAccountId,
+      status: 'requires_capture',
+      createdAt: Date.now(),
+    });
+    res.json({ id: intent.id, clientSecret: intent.client_secret });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -106,8 +104,9 @@ app.post('/api/orders', async (req, res) => {
 // Capture funds
 app.post('/api/orders/:id/capture', async (req, res) => {
   const { id } = req.params;
-  db.get('SELECT * FROM orders WHERE id = ?', [id], async (err, order) => {
-    if (err || !order) {
+  try {
+    const order = await db.getOrder(id);
+    if (!order) {
       return res.status(404).json({ error: 'Order not found' });
     }
 
@@ -115,7 +114,7 @@ app.post('/api/orders/:id/capture', async (req, res) => {
     if (age > 72 * 60 * 60 * 1000) {
       try {
         await stripe.paymentIntents.cancel(id);
-        db.run('UPDATE orders SET status = ? WHERE id = ?', ['canceled', id]);
+        await db.updateOrderStatus(id, 'canceled');
         return res.status(400).json({ error: 'Payment intent expired and canceled' });
       } catch (e) {
         return res.status(500).json({ error: e.message });
@@ -124,19 +123,22 @@ app.post('/api/orders/:id/capture', async (req, res) => {
 
     try {
       const intent = await stripe.paymentIntents.capture(id);
-      db.run('UPDATE orders SET status = ? WHERE id = ?', ['captured', id]);
+      await db.updateOrderStatus(id, 'captured');
       res.json({ status: intent.status });
     } catch (e) {
       res.status(500).json({ error: e.message });
     }
-  });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // Cancel and refund
 app.post('/api/orders/:id/cancel', async (req, res) => {
   const { id } = req.params;
-  db.get('SELECT * FROM orders WHERE id = ?', [id], async (err, order) => {
-    if (err || !order) {
+  try {
+    const order = await db.getOrder(id);
+    if (!order) {
       return res.status(404).json({ error: 'Order not found' });
     }
 
@@ -147,12 +149,14 @@ app.post('/api/orders/:id/cancel', async (req, res) => {
       } else {
         result = await stripe.paymentIntents.cancel(id);
       }
-      db.run('UPDATE orders SET status = ? WHERE id = ?', ['canceled', id]);
+      await db.updateOrderStatus(id, 'canceled');
       res.json({ status: result.status });
     } catch (e) {
       res.status(500).json({ error: e.message });
     }
-  });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 const PORT = process.env.PORT || 3000;

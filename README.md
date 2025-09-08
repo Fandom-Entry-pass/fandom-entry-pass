@@ -1,22 +1,31 @@
-# FandomEntryPass App (Frontend)
+# FandomEntryPass App
 
 ## Includes
-- Frontend PWA: index.html + manifest + service-worker + icons
+- Frontend PWA: `index.html` + manifest + service worker + icons
+- Express backend with Stripe checkout and order management endpoints
 
-This repository only contains the frontend portion of FandomEntryPass. Backend API functions and the database schema are not included; you'll need to supply your own implementations compatible with this frontend.
+## Environment Variables
+Configure the following variables for the backend:
 
-## Steps
-1. Upload all files to your GitHub repo (root).
-2. Connect repo to Vercel → New Project → Framework: Other → Deploy.
-3. In Vercel Settings → Environment Variables, add:
-   - DATABASE_URL (from Supabase)
-   - STRIPE_SECRET_KEY (your Stripe live secret key)
-   - STRIPE_WEBHOOK_SECRET (from Stripe dashboard after making webhook)
-   - FEP_PLATFORM_FEE_FLAT_CENTS = 350
-   - FEP_SELLER_FEE_BPS = 500
-   - ESCROW_HOURS = 72
-4. Ensure your deployment includes backend endpoints under `/api`, serves the frontend via Express static middleware (e.g., `app.use(express.static(__dirname))` so `/` returns `index.html`), and a database schema matching your environment variables.
-5. Your app is live at your Vercel URL. Add to home screen on phones for app experience.
+- `STRIPE_SECRET_KEY` – Stripe secret API key
+- `DATABASE_URL` – Postgres connection string (if unset, the app uses local SQLite)
+- `STRIPE_WEBHOOK_SECRET` – secret for webhook verification
+- `FEP_PLATFORM_FEE_FLAT_CENTS` – platform fee in cents (default `350`)
+- `FEP_SELLER_FEE_BPS` – seller fee basis points (default `500`)
+- `ESCROW_HOURS` – number of hours funds remain in escrow (default `72`)
+- `PORT` – optional HTTP port
+
+## Deployment
+
+1. Upload all files to your GitHub repo.
+2. Run `npm install` to install dependencies.
+3. Provide the environment variables above (e.g. in Vercel project settings or a `.env` file).
+4. Start the server with `npm start` or deploy to your hosting provider. The backend serves the frontend and exposes:
+   - `POST /api/create-checkout-session` – create a Stripe Checkout session
+   - `POST /api/orders` – create a PaymentIntent and persist order details
+   - `POST /api/orders/:id/capture` – capture funds within the escrow window
+   - `POST /api/orders/:id/cancel` – cancel or refund an order
+5. Access the app at your deployed URL and add to a phone's home screen for a native-like experience.
 
 ## Frontend Configuration
 
