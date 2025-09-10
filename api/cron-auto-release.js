@@ -1,18 +1,27 @@
-// Schedule this in Vercel: e.g., "0 * * * *" (hourly)
+// api/cron-auto-release.js
+// Vercel Cron Job: checks PaymentIntents every hour (or 15 min if scheduled that way)
+
 import Stripe from "stripe";
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion: "2024-06-20" });
 
 export default async function handler(req, res) {
-  // Optional: restrict to GET or to a CRON header
-  if (req.method !== "GET") return res.status(405).json({ error: "Method not allowed" });
+  // Only allow GET requests
+  if (req.method !== "GET") {
+    return res.status(405).json({ error: "Method not allowed" });
+  }
+
+  // Extra safety: only run if called by Vercel Cron
+  // Comment this out if you want to test manually in the browser
+  if (req.headers["x-vercel-cron"] !== "1") {
+    return res.status(403).json({ error: "Forbidden – cron only" });
+  }
 
   const now = Math.floor(Date.now() / 1000);
   const results = { checked: 0, captured: 0, canceled: 0, errors: 0 };
 
   try {
-    // Search all PaymentIntents in auth state we marked (requires_capture + metadata fep=1)
+    // Search for PaymentIntents still waiting for capture
     const search = await stripe.paymentIntents.search({
-      // See https://stripe.com/docs/search
       query: `status:'requires_capture' AND metadata['fep']:'1'`,
       limit: 100,
     });
