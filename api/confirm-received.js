@@ -8,13 +8,31 @@ export default async function handler(req, res) {
     const { sessionId } = req.body || {};
     if (!sessionId) return res.status(400).json({ error: "Missing sessionId" });
 
+    // Retrieve checkout session + intent
     const session = await stripe.checkout.sessions.retrieve(sessionId, { expand: ["payment_intent"] });
-    if (!session || !session.payment_intent) {
-      return res.status(404).json({ error: "Session or PaymentIntent not found" });
+    const intent = session?.payment_intent;
+    if (!intent || typeof intent === "string") {
+      return res.status(404).json({ error: "PaymentIntent not found" });
     }
 
-    const piId = typeof session.payment_intent === "string" ? session.payment_intent : session.payment_intent.id;
-    const captured = await stripe.paymentIntents.capture(piId);
+    // Check deadline metadata
+    const deadline = Number(intent.metadata?.fep_confirm_deadline || 0);
+    const now = Math.floor(Date.now() / 1000);
+    if (deadline && now > deadline) {
+      return res.status(400).json({ error: "Confirmation window expired" });
+    }
+
+    // Capture funds
+    const captured = await stripe.paymentIntents.capture(intent.id);
+
+    // Update metadata to reflect captured
+    await stripe.paymentIntents.update(intent.id, {
+      metadata: {
+        ...intent.metadata,
+        fep_status: "captured",
+        fep_captured_at: String(now)
+      }
+    });
 
     return res.status(200).json({ captured: true, payment_intent: captured.id });
   } catch (err) {
