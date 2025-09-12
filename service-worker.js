@@ -1,4 +1,5 @@
-const CACHE = "fep-cache-v4";
+// service-worker.js
+const CACHE = "fep-cache-v5";
 const ASSETS = ["./","./index.html","./manifest.json","./icon-192.png","./icon-512.png"];
 
 self.addEventListener("install", (e) => {
@@ -9,30 +10,36 @@ self.addEventListener("install", (e) => {
 self.addEventListener("activate", (e) => {
   clients.claim();
   e.waitUntil(
-    caches
-      .keys()
-      .then(keys =>
-        Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k)))
-      )
+    caches.keys().then(keys =>
+      Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k)))
+    )
   );
 });
 
 self.addEventListener("fetch", (e) => {
-  const url = new URL(e.request.url);
-  if (e.request.mode === "navigate") {
-    e.respondWith(
-      fetch(e.request).catch(() => caches.match("./index.html"))
-    );
+  const req = e.request;
+  const url = new URL(req.url);
+
+  // 🔒 Never touch non-GET (POST/PUT/etc) — lets Stripe & APIs work
+  if (req.method !== "GET") return;
+
+  // 🔒 Skip API routes entirely
+  if (url.pathname.startsWith("/api/")) return;
+
+  // App Shell for navigations
+  if (req.mode === "navigate") {
+    e.respondWith(fetch(req).catch(() => caches.match("./index.html")));
     return;
   }
 
-  if (url.origin === location.origin) {
+  // Same-origin GETs: stale-while-revalidate
+  if (url.origin === self.location.origin) {
     e.respondWith(
       caches.open(CACHE).then(cache =>
-        cache.match(e.request).then(cached => {
-          const fetchPromise = fetch(e.request)
+        cache.match(req).then(cached => {
+          const fetchPromise = fetch(req)
             .then(res => {
-              cache.put(e.request, res.clone());
+              cache.put(req, res.clone());
               return res;
             })
             .catch(() => cached);
@@ -42,3 +49,4 @@ self.addEventListener("fetch", (e) => {
     );
   }
 });
+
