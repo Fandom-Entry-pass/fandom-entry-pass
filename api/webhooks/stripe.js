@@ -1,50 +1,67 @@
 import Stripe from "stripe";
-import { buffer } from "micro";
 
-export const config = { api: { bodyParser: false } };
+// use your live secret; set it in Vercel → Settings → Environment Variables
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
+  apiVersion: "2024-06-20",
+});
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion: "2024-06-20" });
-const WHSEC = process.env.STRIPE_WEBHOOK_SECRET;
+// optional: set APP_BASE_URL in Vercel; otherwise same-origin will be fine for redirect
+const APP_BASE_URL = process.env.APP_BASE_URL || "";
 
 export default async function handler(req, res) {
-  if (req.method !== "POST") return res.status(405).end("Method Not Allowed");
+  if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
 
-  let event;
   try {
-    const sig = req.headers["stripe-signature"];
-    const buf = await buffer(req);
-    if (!WHSEC) {
-      // Dev fallback only
-      event = JSON.parse(buf.toString());
-    } else {
-      event = stripe.webhooks.constructEvent(buf, sig, WHSEC);
+    const {
+      listingId,
+      group, date, city, seat,
+      face, price, qty = 1,
+      sellerEmail, buyerEmail = ""
+    } = req.body || {};
+
+    if (!listingId || !price || !qty) {
+      return res.status(400).json({ error: "Missing listingId, price, or qty" });
     }
-  } catch (err) {
-    console.error("Webhook verify failed:", err.message);
-    return res.status(400).send(`Webhook Error: ${err.message}`);
-  }
 
-  try {
-    if (event.type === "checkout.session.completed") {
-      const session = event.data.object;
-      // mark PaymentIntent with our escrow metadata
-      const piId = session.payment_intent;
-      const deadline = Math.floor(Date.now() / 1000) + 72 * 3600; // now + 72h (epoch seconds)
-      await stripe.paymentIntents.update(piId, {
-        metadata: {
-          fep: "1",
-          fep_status: "authorized",
-          fep_confirm_deadline: String(deadline),
-          listingId: session.metadata?.listingId || "",
-          buyerEmail: session.metadata?.buyerEmail || "",
-          sellerEmail: session.metadata?.sellerEmail || "",
+    const unitAmount = Math.round(Number(price) * 100);
+
+    const session = await stripe.checkout.sessions.create({
+      mode: "payment",
+      payment_method_types: ["card"],
+      line_items: [{
+        price_data: {
+          currency: "usd",
+          unit_amount: unitAmount,
+          product_data: {
+            name: `${group || "Ticket"} (${qty}x)`,
+            description: `${date || ""}${city ? " • " + city : ""}${seat ? " • " + seat : ""}`.trim(),
+          },
         },
-      });
-      console.log("✅ escrow set, deadline:", deadline, "PI:", piId);
-    }
-    return res.json({ received: true });
+        quantity: qty,
+      }],
+      // escrow: authorize only; capture later (/api/confirm-received)
+      payment_intent_data: {
+        capture_method: "manual",
+        metadata: {
+          fep: "1", // ✅ helps cron/webhook find these
+          listingId,
+          group: group || "",
+          sellerEmail: sellerEmail || "",
+          buyerEmail: buyerEmail || "",
+          face: String(face || ""),
+          price: String(price || ""),
+          qty: String(qty),
+        },
+      },
+      success_url: (APP_BASE_URL || req.headers.origin) + `/?success=1&sid={CHECKOUT_SESSION_ID}`,
+      cancel_url: (APP_BASE_URL || req.headers.origin) + `/?canceled=1`,
+      metadata: { listingId, sellerEmail: sellerEmail || "", buyerEmail: buyerEmail || "" },
+    });
+
+    return res.status(200).json({ sessionId: session.id });
   } catch (err) {
-    console.error("Webhook handler error:", err);
-    return res.status(500).json({ error: "Webhook handler error" });
+    console.error("create-checkout-session error:", err);
+    return res.status(500).json({ error: "Internal error creating session" });
   }
 }
+
