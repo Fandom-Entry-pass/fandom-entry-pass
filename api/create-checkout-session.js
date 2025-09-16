@@ -1,7 +1,7 @@
 // api/create-checkout-session.js
 import Stripe from "stripe";
 
-export const config = { runtime: "nodejs18.x" };
+export const config = { runtime: "nodejs" };
 
 // Live secret should be set in Vercel → Settings → Environment Variables
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion: "2024-06-20" });
