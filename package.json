@@ -10,8 +10,5 @@
   "dependencies": {
     "stripe": "^16.6.0",
     "pg": "^8.11.0"
-    "engines": { "node": ">=18" },        // matches our vercel runtime
-  "scripts": {
-    "vercel-build": "echo 'no build step'" // silences “no build” warnings
   }
 }
