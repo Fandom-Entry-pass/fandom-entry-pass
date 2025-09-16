@@ -1,0 +1,23 @@
+{
+  "functions": {
+    "api/**/*.js": {
+      "runtime": "nodejs18.x",
+      "memory": 256,
+      "maxDuration": 15
+    }
+  },
+  "headers": [
+    {
+      "source": "/api/(.*)",
+      "headers": [
+        { "key": "Cache-Control", "value": "no-store" }
+      ]
+    }
+  ],
+  "crons": [
+    {
+      "path": "/api/cron-auto-release",
+      "schedule": "*/15 * * * *"
+    }
+  ]
+}
