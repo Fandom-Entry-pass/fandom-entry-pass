@@ -4,7 +4,7 @@ import Stripe from "stripe";
 /**
  * Ensure Node runtime + raw body (required for Stripe signature verification)
  */
-export const config = { api: { bodyParser: false }, runtime: "nodejs18.x" };
+export const config = { api: { bodyParser: false }, runtime: "nodejs" };
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion: "2024-06-20" });
 const WHSEC = process.env.STRIPE_WEBHOOK_SECRET;
