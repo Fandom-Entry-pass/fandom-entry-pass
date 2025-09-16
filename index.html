@@ -286,47 +286,78 @@
     const esc = s => String(s ?? "").replace(/[&<>"'`=\/]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;','/':'&#x2F;','`':'&#x60;','=':'&#x3D;'}[c]));
 
     /* ===========================
-       Formspree (attachment) — free plan safe
-       =========================== */
-    async function sendProofViaFormspree(listing, proofFile){
-      const fd = new FormData();
-      fd.append("_subject", "FEP: New Listing Proof of Ticket");
-      fd.append("message",
-        `New listing submitted with proof:\n\n`+
-        `Group: ${listing.group}\n`+
-        `Date & Venue: ${listing.date}\n`+
-        `City: ${listing.city}\n`+
-        `Seat: ${listing.seat}\n`+
-        `Face: $${listing.face}\n`+
-        `Price: $${listing.price}\n`+
-        `Qty: ${listing.qty}\n`+
-        `Seller: ${listing.seller} <${listing.sellerEmail}> (${listing.sellerPhone})`);
-      if(listing.sellerEmail) fd.append("_replyto", listing.sellerEmail);
-      fd.append("attachment", proofFile);
+        Formspree (attachment) with Resend fallback
+   =========================== */
+async function sendProofViaFormspree(listing, proofFile){
+  const fd = new FormData();
+  fd.append("_subject", "FEP: New Listing Proof of Ticket");
+  fd.append("message",
+    `New listing submitted with proof:\n\n`+
+    `Group: ${listing.group}\n`+
+    `Date & Venue: ${listing.date}\n`+
+    `City: ${listing.city}\n`+
+    `Seat: ${listing.seat}\n`+
+    `Face: $${listing.face}\n`+
+    `Price: $${listing.price}\n`+
+    `Qty: ${listing.qty}\n`+
+    `Seller: ${listing.seller} <${listing.sellerEmail}> (${listing.sellerPhone})`
+  );
+  if (listing.sellerEmail) fd.append("_replyto", listing.sellerEmail);
+  fd.append("attachment", proofFile);
 
-      const status=document.createElement("div");
-      status.textContent="Sending proof...";
-      document.body.appendChild(status);
-      try{
-        const res = await fetch(FORMSPREE, { method:"POST", headers:{ "Accept":"application/json" }, body: fd });
-        const data = await res.json().catch(()=> ({}));
-        if(!res.ok || data.error || (Array.isArray(data.errors) && data.errors.length)){
-          status.textContent="Error sending proof.";
-          const msg = data.error || (data.errors||[]).map(e=>e.message).join(", ") || res.statusText;
-          alert(`Error sending proof: ${msg}`);
-          return false;
-        }
-        status.textContent="Proof sent!";
-        return true;
-      }catch(e){
-        status.textContent="Error sending proof.";
-        alert(`Error sending proof: ${e.message}`);
-        return false;
-      }finally{
-        setTimeout(()=>status.remove(),3000);
-      }
+  // include structured fields so the fallback email includes all details too
+  fd.append("listingId", listing.id || "");
+  fd.append("group", listing.group || "");
+  fd.append("date", listing.date || "");
+  fd.append("city", listing.city || "");
+  fd.append("seat", listing.seat || "");
+  fd.append("face", String(listing.face ?? ""));
+  fd.append("price", String(listing.price ?? ""));
+  fd.append("qty", String(listing.qty ?? ""));
+  fd.append("seller", listing.seller || "");
+  fd.append("sellerEmail", listing.sellerEmail || "");
+  fd.append("sellerPhone", listing.sellerPhone || "");
+
+  // UI status
+  const status = document.createElement("div");
+  status.textContent = "Sending proof...";
+  Object.assign(status.style, { position:"fixed", bottom:"12px", left:"12px", padding:"8px 10px", background:"#000", color:"#fff", borderRadius:"10px", fontSize:"12px", zIndex:"99999" });
+  document.body.appendChild(status);
+
+  const ORIGIN = (window.APP_CONFIG?.API_BASE || window.location.origin).replace(/\/+$/,'');
+
+  try {
+    // 1) Try Formspree
+    const res = await fetch(FORMSPREE, { method: "POST", headers: { "Accept":"application/json" }, body: fd });
+    const data = await res.json().catch(() => ({}));
+    const ok = res.ok && !data?.error && !((data?.errors || []).length);
+    if (ok) {
+      status.textContent = "Proof sent!";
+      setTimeout(() => status.remove(), 2500);
+      return true;
     }
-
+    throw new Error(data?.error || (data?.errors||[]).map(e=>e.message).join(", ") || res.statusText);
+  } catch (e) {
+    console.warn("Formspree failed, using fallback:", e.message);
+    try {
+      // 2) Fallback → your Vercel API (emails via Resend)
+      const r = await fetch(`${ORIGIN}/api/proof-fallback`, { method: "POST", body: fd });
+      if (!r.ok) {
+        const t = await r.text().catch(()=>"");
+        throw new Error(t || r.statusText);
+      }
+      status.textContent = "Proof sent (fallback)!";
+      setTimeout(() => status.remove(), 2500);
+      return true;
+    } catch (e2) {
+      console.error("Fallback also failed:", e2);
+      status.textContent = "Upload failed";
+      setTimeout(() => status.remove(), 2500);
+      alert("Could not send proof. Please email support with your screenshot.");
+      return false;
+    }
+  }
+}
     /* ===========================
        Email notifications (optional)
        =========================== */
