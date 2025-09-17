@@ -52,6 +52,10 @@
       <div class="flex items-center gap-2">
         <button id="openAdd" class="hidden sm:inline-flex bg-white text-sky-700 font-semibold px-4 py-2 rounded-xl shadow hover:bg-white/90">+ Add Listing</button>
         <button id="openManageByCode" class="hidden sm:inline-flex bg-white/20 text-white font-semibold px-4 py-2 rounded-xl shadow hover:bg-white/30">Manage</button>
+
+        <!-- SELLER: entry point button -->
+        <button id="openSeller" class="hidden sm:inline-flex bg-white/20 text-white font-semibold px-4 py-2 rounded-xl shadow hover:bg-white/30">Seller</button>
+
         <button id="installBtn" class="hidden sm:inline-flex bg-white/20 text-white font-semibold px-4 py-2 rounded-xl shadow hover:bg-white/30">Install App</button>
       </div>
     </div>
@@ -203,6 +207,75 @@
     </div>
   </section>
 
+  <!-- SELLER: Dashboard modal/section -->
+  <section id="sellerDash" class="fixed inset-0 z-50 hidden">
+    <div class="absolute inset-0 bg-black/40"></div>
+    <div class="absolute inset-0 flex items-end sm:items-center justify-center p-3">
+      <div class="w-full sm:w-[920px] bg-white rounded-3xl shadow-2xl overflow-hidden">
+        <div class="gradient-brand p-5 text-white">
+          <h3 class="font-poppins text-xl">Seller Dashboard</h3>
+          <p class="text-white/90 text-sm">Manage your Stripe connection and listings.</p>
+        </div>
+
+        <div class="p-5 grid grid-cols-1 md:grid-cols-3 gap-4">
+          <!-- Seller Identity -->
+          <div class="md:col-span-3 rounded-2xl border border-gray-200 p-4">
+            <label class="text-sm text-gray-600">Seller Email (for your listings)</label>
+            <div class="mt-1 flex gap-2">
+              <input id="sellerEmailInput" placeholder="you@example.com"
+                     class="flex-1 rounded-xl bg-white px-4 py-3 ring-1 ring-gray-200 focus:ring-sky-300 outline-none" />
+              <button id="saveSellerEmail" class="rounded-xl bg-gray-900 text-white px-4">Save</button>
+            </div>
+            <p class="text-xs text-gray-500 mt-1">We match your listings by this email (no buyer account required).</p>
+          </div>
+
+          <!-- Stripe Connect Card -->
+          <div class="md:col-span-3 rounded-2xl border border-gray-200 p-4">
+            <div class="flex items-center justify-between">
+              <div>
+                <div class="text-sm text-gray-600">Stripe Status</div>
+                <div id="stripeStatus" class="text-base font-semibold">Not connected</div>
+                <div id="stripeAcct" class="text-xs text-gray-500"></div>
+              </div>
+              <div class="flex gap-2">
+                <button id="connectStripe" class="rounded-xl bg-indigo-600 text-white px-4 py-2">Connect Stripe</button>
+                <button id="reconnectStripe" class="rounded-xl bg-indigo-50 text-indigo-700 px-4 py-2 ring-1 ring-indigo-200 hidden">
+                  Reconnect
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- My Listings -->
+          <div class="md:col-span-3 rounded-2xl border border-gray-200 p-4">
+            <div class="flex items-center justify-between">
+              <h4 class="font-poppins text-lg">My Listings</h4>
+              <button id="refreshListings" class="rounded-xl bg-gray-100 px-3 py-2 hover:bg-gray-200">Refresh</button>
+            </div>
+            <div id="myListings" class="mt-3 grid sm:grid-cols-2 lg:grid-cols-3 gap-4"></div>
+            <div id="noListings" class="hidden text-sm text-gray-500 mt-2">No listings found for this email.</div>
+          </div>
+
+          <!-- Escrow status tool (manual check) -->
+          <div class="md:col-span-3 rounded-2xl border border-gray-200 p-4">
+            <h4 class="font-poppins text-lg">Check an Order (optional)</h4>
+            <p class="text-xs text-gray-500">Paste a Stripe Checkout Session ID to see escrow status.</p>
+            <div class="mt-2 flex gap-2">
+              <input id="sidInput" placeholder="cs_live_..."
+                     class="flex-1 rounded-xl bg-white px-4 py-3 ring-1 ring-gray-200 focus:ring-sky-300 outline-none" />
+              <button id="checkSid" class="rounded-xl bg-gray-900 text-white px-4">Check</button>
+            </div>
+            <pre id="sidResult" class="mt-2 text-xs bg-gray-50 p-2 rounded-xl overflow-auto"></pre>
+          </div>
+
+          <div class="md:col-span-3 flex justify-end gap-2">
+            <button id="closeSeller" class="px-4 py-2 rounded-xl bg-gray-100 hover:bg-gray-200">Close</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
   <!-- Footer -->
   <footer class="mt-10 py-10 text-center text-sm text-gray-500">
     <p>FandomEntryPass • Installable PWA • Fan-first, fair pricing. Buyer and seller contact required; data purged after payout.</p>
@@ -222,11 +295,9 @@
       ESCROW_HOURS = 72
     } = (window.APP_CONFIG || {});
 
-    // Derive a consistent origin for API calls (same-origin by default)
     const ORIGIN = (window.APP_CONFIG?.API_BASE || window.location.origin).replace(/\/+$/, "");
     if (!STRIPE_PK) console.warn("⚠️ Missing STRIPE_PK in config.js (Production must use pk_live_...)");
 
-    // Initialize Stripe (global)
     let stripe = Stripe(STRIPE_PK);
 
     /* ===========================
@@ -657,6 +728,111 @@ async function sendProofViaFormspree(listing, proofFile){
         console.warn("Escrow banner failed:", e);
       }
     })();
+
+    /* ========= SELLER DASHBOARD LOGIC (Day 2: Steps 1–3) ========= */
+    const FEP_ACCT_KEY = "fep_connect_acct";
+    const FEP_SELLER_EMAIL_KEY = "fep_seller_email";
+
+    function openSellerDash(){ document.getElementById("sellerDash").classList.remove("hidden"); loadSellerPanel(); }
+    function closeSellerDash(){ document.getElementById("sellerDash").classList.add("hidden"); }
+
+    document.getElementById("openSeller")?.addEventListener("click", openSellerDash);
+    document.getElementById("closeSeller")?.addEventListener("click", closeSellerDash);
+
+    document.getElementById("saveSellerEmail")?.addEventListener("click", ()=>{
+      const email = document.getElementById("sellerEmailInput").value.trim();
+      if(!email) return alert("Enter a seller email.");
+      localStorage.setItem(FEP_SELLER_EMAIL_KEY, email);
+      renderMyListings();
+      alert("Saved.");
+    });
+
+    async function connectOrReconnectStripe(){
+      const sellerEmail = localStorage.getItem(FEP_SELLER_EMAIL_KEY) || document.getElementById("sellerEmailInput").value.trim();
+      if(!sellerEmail) return alert("Save your seller email first.");
+      const accountId = localStorage.getItem(FEP_ACCT_KEY) || "";
+      const sellerName = "";
+
+      const r = await fetch(`${ORIGIN}/api/connect/create-link`, {
+        method: "POST",
+        headers: { "Content-Type":"application/json" },
+        body: JSON.stringify({ sellerEmail, sellerName, accountId })
+      });
+      const data = await r.json().catch(()=> ({}));
+      if(!r.ok || !data?.url) return alert("Could not start Stripe onboarding.");
+      if (data.accountId) localStorage.setItem(FEP_ACCT_KEY, data.accountId);
+      location.href = data.url;
+    }
+
+    document.getElementById("connectStripe")?.addEventListener("click", connectOrReconnectStripe);
+    document.getElementById("reconnectStripe")?.addEventListener("click", connectOrReconnectStripe);
+    document.getElementById("refreshListings")?.addEventListener("click", renderMyListings);
+
+    async function loadStripeStatus(){
+      const acct = localStorage.getItem(FEP_ACCT_KEY) || "";
+      const elStatus = document.getElementById("stripeStatus");
+      const elAcct = document.getElementById("stripeAcct");
+      const btnReconnect = document.getElementById("reconnectStripe");
+      if(!acct){
+        elStatus.textContent = "Not connected";
+        elAcct.textContent = "";
+        btnReconnect.classList.add("hidden");
+        return;
+      }
+      const r = await fetch(`${ORIGIN}/api/connect/account-status?account=${encodeURIComponent(acct)}`);
+      const d = await r.json().catch(()=> ({}));
+      if(!r.ok || !d?.ok){
+        elStatus.textContent = "Unknown";
+        elAcct.textContent = `Account: ${acct}`;
+        btnReconnect.classList.remove("hidden");
+        return;
+      }
+      const ok = d.charges_enabled && d.payouts_enabled;
+      elStatus.textContent = ok ? "Connected" : "Needs info";
+      elAcct.textContent = `Account: ${d.account}`;
+      if (ok) btnReconnect.classList.add("hidden"); else btnReconnect.classList.remove("hidden");
+    }
+
+    function renderMyListings(){
+      const email = localStorage.getItem(FEP_SELLER_EMAIL_KEY) || "";
+      document.getElementById("sellerEmailInput").value = email;
+      const my = (load() || []).filter(x => (x.sellerEmail||"").toLowerCase() === email.toLowerCase());
+      const wrap = document.getElementById("myListings");
+      const empty = document.getElementById("noListings");
+      wrap.textContent = "";
+      if(!my.length){ empty.classList.remove("hidden"); return; }
+      empty.classList.add("hidden");
+      for(const it of my){
+        const div = document.createElement("div");
+        div.className = "rounded-2xl border border-gray-200 p-3";
+        div.innerHTML = `
+          <div class="font-semibold">${esc(it.group)}</div>
+          <div class="text-xs text-gray-500">${esc(it.date)}${it.city?(" • "+esc(it.city)):""}</div>
+          <div class="text-xs text-gray-500 mt-1">${esc(it.seat||"")}</div>
+          <div class="mt-2 text-sm">Price: ${money(it.price)} • Qty: ${it.qty} • Avail: ${(it.remaining ?? it.qty)}</div>
+        `;
+        wrap.appendChild(div);
+      }
+    }
+
+    async function checkSid(){
+      const sid = document.getElementById("sidInput").value.trim();
+      if(!sid) return;
+      const r = await fetch(`${ORIGIN}/api/session-status?sid=${encodeURIComponent(sid)}`);
+      const d = await r.json().catch(()=> ({}));
+      const out = document.getElementById("sidResult");
+      out.textContent = JSON.stringify(d, null, 2);
+    }
+    document.getElementById("checkSid")?.addEventListener("click", checkSid);
+
+    function loadSellerPanel(){
+      // pick up connect return flags (?onboarded=1&account=...)
+      const p = new URLSearchParams(location.search);
+      const acct = p.get("account"); const ob = p.get("onboarded");
+      if (acct) localStorage.setItem(FEP_ACCT_KEY, acct);
+      loadStripeStatus();
+      renderMyListings();
+    }
   </script>
 </body>
 </html>
