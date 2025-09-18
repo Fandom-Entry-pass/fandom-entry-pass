@@ -584,65 +584,74 @@ async function sendProofViaFormspree(listing, proofFile){
       closeModal(); e.target.reset(); applyFilters(); window.scrollTo({ top:0, behavior:"smooth" });
     });
 
-    /* ===========================
-       Buy → Backend (Stripe Checkout) with fallback sim
-       =========================== */
+   /* ===========================
+   Buy → Backend (Stripe Checkout) with fallback sim
+   =========================== */
 async function startBuy(listingId){
   const list = load();
-  const it = list.find(x => x.id === listingId); 
+  const it = list.find(x => x.id === listingId);
   if (!it) return;
-  if ((it.remaining ?? it.qty) <= 0){ alert("Sorry, this listing is sold out."); return; }
+  if ((it.remaining ?? it.qty) <= 0) {
+    alert("Sorry, this listing is sold out.");
+    return;
+  }
 
   // Optional: ask buyer email (for notifications)
   const buyerEmail = prompt("Enter your email for updates (optional):") || "";
 
-  // 👇 pull a seller account if present (from listing or localStorage)
+  // Pull a seller account if present (from listing or localStorage)
   const sellerAccountId = it.sellerAccountId || localStorage.getItem("fep_connect_acct") || "";
 
-  try{
+  // Safety: if Stripe didn’t init, bail before calling backend
+  if (!window.stripe) {
+    alert("Payments aren’t ready yet. Please try again later.");
+    return;
+  }
+
+  // Call your backend to create a Checkout Session.
+  try {
     const res = await fetch(`${ORIGIN}/api/create-checkout-session`, {
       method: "POST",
-      headers: { "Content-Type":"application/json" },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         listingId: it.id,
         group: it.group, date: it.date, city: it.city, seat: it.seat,
         face: it.face, price: it.price, qty: 1,
         sellerEmail: it.sellerEmail, buyerEmail,
-        sellerAccountId          // ⬅️ NEW: pass through to backend
+        sellerAccountId  // pass through to backend
       })
     });
-    if(!res.ok){
+    if (!res.ok) {
       const errText = await res.text();
       console.error("Checkout session HTTP error", res.status, errText);
       throw new Error(errText || `HTTP ${res.status}`);
     }
     const data = await res.json();
-    if(data.sessionId){
+    if (data.sessionId) {
       await stripe.redirectToCheckout({ sessionId: data.sessionId });
       return;
     }
-  }catch(e){
+  } catch (e) {
     console.error("Checkout session request failed", e);
     console.warn("Backend not ready, falling back to demo auth:", e.message);
   }
-      }
 
-      // Fallback simulation (authorized → auto-release in 72h)
-      it.remaining = Math.max(0, (it.remaining ?? it.qty ?? 1)-1);
-      it.orders = it.orders || [];
-      it.orders.push({
-        id: crypto.randomUUID(),
-        status: "authorized",
-        authorizedAt: Date.now(),
-        buyerEmail,
-        token: token(),
-        tokenExpiresAt: Date.now() + hoursMs(ESCROW_HOURS)
-      });
-      save(list); render(list);
-      buyerNotify(buyerEmail, { group: it.group, price: money(it.price) });
-      sellerNotify(it.sellerEmail, { group: it.group, price: money(it.price) });
-      alert("Payment authorized (demo). Funds auto-release in 72h unless buyer confirms received earlier.");
-    }
+  // ---- Fallback simulation (authorized → auto-release in 72h) ----
+  it.remaining = Math.max(0, (it.remaining ?? it.qty ?? 1) - 1);
+  it.orders = it.orders || [];
+  it.orders.push({
+    id: crypto.randomUUID(),
+    status: "authorized",
+    authorizedAt: Date.now(),
+    buyerEmail,
+    token: token(),
+    tokenExpiresAt: Date.now() + hoursMs(ESCROW_HOURS)
+  });
+  save(list); render(list);
+  buyerNotify(buyerEmail, { group: it.group, price: money(it.price) });
+  sellerNotify(it.sellerEmail, { group: it.group, price: money(it.price) });
+  alert("Payment authorized (demo). Funds auto-release in 72h unless buyer confirms received earlier.");
+}
 
     /* ===========================
        Auto-release + Privacy purge (demo)
