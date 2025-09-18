@@ -33,7 +33,7 @@ export default async function handler(req, res) {
       qty = 1,
       sellerEmail,
       buyerEmail = "",
-      sellerAccountId = ""      // ⬅️ NEW: optional Connect account id
+      sellerAccountId = ""      // optional: Stripe Connect account id for seller
     } = req.body || {};
 
     // Basic validation
@@ -47,7 +47,7 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: "Invalid price" });
     }
 
-    // Enforce +15% price cap on the backend too (never trust only the UI)
+    // Enforce +15% price cap (defense in depth)
     if (face !== undefined && face !== null && face !== "") {
       const faceCents = toCents(face);
       if (faceCents !== null && faceCents > 0) {
@@ -74,54 +74,75 @@ export default async function handler(req, res) {
       return res.status(500).json({ error: "Missing APP_BASE_URL / origin for redirects" });
     }
 
-    const session = await stripe.checkout.sessions.create(
-      {
-        mode: "payment",
-        // Escrow: authorize only; capture later in confirm-received
-        payment_intent_data: {
-          capture_method: "manual",
-          metadata: {
-            fep: "1",
-            fep_status: "pending",
-            listingId,
-            group: group || "",
-            sellerEmail: sellerEmail || "",
-            buyerEmail: buyerEmail || "",
-            sellerAccountId: sellerAccountId || "",  // ⬅️ NEW
-            face: face !== undefined && face !== null ? String(face) : "",
-            price: String(price),
-            qty: String(qtyInt)
-          }
-        },
-        line_items: [
-          {
-            price_data: {
-              currency: "usd",
-              unit_amount: unitAmount,
-              product_data: { name, description }
-            },
-            quantity: qtyInt
-          }
-        ],
-        success_url: `${origin}/?success=1&sid={CHECKOUT_SESSION_ID}`,
-        cancel_url: `${origin}/?canceled=1`,
-        // Mirror a few fields at session level for convenience
+    // Compute order total and seller fee (applied only when using Connect)
+    const orderTotalCents = unitAmount * qtyInt;
+    const sellerFeeCents = Math.round(orderTotalCents * 0.05) + 50; // 5% + $0.50
+
+    // Build payload
+    const payload = {
+      mode: "payment",
+      // Escrow: authorize only; capture later in confirm-received
+      payment_intent_data: {
+        capture_method: "manual",
         metadata: {
+          fep: "1",
+          fep_status: "pending",
           listingId,
+          group: group || "",
           sellerEmail: sellerEmail || "",
           buyerEmail: buyerEmail || "",
-          sellerAccountId: sellerAccountId || ""     // ⬅️ NEW
+          sellerAccountId: sellerAccountId || "",
+          face: face !== undefined && face !== null ? String(face) : "",
+          price: String(price),
+          qty: String(qtyInt)
         }
       },
+      line_items: [
+        {
+          price_data: {
+            currency: "usd",
+            unit_amount: unitAmount,
+            product_data: { name, description }
+          },
+          quantity: qtyInt
+        }
+        // NOTE: If you add a buyer fee line item ($3.50) on the frontend,
+        // keep doing that there—no change needed here.
+      ],
+      success_url: `${origin}/?success=1&sid={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${origin}/?canceled=1`,
+      // Mirror handy fields at session level
+      metadata: {
+        listingId,
+        sellerEmail: sellerEmail || "",
+        buyerEmail: buyerEmail || "",
+        sellerAccountId: sellerAccountId || ""
+      }
+    };
+
+    // Convert to a destination charge if we have a connected seller
+    if (sellerAccountId) {
+      // Funds route to the seller account
+      payload.payment_intent_data.transfer_data = { destination: sellerAccountId };
+      // For compliance & correct fee behavior
+      payload.payment_intent_data.on_behalf_of = sellerAccountId;
+      // Deduct your platform fee from the seller’s payout
+      payload.payment_intent_data.application_fee_amount = Math.max(0, sellerFeeCents);
+    }
+
+    const session = await stripe.checkout.sessions.create(
+      payload,
       {
         // Idempotency protects against double-submits / retries
         idempotencyKey: `checkout:${listingId}:${buyerEmail}:${Date.now()}`
       }
     );
 
+    // Frontend expects sessionId (you’re using redirectToCheckout)
     return res.status(200).json({ sessionId: session.id });
   } catch (err) {
     console.error("create-checkout-session error:", err);
     return res.status(500).json({ error: "Internal error creating session" });
   }
 }
+
