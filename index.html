@@ -207,6 +207,36 @@
     </div>
   </section>
 
+  <!-- SELLER LOGIN (email code) -->
+  <section id="sellerLoginModal" class="fixed inset-0 z-50 hidden">
+    <div class="absolute inset-0 bg-black/40"></div>
+    <div class="absolute inset-0 flex items-end sm:items-center justify-center p-3">
+      <div class="w-full sm:w-[480px] bg-white rounded-3xl shadow-2xl overflow-hidden">
+        <div class="gradient-brand p-5 text-white">
+          <h3 class="font-poppins text-xl">Seller Login</h3>
+          <p class="text-white/90 text-sm">We’ll email you a 6-digit code to confirm it’s you.</p>
+        </div>
+        <div class="p-5 space-y-4">
+          <div id="sellerStepEmail">
+            <label class="text-sm text-gray-600">Email</label>
+            <input id="sellerLoginEmail" type="email" placeholder="you@example.com" class="w-full mt-1 rounded-2xl bg-white px-4 py-3 ring-1 ring-gray-200 focus:ring-sky-300 outline-none" />
+            <button id="sendLoginCodeBtn" class="mt-3 w-full rounded-2xl bg-gray-900 text-white px-4 py-3 hover:bg-gray-800">Send code</button>
+          </div>
+
+          <div id="sellerStepCode" class="hidden">
+            <label class="text-sm text-gray-600">Enter 6-digit code</label>
+            <input id="sellerLoginCode" inputmode="numeric" maxlength="6" placeholder="123456" class="w-full mt-1 rounded-2xl bg-white px-4 py-3 ring-1 ring-gray-200 focus:ring-sky-300 outline-none" />
+            <button id="verifyLoginCodeBtn" class="mt-3 w-full rounded-2xl bg-gray-900 text-white px-4 py-3 hover:bg-gray-800">Verify & Sign in</button>
+          </div>
+
+          <div class="flex items-center justify-end gap-3 pt-2">
+            <button id="closeSellerLogin" class="px-4 py-2 rounded-xl bg-gray-100 hover:bg-gray-200">Close</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
   <!-- SELLER: Dashboard modal/section -->
   <section id="sellerDash" class="fixed inset-0 z-50 hidden">
     <div class="absolute inset-0 bg-black/40"></div>
@@ -292,6 +322,7 @@
       EMAILJS_SERVICE = "",
       EMAILJS_TPL_BUYER = "",
       EMAILJS_TPL_SELLER = "",
+      EMAILJS_TPL_LOGIN = "",      // ⬅️ optional, if you make a dedicated login template
       ESCROW_HOURS = 72
     } = (window.APP_CONFIG || {});
 
@@ -354,81 +385,82 @@
     const withinCap = (face, price) => Number(price) <= capFor(face) + 0.0001;
     const hoursMs = h => h*60*60*1000;
     const token = () => Math.random().toString(36).slice(2)+Math.random().toString(36).slice(2);
-    const esc = s => String(s ?? "").replace(/[&<>"'`=\/]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;','/':'&#x2F;','`':'&#x60;','=':'&#x3D;'}[c]));
+    const esc = s => String(s ?? "").replace(/[&<>"'`=\/]/g, c => ({'&':'&amp;','<':'&lt;','>':'&#x3E;','"':'&quot;',"'":'&#39;','/':'&#x2F;','`':'&#x60;','=':'&#x3D;'}[c]));
 
     /* ===========================
-        Formspree (attachment) with Resend fallback
-   =========================== */
-async function sendProofViaFormspree(listing, proofFile){
-  const fd = new FormData();
-  fd.append("_subject", "FEP: New Listing Proof of Ticket");
-  fd.append("message",
-    `New listing submitted with proof:\n\n`+
-    `Group: ${listing.group}\n`+
-    `Date & Venue: ${listing.date}\n`+
-    `City: ${listing.city}\n`+
-    `Seat: ${listing.seat}\n`+
-    `Face: $${listing.face}\n`+
-    `Price: $${listing.price}\n`+
-    `Qty: ${listing.qty}\n`+
-    `Seller: ${listing.seller} <${listing.sellerEmail}> (${listing.sellerPhone})`
-  );
-  if (listing.sellerEmail) fd.append("_replyto", listing.sellerEmail);
-  fd.append("attachment", proofFile);
+       Formspree (attachment) with Resend fallback
+       =========================== */
+    async function sendProofViaFormspree(listing, proofFile){
+      const fd = new FormData();
+      fd.append("_subject", "FEP: New Listing Proof of Ticket");
+      fd.append("message",
+        `New listing submitted with proof:\n\n`+
+        `Group: ${listing.group}\n`+
+        `Date & Venue: ${listing.date}\n`+
+        `City: ${listing.city}\n`+
+        `Seat: ${listing.seat}\n`+
+        `Face: $${listing.face}\n`+
+        `Price: $${listing.price}\n`+
+        `Qty: ${listing.qty}\n`+
+        `Seller: ${listing.seller} <${listing.sellerEmail}> (${listing.sellerPhone})`
+      );
+      if (listing.sellerEmail) fd.append("_replyto", listing.sellerEmail);
+      fd.append("attachment", proofFile);
 
-  // include structured fields so the fallback email includes all details too
-  fd.append("listingId", listing.id || "");
-  fd.append("group", listing.group || "");
-  fd.append("date", listing.date || "");
-  fd.append("city", listing.city || "");
-  fd.append("seat", listing.seat || "");
-  fd.append("face", String(listing.face ?? ""));
-  fd.append("price", String(listing.price ?? ""));
-  fd.append("qty", String(listing.qty ?? ""));
-  fd.append("seller", listing.seller || "");
-  fd.append("sellerEmail", listing.sellerEmail || "");
-  fd.append("sellerPhone", listing.sellerPhone || "");
+      // include structured fields so the fallback email includes all details too
+      fd.append("listingId", listing.id || "");
+      fd.append("group", listing.group || "");
+      fd.append("date", listing.date || "");
+      fd.append("city", listing.city || "");
+      fd.append("seat", listing.seat || "");
+      fd.append("face", String(listing.face ?? ""));
+      fd.append("price", String(listing.price ?? ""));
+      fd.append("qty", String(listing.qty ?? ""));
+      fd.append("seller", listing.seller || "");
+      fd.append("sellerEmail", listing.sellerEmail || "");
+      fd.append("sellerPhone", listing.sellerPhone || "");
 
-  // UI status
-  const status = document.createElement("div");
-  status.textContent = "Sending proof...";
-  Object.assign(status.style, { position:"fixed", bottom:"12px", left:"12px", padding:"8px 10px", background:"#000", color:"#fff", borderRadius:"10px", fontSize:"12px", zIndex:"99999" });
-  document.body.appendChild(status);
+      // UI status
+      const status = document.createElement("div");
+      status.textContent = "Sending proof...";
+      Object.assign(status.style, { position:"fixed", bottom:"12px", left:"12px", padding:"8px 10px", background:"#000", color:"#fff", borderRadius:"10px", fontSize:"12px", zIndex:"99999" });
+      document.body.appendChild(status);
 
-  const ORIGIN = (window.APP_CONFIG?.API_BASE || window.location.origin).replace(/\/+$/,'');
+      const ORIGIN2 = (window.APP_CONFIG?.API_BASE || window.location.origin).replace(/\/+$/,'');
 
-  try {
-    // 1) Try Formspree
-    const res = await fetch(FORMSPREE, { method: "POST", headers: { "Accept":"application/json" }, body: fd });
-    const data = await res.json().catch(() => ({}));
-    const ok = res.ok && !data?.error && !((data?.errors || []).length);
-    if (ok) {
-      status.textContent = "Proof sent!";
-      setTimeout(() => status.remove(), 2500);
-      return true;
-    }
-    throw new Error(data?.error || (data?.errors||[]).map(e=>e.message).join(", ") || res.statusText);
-  } catch (e) {
-    console.warn("Formspree failed, using fallback:", e.message);
-    try {
-      // 2) Fallback → your Vercel API (emails via Resend)
-      const r = await fetch(`${ORIGIN}/api/proof-fallback`, { method: "POST", body: fd });
-      if (!r.ok) {
-        const t = await r.text().catch(()=>"");
-        throw new Error(t || r.statusText);
+      try {
+        // 1) Try Formspree
+        const res = await fetch(FORMSPREE, { method: "POST", headers: { "Accept":"application/json" }, body: fd });
+        const data = await res.json().catch(() => ({}));
+        const ok = res.ok && !data?.error && !((data?.errors || []).length);
+        if (ok) {
+          status.textContent = "Proof sent!";
+          setTimeout(() => status.remove(), 2500);
+          return true;
+        }
+        throw new Error(data?.error || (data?.errors||[]).map(e=>e.message).join(", ") || res.statusText);
+      } catch (e) {
+        console.warn("Formspree failed, using fallback:", e.message);
+        try {
+          // 2) Fallback → your Vercel API (emails via Resend)
+          const r = await fetch(`${ORIGIN2}/api/proof-fallback`, { method: "POST", body: fd });
+          if (!r.ok) {
+            const t = await r.text().catch(()=> "");
+            throw new Error(t || r.statusText);
+          }
+          status.textContent = "Proof sent (fallback)!";
+          setTimeout(() => status.remove(), 2500);
+          return true;
+        } catch (e2) {
+          console.error("Fallback also failed:", e2);
+          status.textContent = "Upload failed";
+          setTimeout(() => status.remove(), 2500);
+          alert("Could not send proof. Please email support with your screenshot.");
+          return false;
+        }
       }
-      status.textContent = "Proof sent (fallback)!";
-      setTimeout(() => status.remove(), 2500);
-      return true;
-    } catch (e2) {
-      console.error("Fallback also failed:", e2);
-      status.textContent = "Upload failed";
-      setTimeout(() => status.remove(), 2500);
-      alert("Could not send proof. Please email support with your screenshot.");
-      return false;
     }
-  }
-}
+
     /* ===========================
        Email notifications (optional)
        =========================== */
@@ -550,9 +582,9 @@ async function sendProofViaFormspree(listing, proofFile){
 
       const editToken = token();
       const manageCode = editToken.slice(0,10).toUpperCase();
-      
-  const sellerAccountId = localStorage.getItem("fep_connect_acct") || "";
-      
+
+      const sellerAccountId = localStorage.getItem("fep_connect_acct") || ""; // ⬅️ use connected acct if present
+
       const listing = {
         id: crypto.randomUUID(),
         group: String(fd.get("group")||"").trim(),
@@ -564,6 +596,7 @@ async function sendProofViaFormspree(listing, proofFile){
         pay: String(fd.get("pay")||"").trim(),
         seller: String(fd.get("seller")||"Seller").trim(),
         sellerEmail, sellerPhone,
+        sellerAccountId,             // ⬅️ ensure it’s stored on the listing
         editToken, manageCode
       };
 
@@ -584,74 +617,74 @@ async function sendProofViaFormspree(listing, proofFile){
       closeModal(); e.target.reset(); applyFilters(); window.scrollTo({ top:0, behavior:"smooth" });
     });
 
-   /* ===========================
-   Buy → Backend (Stripe Checkout) with fallback sim
-   =========================== */
-async function startBuy(listingId){
-  const list = load();
-  const it = list.find(x => x.id === listingId);
-  if (!it) return;
-  if ((it.remaining ?? it.qty) <= 0) {
-    alert("Sorry, this listing is sold out.");
-    return;
-  }
+    /* ===========================
+       Buy → Backend (Stripe Checkout) with fallback sim
+       =========================== */
+    async function startBuy(listingId){
+      const list = load();
+      const it = list.find(x => x.id === listingId);
+      if (!it) return;
+      if ((it.remaining ?? it.qty) <= 0) {
+        alert("Sorry, this listing is sold out.");
+        return;
+      }
 
-  // Optional: ask buyer email (for notifications)
-  const buyerEmail = prompt("Enter your email for updates (optional):") || "";
+      // Optional: ask buyer email (for notifications)
+      const buyerEmail = prompt("Enter your email for updates (optional):") || "";
 
-  // Pull a seller account if present (from listing or localStorage)
-  const sellerAccountId = it.sellerAccountId || localStorage.getItem("fep_connect_acct") || "";
+      // Pull a seller account if present (from listing or localStorage)
+      const sellerAccountId = it.sellerAccountId || localStorage.getItem("fep_connect_acct") || "";
 
-  // Safety: if Stripe didn’t init, bail before calling backend
-  if (!window.stripe) {
-    alert("Payments aren’t ready yet. Please try again later.");
-    return;
-  }
+      // Safety: if Stripe didn’t init, bail before calling backend
+      if (!window.stripe) {
+        alert("Payments aren’t ready yet. Please try again later.");
+        return;
+      }
 
-  // Call your backend to create a Checkout Session.
-  try {
-    const res = await fetch(`${ORIGIN}/api/create-checkout-session`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        listingId: it.id,
-        group: it.group, date: it.date, city: it.city, seat: it.seat,
-        face: it.face, price: it.price, qty: 1,
-        sellerEmail: it.sellerEmail, buyerEmail,
-        sellerAccountId  // pass through to backend
-      })
-    });
-    if (!res.ok) {
-      const errText = await res.text();
-      console.error("Checkout session HTTP error", res.status, errText);
-      throw new Error(errText || `HTTP ${res.status}`);
+      // Call your backend to create a Checkout Session.
+      try {
+        const res = await fetch(`${ORIGIN}/api/create-checkout-session`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            listingId: it.id,
+            group: it.group, date: it.date, city: it.city, seat: it.seat,
+            face: it.face, price: it.price, qty: 1,
+            sellerEmail: it.sellerEmail, buyerEmail,
+            sellerAccountId  // pass through to backend
+          })
+        });
+        if (!res.ok) {
+          const errText = await res.text();
+          console.error("Checkout session HTTP error", res.status, errText);
+          throw new Error(errText || `HTTP ${res.status}`);
+        }
+        const data = await res.json();
+        if (data.sessionId) {
+          await stripe.redirectToCheckout({ sessionId: data.sessionId });
+          return;
+        }
+      } catch (e) {
+        console.error("Checkout session request failed", e);
+        console.warn("Backend not ready, falling back to demo auth:", e.message);
+      }
+
+      // ---- Fallback simulation (authorized → auto-release in 72h) ----
+      it.remaining = Math.max(0, (it.remaining ?? it.qty ?? 1) - 1);
+      it.orders = it.orders || [];
+      it.orders.push({
+        id: crypto.randomUUID(),
+        status: "authorized",
+        authorizedAt: Date.now(),
+        buyerEmail,
+        token: token(),
+        tokenExpiresAt: Date.now() + hoursMs(ESCROW_HOURS)
+      });
+      save(list); render(list);
+      buyerNotify(buyerEmail, { group: it.group, price: money(it.price) });
+      sellerNotify(it.sellerEmail, { group: it.group, price: money(it.price) });
+      alert("Payment authorized (demo). Funds auto-release in 72h unless buyer confirms received earlier.");
     }
-    const data = await res.json();
-    if (data.sessionId) {
-      await stripe.redirectToCheckout({ sessionId: data.sessionId });
-      return;
-    }
-  } catch (e) {
-    console.error("Checkout session request failed", e);
-    console.warn("Backend not ready, falling back to demo auth:", e.message);
-  }
-
-  // ---- Fallback simulation (authorized → auto-release in 72h) ----
-  it.remaining = Math.max(0, (it.remaining ?? it.qty ?? 1) - 1);
-  it.orders = it.orders || [];
-  it.orders.push({
-    id: crypto.randomUUID(),
-    status: "authorized",
-    authorizedAt: Date.now(),
-    buyerEmail,
-    token: token(),
-    tokenExpiresAt: Date.now() + hoursMs(ESCROW_HOURS)
-  });
-  save(list); render(list);
-  buyerNotify(buyerEmail, { group: it.group, price: money(it.price) });
-  sellerNotify(it.sellerEmail, { group: it.group, price: money(it.price) });
-  alert("Payment authorized (demo). Funds auto-release in 72h unless buyer confirms received earlier.");
-}
 
     /* ===========================
        Auto-release + Privacy purge (demo)
@@ -674,14 +707,8 @@ async function startBuy(listingId){
     setInterval(tick, 30000);
 
     /* ===========================
-       Init
+       BUYER ESCROW BANNER
        =========================== */
-    (function init(){
-      gateCheck();
-      applyFilters();
-    })();
-
-    // ======= BUYER ESCROW BANNER =======
     (async function escrowBanner() {
       const params = new URLSearchParams(location.search);
       const sid = params.get("sid");
@@ -745,20 +772,110 @@ async function startBuy(listingId){
       }
     })();
 
-    /* ========= SELLER DASHBOARD LOGIC (Day 2: Steps 1–3) ========= */
+    /* ========= SELLER LOGIN (email code) ========= */
+    const SELLER_PROFILE_KEY = "fep_seller_profile";   // { email, connectAccountId? }
+    const CODE_KEY = "fep_seller_code";
+    const CODE_EMAIL_KEY = "fep_seller_code_email";
+    const CODE_EXPIRES_KEY = "fep_seller_code_expires";
+
+    function getSellerProfile(){
+      try { return JSON.parse(localStorage.getItem(SELLER_PROFILE_KEY) || "null"); } catch { return null; }
+    }
+    function setSellerProfile(p){ localStorage.setItem(SELLER_PROFILE_KEY, JSON.stringify(p || null)); }
+
+    function genCode(){ return String(Math.floor(100000 + Math.random()*900000)); }
+    function storeCode(email, code){
+      sessionStorage.setItem(CODE_KEY, code);
+      sessionStorage.setItem(CODE_EMAIL_KEY, email);
+      sessionStorage.setItem(CODE_EXPIRES_KEY, String(Date.now()+10*60*1000)); // 10 min
+    }
+    function readCodeState(){
+      const code = sessionStorage.getItem(CODE_KEY);
+      const email = sessionStorage.getItem(CODE_EMAIL_KEY);
+      const exp = Number(sessionStorage.getItem(CODE_EXPIRES_KEY) || 0);
+      return { code, email, exp };
+    }
+
+    const sellerLoginModal = document.getElementById("sellerLoginModal");
+    const openSellerBtn = document.getElementById("openSeller");
+    const closeSellerLogin = document.getElementById("closeSellerLogin");
+    const sellerStepEmail = document.getElementById("sellerStepEmail");
+    const sellerStepCode = document.getElementById("sellerStepCode");
+    const sellerLoginEmail = document.getElementById("sellerLoginEmail");
+    const sendLoginCodeBtn = document.getElementById("sendLoginCodeBtn");
+    const sellerLoginCode = document.getElementById("sellerLoginCode");
+    const verifyLoginCodeBtn = document.getElementById("verifyLoginCodeBtn");
+
+    function openSellerLogin(){ sellerLoginModal?.classList.remove("hidden"); showLoginStep("email"); }
+    function closeSellerLoginModal(){ sellerLoginModal?.classList.add("hidden"); }
+    function showLoginStep(step){
+      sellerStepEmail.classList.toggle("hidden", step!=="email");
+      sellerStepCode.classList.toggle("hidden", step!=="code");
+    }
+
+    closeSellerLogin?.addEventListener("click", closeSellerLoginModal);
+
+    sendLoginCodeBtn?.addEventListener("click", async ()=>{
+      const email = (sellerLoginEmail?.value || "").trim();
+      if (!email) return alert("Enter your email");
+      const code = genCode();
+      storeCode(email, code);
+      try {
+        await emailjs.send(
+          (window.APP_CONFIG?.EMAILJS_SERVICE || ""),
+          // Prefer dedicated login template if you create one, else reuse seller template
+          (EMAILJS_TPL_LOGIN || EMAILJS_TPL_SELLER || ""),
+          { to_email: email, code }
+        );
+        showLoginStep("code");
+        sellerLoginCode?.focus();
+      } catch (e) {
+        console.error("EmailJS send failed", e);
+        alert("Could not send code. Try again.");
+      }
+    });
+
+    verifyLoginCodeBtn?.addEventListener("click", ()=>{
+      const entered = (sellerLoginCode?.value || "").trim();
+      const { code, email, exp } = readCodeState();
+      if (!code || !email || !exp || Date.now() > exp) {
+        return alert("Code expired. Please request a new one.");
+      }
+      if (entered !== code) return alert("Incorrect code.");
+      // Persist seller profile + mirror the email used in dashboard input
+      const existing = getSellerProfile() || {};
+      const acct = localStorage.getItem("fep_connect_acct") || existing.connectAccountId || "";
+      setSellerProfile({ email, connectAccountId: acct });
+      localStorage.setItem("fep_seller_email", email);
+      // Clear temp
+      sessionStorage.removeItem(CODE_KEY);
+      sessionStorage.removeItem(CODE_EMAIL_KEY);
+      sessionStorage.removeItem(CODE_EXPIRES_KEY);
+      closeSellerLoginModal();
+      openSellerDash(); // go straight to dashboard after sign-in
+    });
+
+    /* ========= SELLER DASHBOARD LOGIC ========= */
     const FEP_ACCT_KEY = "fep_connect_acct";
     const FEP_SELLER_EMAIL_KEY = "fep_seller_email";
 
     function openSellerDash(){ document.getElementById("sellerDash").classList.remove("hidden"); loadSellerPanel(); }
     function closeSellerDash(){ document.getElementById("sellerDash").classList.add("hidden"); }
 
-    document.getElementById("openSeller")?.addEventListener("click", openSellerDash);
+    openSellerBtn?.addEventListener("click", ()=>{
+      // If no saved seller email, show login first
+      const email = localStorage.getItem(FEP_SELLER_EMAIL_KEY) || "";
+      if (!email) openSellerLogin(); else openSellerDash();
+    });
     document.getElementById("closeSeller")?.addEventListener("click", closeSellerDash);
 
     document.getElementById("saveSellerEmail")?.addEventListener("click", ()=>{
       const email = document.getElementById("sellerEmailInput").value.trim();
       if(!email) return alert("Enter a seller email.");
       localStorage.setItem(FEP_SELLER_EMAIL_KEY, email);
+      // Also reflect in seller profile
+      const prof = getSellerProfile() || {};
+      setSellerProfile({ email, connectAccountId: prof.connectAccountId || localStorage.getItem(FEP_ACCT_KEY) || "" });
       renderMyListings();
       alert("Saved.");
     });
@@ -776,7 +893,11 @@ async function startBuy(listingId){
       });
       const data = await r.json().catch(()=> ({}));
       if(!r.ok || !data?.url) return alert("Could not start Stripe onboarding.");
-      if (data.accountId) localStorage.setItem(FEP_ACCT_KEY, data.accountId);
+      if (data.accountId) {
+        localStorage.setItem(FEP_ACCT_KEY, data.accountId);
+        const prof = getSellerProfile() || {};
+        setSellerProfile({ email: prof.email || sellerEmail, connectAccountId: data.accountId });
+      }
       location.href = data.url;
     }
 
@@ -845,10 +966,26 @@ async function startBuy(listingId){
       // pick up connect return flags (?onboarded=1&account=...)
       const p = new URLSearchParams(location.search);
       const acct = p.get("account"); const ob = p.get("onboarded");
-      if (acct) localStorage.setItem(FEP_ACCT_KEY, acct);
+      if (acct) {
+        localStorage.setItem(FEP_ACCT_KEY, acct);
+        const prof = getSellerProfile() || {};
+        setSellerProfile({ email: prof.email || localStorage.getItem(FEP_SELLER_EMAIL_KEY) || "", connectAccountId: acct });
+        // clean URL
+        history.replaceState({}, "", location.pathname);
+      }
       loadStripeStatus();
       renderMyListings();
     }
+
+    /* ===========================
+       Init
+       =========================== */
+    (function init(){
+      gateCheck();
+      applyFilters();
+      document.getElementById("openSeller")?.classList.remove("hidden");
+    })();
   </script>
 </body>
 </html>
+
