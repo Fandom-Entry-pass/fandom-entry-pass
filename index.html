@@ -587,39 +587,44 @@ async function sendProofViaFormspree(listing, proofFile){
     /* ===========================
        Buy → Backend (Stripe Checkout) with fallback sim
        =========================== */
-    async function startBuy(listingId){
-      const list=load();
-      const it=list.find(x=>x.id===listingId); if(!it) return;
-      if((it.remaining ?? it.qty) <= 0){ alert("Sorry, this listing is sold out."); return; }
+async function startBuy(listingId){
+  const list = load();
+  const it = list.find(x => x.id === listingId); 
+  if (!it) return;
+  if ((it.remaining ?? it.qty) <= 0){ alert("Sorry, this listing is sold out."); return; }
 
-      // Optional: ask buyer email (for notifications)
-      const buyerEmail = prompt("Enter your email for updates (optional):") || "";
+  // Optional: ask buyer email (for notifications)
+  const buyerEmail = prompt("Enter your email for updates (optional):") || "";
 
-      // Call your backend to create a Checkout Session.
-      try{
-        const res = await fetch(`${ORIGIN}/api/create-checkout-session`, {
-          method: "POST",
-          headers: { "Content-Type":"application/json" },
-          body: JSON.stringify({
-            listingId: it.id,
-            group: it.group, date: it.date, city: it.city, seat: it.seat,
-            face: it.face, price: it.price, qty: 1,
-            sellerEmail: it.sellerEmail, buyerEmail
-          })
-        });
-        if(!res.ok){
-          const errText = await res.text();
-          console.error("Checkout session HTTP error", res.status, errText);
-          throw new Error(errText || `HTTP ${res.status}`);
-        }
-        const data = await res.json();
-        if(data.sessionId){
-          await stripe.redirectToCheckout({ sessionId: data.sessionId });
-          return;
-        }
-      }catch(e){
-        console.error("Checkout session request failed", e);
-        console.warn("Backend not ready, falling back to demo auth:", e.message);
+  // 👇 pull a seller account if present (from listing or localStorage)
+  const sellerAccountId = it.sellerAccountId || localStorage.getItem("fep_connect_acct") || "";
+
+  try{
+    const res = await fetch(`${ORIGIN}/api/create-checkout-session`, {
+      method: "POST",
+      headers: { "Content-Type":"application/json" },
+      body: JSON.stringify({
+        listingId: it.id,
+        group: it.group, date: it.date, city: it.city, seat: it.seat,
+        face: it.face, price: it.price, qty: 1,
+        sellerEmail: it.sellerEmail, buyerEmail,
+        sellerAccountId          // ⬅️ NEW: pass through to backend
+      })
+    });
+    if(!res.ok){
+      const errText = await res.text();
+      console.error("Checkout session HTTP error", res.status, errText);
+      throw new Error(errText || `HTTP ${res.status}`);
+    }
+    const data = await res.json();
+    if(data.sessionId){
+      await stripe.redirectToCheckout({ sessionId: data.sessionId });
+      return;
+    }
+  }catch(e){
+    console.error("Checkout session request failed", e);
+    console.warn("Backend not ready, falling back to demo auth:", e.message);
+  }
       }
 
       // Fallback simulation (authorized → auto-release in 72h)
