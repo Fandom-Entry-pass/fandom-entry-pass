@@ -28,11 +28,12 @@ export default async function handler(req, res) {
       date,
       city,
       seat,
-      face,                // face value per ticket (USD)
-      price,               // asking price per ticket (USD)
+      face,                     // face value per ticket (USD)
+      price,                    // asking price per ticket (USD)
       qty = 1,
       sellerEmail,
-      buyerEmail = ""
+      buyerEmail = "",
+      sellerAccountId = ""      // ⬅️ NEW: optional Connect account id
     } = req.body || {};
 
     // Basic validation
@@ -70,7 +71,6 @@ export default async function handler(req, res) {
     // Determine success/cancel URLs (prefer APP_BASE_URL, else request origin)
     const origin = APP_BASE_URL || req.headers.origin || "";
     if (!origin) {
-      // If somehow neither exists, fail fast to avoid bad redirect URLs
       return res.status(500).json({ error: "Missing APP_BASE_URL / origin for redirects" });
     }
 
@@ -87,6 +87,7 @@ export default async function handler(req, res) {
             group: group || "",
             sellerEmail: sellerEmail || "",
             buyerEmail: buyerEmail || "",
+            sellerAccountId: sellerAccountId || "",  // ⬅️ NEW
             face: face !== undefined && face !== null ? String(face) : "",
             price: String(price),
             qty: String(qtyInt)
@@ -97,20 +98,19 @@ export default async function handler(req, res) {
             price_data: {
               currency: "usd",
               unit_amount: unitAmount,
-              product_data: {
-                name,
-                description
-              }
+              product_data: { name, description }
             },
             quantity: qtyInt
           }
         ],
         success_url: `${origin}/?success=1&sid={CHECKOUT_SESSION_ID}`,
         cancel_url: `${origin}/?canceled=1`,
+        // Mirror a few fields at session level for convenience
         metadata: {
           listingId,
           sellerEmail: sellerEmail || "",
-          buyerEmail: buyerEmail || ""
+          buyerEmail: buyerEmail || "",
+          sellerAccountId: sellerAccountId || ""     // ⬅️ NEW
         }
       },
       {
@@ -119,7 +119,6 @@ export default async function handler(req, res) {
       }
     );
 
-    // Frontend expects sessionId (you’re using redirectToCheckout)
     return res.status(200).json({ sessionId: session.id });
   } catch (err) {
     console.error("create-checkout-session error:", err);
