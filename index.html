@@ -550,7 +550,9 @@ async function sendProofViaFormspree(listing, proofFile){
 
       const editToken = token();
       const manageCode = editToken.slice(0,10).toUpperCase();
-
+      
+  const sellerAccountId = localStorage.getItem("fep_connect_acct") || "";
+      
       const listing = {
         id: crypto.randomUUID(),
         group: String(fd.get("group")||"").trim(),
