@@ -3,11 +3,13 @@ import Stripe from "stripe";
 
 export const config = { runtime: "nodejs" };
 
-// Live secret should be set in Vercel → Settings → Environment Variables
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion: "2024-06-20" });
 
-// Optional: set APP_BASE_URL in Vercel; otherwise we’ll fall back to the request origin
+// Optional: hard-code your public app base if you prefer; otherwise we’ll use the request origin
 const APP_BASE_URL = process.env.APP_BASE_URL || "";
+
+// Flat buyer fee per **order** (in cents)
+const BUYER_FEE_CENTS = 350; // $3.50
 
 function toCents(n) {
   const num = Number(n);
@@ -33,10 +35,10 @@ export default async function handler(req, res) {
       qty = 1,
       sellerEmail,
       buyerEmail = "",
-      sellerAccountId = ""      // optional: Stripe Connect account id for seller
+      sellerAccountId = ""      // Stripe Connect account id for seller (optional)
     } = req.body || {};
 
-    // Basic validation
+    // ----- Basic validation -----
     if (!listingId) return res.status(400).json({ error: "Missing listingId" });
     const qtyInt = parseInt(qty, 10);
     if (!qtyInt || qtyInt < 1 || qtyInt > 10) {
@@ -47,7 +49,7 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: "Invalid price" });
     }
 
-    // Enforce +15% price cap (defense in depth)
+    // ----- Enforce +15% cap on ticket price (defense in depth) -----
     if (face !== undefined && face !== null && face !== "") {
       const faceCents = toCents(face);
       if (faceCents !== null && faceCents > 0) {
@@ -61,6 +63,7 @@ export default async function handler(req, res) {
       }
     }
 
+    // ----- Presentation -----
     const name = `${group || "Ticket"} (${qtyInt}x)`;
     const descParts = [];
     if (date) descParts.push(String(date));
@@ -68,19 +71,22 @@ export default async function handler(req, res) {
     if (seat) descParts.push(String(seat));
     const description = descParts.join(" • ");
 
-    // Determine success/cancel URLs (prefer APP_BASE_URL, else request origin)
+    // ----- Redirect URLs -----
     const origin = APP_BASE_URL || req.headers.origin || "";
     if (!origin) {
       return res.status(500).json({ error: "Missing APP_BASE_URL / origin for redirects" });
     }
 
-    // Compute order total and seller fee (applied only when using Connect)
-    const orderTotalCents = unitAmount * qtyInt;
-    const sellerFeeCents = Math.round(orderTotalCents * 0.05) + 50; // 5% + $0.50
+    // ----- Totals & fees -----
+    const ticketSubtotalCents = unitAmount * qtyInt;
 
-    // Build payload
+    // Seller fee = 5% of ticket subtotal + $0.50 (50¢)
+    const sellerFeeCents = Math.round(ticketSubtotalCents * 0.05) + 50;
+
+    // ----- Build Checkout payload -----
     const payload = {
       mode: "payment",
+
       // Escrow: authorize only; capture later in confirm-received
       payment_intent_data: {
         capture_method: "manual",
@@ -94,9 +100,13 @@ export default async function handler(req, res) {
           sellerAccountId: sellerAccountId || "",
           face: face !== undefined && face !== null ? String(face) : "",
           price: String(price),
-          qty: String(qtyInt)
+          qty: String(qtyInt),
+          buyer_fee_cents: String(BUYER_FEE_CENTS),
+          seller_fee_cents: String(sellerFeeCents)
         }
       },
+
+      // Two line items: tickets + buyer fee
       line_items: [
         {
           price_data: {
@@ -105,44 +115,54 @@ export default async function handler(req, res) {
             product_data: { name, description }
           },
           quantity: qtyInt
+        },
+        {
+          // Buyer Protection Fee (flat $3.50 per order)
+          price_data: {
+            currency: "usd",
+            unit_amount: BUYER_FEE_CENTS,
+            product_data: {
+              name: "Buyer Protection Fee",
+              description: "Covers escrow, support, and platform services"
+            }
+          },
+          quantity: 1
         }
-        // NOTE: If you add a buyer fee line item ($3.50) on the frontend,
-        // keep doing that there—no change needed here.
       ],
+
       success_url: `${origin}/?success=1&sid={CHECKOUT_SESSION_ID}`,
       cancel_url: `${origin}/?canceled=1`,
-      // Mirror handy fields at session level
+
+      // Mirror a few fields at session level
       metadata: {
         listingId,
         sellerEmail: sellerEmail || "",
         buyerEmail: buyerEmail || "",
-        sellerAccountId: sellerAccountId || ""
+        sellerAccountId: sellerAccountId || "",
+        buyer_fee_cents: String(BUYER_FEE_CENTS),
+        seller_fee_cents: String(sellerFeeCents)
       }
     };
 
-    // Convert to a destination charge if we have a connected seller
+    // If a seller is connected, route funds and apply seller fee
     if (sellerAccountId) {
-      // Funds route to the seller account
       payload.payment_intent_data.transfer_data = { destination: sellerAccountId };
-      // For compliance & correct fee behavior
       payload.payment_intent_data.on_behalf_of = sellerAccountId;
-      // Deduct your platform fee from the seller’s payout
       payload.payment_intent_data.application_fee_amount = Math.max(0, sellerFeeCents);
     }
+    // If no sellerAccountId, funds settle on your platform account (no application fee).
 
     const session = await stripe.checkout.sessions.create(
       payload,
       {
-        // Idempotency protects against double-submits / retries
+        // Idempotency helps prevent duplicates on retries
         idempotencyKey: `checkout:${listingId}:${buyerEmail}:${Date.now()}`
       }
     );
 
-    // Frontend expects sessionId (you’re using redirectToCheckout)
     return res.status(200).json({ sessionId: session.id });
   } catch (err) {
     console.error("create-checkout-session error:", err);
     return res.status(500).json({ error: "Internal error creating session" });
   }
 }
-
