@@ -462,11 +462,28 @@
     }
 
     /* ===========================
-       Email notifications (optional)
+       Email notifications (unified)
        =========================== */
-    try{ if(EMAILJS_PUBLIC) emailjs.init(EMAILJS_PUBLIC); }catch{}
-    function sellerNotify(email, vars={}) { if(!email || !EMAILJS_SERVICE || !EMAILJS_TPL_SELLER) return; try { emailjs.send(EMAILJS_SERVICE, EMAILJS_TPL_SELLER, { to_email: email, ...vars }); } catch(e){} }
-    function buyerNotify(email, vars={})  { if(!email || !EMAILJS_SERVICE || !EMAILJS_TPL_BUYER) return;  try { emailjs.send(EMAILJS_SERVICE, EMAILJS_TPL_BUYER,  { to_email: email, ...vars }); } catch(e){} }
+    try { if (EMAILJS_PUBLIC) emailjs.init(EMAILJS_PUBLIC); } catch {}
+
+    function sendNotify(to_email, vars = {}) {
+      // Uses single flexible template (seller, buyer, login variants via {{purpose}})
+      if (!to_email || !EMAILJS_SERVICE || !EMAILJS_TPL_SELLER) return;
+      try {
+        return emailjs.send(EMAILJS_SERVICE, EMAILJS_TPL_SELLER, { to_email, ...vars });
+      } catch (e) {}
+    }
+
+    // Backwards-compatible aliases (optional)
+    const sellerNotify = (email, vars = {}) => sendNotify(email, { purpose: "seller", ...vars });
+    const buyerNotify  = (email, vars = {}) => sendNotify(email, { purpose: "buyer",  ...vars });
+
+    /** Dedicated helper for login codes (uses EMAILJS_TPL_LOGIN if set, else unified) */
+    async function sendLoginCodeEmail(email, code) {
+      const templateId = EMAILJS_TPL_LOGIN || EMAILJS_TPL_SELLER; // fallback to unified
+      if (!templateId || !EMAILJS_SERVICE) throw new Error("EmailJS template/service missing");
+      return emailjs.send(EMAILJS_SERVICE, templateId, { to_email: email, code, purpose: "login" });
+    }
 
     /* ===========================
        Render Listings (escaped)
@@ -821,12 +838,7 @@
       const code = genCode();
       storeCode(email, code);
       try {
-        await emailjs.send(
-          (window.APP_CONFIG?.EMAILJS_SERVICE || ""),
-          // Prefer dedicated login template if you create one, else reuse seller template
-          (EMAILJS_TPL_LOGIN || EMAILJS_TPL_SELLER || ""),
-          { to_email: email, code }
-        );
+        await sendLoginCodeEmail(email, code);
         showLoginStep("code");
         sellerLoginCode?.focus();
       } catch (e) {
@@ -988,4 +1000,3 @@
   </script>
 </body>
 </html>
-
