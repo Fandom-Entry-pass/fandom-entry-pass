@@ -286,6 +286,18 @@
             <div id="noListings" class="hidden text-sm text-gray-500 mt-2">No listings found for this email.</div>
           </div>
 
+          <!-- ✅ NEW Orders (this device) panel -->
+          <div class="md:col-span-3 rounded-2xl border border-gray-200 p-4">
+            <div class="flex items-center justify-between">
+              <h4 class="font-poppins text-lg">Orders (this device)</h4>
+              <button id="refreshOrders" class="rounded-xl bg-gray-100 px-3 py-2 hover:bg-gray-200">Refresh</button>
+            </div>
+            <p class="text-xs text-gray-500 mt-1">These Checkout Sessions were saved on this device after a successful redirect.</p>
+            <div id="myOrders" class="mt-3 grid sm:grid-cols-2 lg:grid-cols-3 gap-4"></div>
+            <div id="noOrders" class="hidden text-sm text-gray-500 mt-2">No orders saved yet.</div>
+          </div>
+          <!-- /NEW Orders panel -->
+
           <!-- Escrow status tool (manual check) -->
           <div class="md:col-span-3 rounded-2xl border border-gray-200 p-4">
             <h4 class="font-poppins text-lg">Check an Order (optional)</h4>
@@ -467,20 +479,13 @@
     try { if (EMAILJS_PUBLIC) emailjs.init(EMAILJS_PUBLIC); } catch {}
 
     function sendNotify(to_email, vars = {}) {
-      // Uses single flexible template (seller, buyer, login variants via {{purpose}})
       if (!to_email || !EMAILJS_SERVICE || !EMAILJS_TPL_SELLER) return;
-      try {
-        return emailjs.send(EMAILJS_SERVICE, EMAILJS_TPL_SELLER, { to_email, ...vars });
-      } catch (e) {}
+      try { return emailjs.send(EMAILJS_SERVICE, EMAILJS_TPL_SELLER, { to_email, ...vars }); } catch (e) {}
     }
-
-    // Backwards-compatible aliases (optional)
     const sellerNotify = (email, vars = {}) => sendNotify(email, { purpose: "seller", ...vars });
     const buyerNotify  = (email, vars = {}) => sendNotify(email, { purpose: "buyer",  ...vars });
-
-    /** Dedicated helper for login codes (uses EMAILJS_TPL_LOGIN if set, else unified) */
     async function sendLoginCodeEmail(email, code) {
-      const templateId = EMAILJS_TPL_LOGIN || EMAILJS_TPL_SELLER; // fallback to unified
+      const templateId = EMAILJS_TPL_LOGIN || EMAILJS_TPL_SELLER;
       if (!templateId || !EMAILJS_SERVICE) throw new Error("EmailJS template/service missing");
       return emailjs.send(EMAILJS_SERVICE, templateId, { to_email: email, code, purpose: "login" });
     }
@@ -525,7 +530,6 @@
           ${ ok ? "" : `<div class="mt-3 text-[11px] text-rose-600">⚠️ This price exceeds the +15% cap and will be blocked.</div>` }
           <div class="mt-2 text-[11px] text-gray-500">Funds held until transfer is confirmed. Report issues to <a class="underline" href="mailto:support@fandomentrypass.com">support</a>.</div>
         `;
-
         elListings.appendChild(card);
       }
       document.querySelectorAll("[data-buy]").forEach(btn=>{
@@ -737,6 +741,9 @@
         const data = await resp.json();
         if (!data?.ok) return;
 
+        <!-- ✅ NEW: Save successful session id so seller dashboard can show it -->
+        addOrderSid(sid);
+
         const container = document.createElement("div");
         container.className = "fixed bottom-0 inset-x-0 z-50 bg-emerald-50 border-t border-emerald-200 p-4";
         container.innerHTML = `
@@ -854,17 +861,15 @@
         return alert("Code expired. Please request a new one.");
       }
       if (entered !== code) return alert("Incorrect code.");
-      // Persist seller profile + mirror the email used in dashboard input
       const existing = getSellerProfile() || {};
       const acct = localStorage.getItem("fep_connect_acct") || existing.connectAccountId || "";
       setSellerProfile({ email, connectAccountId: acct });
       localStorage.setItem("fep_seller_email", email);
-      // Clear temp
       sessionStorage.removeItem(CODE_KEY);
       sessionStorage.removeItem(CODE_EMAIL_KEY);
       sessionStorage.removeItem(CODE_EXPIRES_KEY);
       closeSellerLoginModal();
-      openSellerDash(); // go straight to dashboard after sign-in
+      openSellerDash();
     });
 
     /* ========= SELLER DASHBOARD LOGIC ========= */
@@ -875,7 +880,6 @@
     function closeSellerDash(){ document.getElementById("sellerDash").classList.add("hidden"); }
 
     openSellerBtn?.addEventListener("click", ()=>{
-      // If no saved seller email, show login first
       const email = localStorage.getItem(FEP_SELLER_EMAIL_KEY) || "";
       if (!email) openSellerLogin(); else openSellerDash();
     });
@@ -885,7 +889,6 @@
       const email = document.getElementById("sellerEmailInput").value.trim();
       if(!email) return alert("Enter a seller email.");
       localStorage.setItem(FEP_SELLER_EMAIL_KEY, email);
-      // Also reflect in seller profile
       const prof = getSellerProfile() || {};
       setSellerProfile({ email, connectAccountId: prof.connectAccountId || localStorage.getItem(FEP_ACCT_KEY) || "" });
       renderMyListings();
@@ -974,19 +977,109 @@
     }
     document.getElementById("checkSid")?.addEventListener("click", checkSid);
 
+    /* ✅ NEW: local saved orders utilities */
+    const FEP_ORDERS_KEY = "fep_orders_v1"; // [{ sid, savedAt }]
+    function getOrders() { try { return JSON.parse(localStorage.getItem(FEP_ORDERS_KEY) || "[]"); } catch { return []; } }
+    function saveOrders(list) { localStorage.setItem(FEP_ORDERS_KEY, JSON.stringify(list || [])); }
+    function addOrderSid(sid) {
+      if (!sid) return;
+      const list = getOrders();
+      if (!list.find(o => o.sid === sid)) {
+        list.unshift({ sid, savedAt: Date.now() });
+        saveOrders(list);
+      }
+    }
+    async function fetchOrderStatus(sid) {
+      const r = await fetch(`${ORIGIN}/api/session-status?sid=${encodeURIComponent(sid)}`);
+      if (!r.ok) throw new Error(await r.text().catch(()=>"") || r.statusText);
+      return r.json();
+    }
+    function fmtDeadline(deadlineEpochSec, nowEpochSec) {
+      const remain = Math.max(0, deadlineEpochSec - nowEpochSec);
+      const h = Math.floor(remain / 3600);
+      const m = Math.floor((remain % 3600) / 60);
+      const s = remain % 60;
+      return `${h.toString().padStart(2,"0")}:${m.toString().padStart(2,"0")}:${s.toString().padStart(2,"0")}`;
+    }
+
+    /* ✅ NEW: render Orders in Seller Dashboard */
+    async function renderOrders() {
+      const wrap = document.getElementById("myOrders");
+      const empty = document.getElementById("noOrders");
+      if (!wrap) return;
+      wrap.textContent = "";
+      const list = getOrders();
+      if (!list.length) { empty?.classList.remove("hidden"); return; }
+      empty?.classList.add("hidden");
+
+      for (const o of list) {
+        const div = document.createElement("div");
+        div.className = "rounded-2xl border border-gray-200 p-3 text-sm";
+        div.innerHTML = `
+          <div class="font-semibold break-all">SID: ${esc(o.sid)}</div>
+          <div class="text-xs text-gray-500 mt-0.5">Saved ${new Date(o.savedAt).toLocaleString()}</div>
+          <div class="mt-2" data-status>Loading…</div>
+          <div class="mt-2 flex gap-2">
+            <button class="rounded-xl bg-gray-900 text-white px-3 py-1" data-refresh>Refresh</button>
+            <button class="rounded-xl bg-white ring-1 ring-gray-200 px-3 py-1" data-remove>Remove</button>
+          </div>
+        `;
+        wrap.appendChild(div);
+
+        const statusEl = div.querySelector("[data-status]");
+        const refreshBtn = div.querySelector("[data-refresh]");
+        const removeBtn = div.querySelector("[data-remove]");
+        let timer = null;
+
+        async function refreshOne() {
+          statusEl.textContent = "Loading…";
+          try {
+            const d = await fetchOrderStatus(o.sid);
+            if (timer) { clearInterval(timer); timer = null; }
+            if (!d?.ok) { statusEl.textContent = "Unknown session"; return; }
+
+            if (d.requiresCapture) {
+              statusEl.innerHTML = `Status: ${esc(d.status)}<br>Escrow: requires_capture<br>`;
+              if (d.deadline && d.now) {
+                const span = document.createElement("span");
+                span.className = "font-semibold";
+                span.textContent = fmtDeadline(d.deadline, d.now);
+                const line = document.createElement("div");
+                line.innerHTML = "Auto-capture in ";
+                line.appendChild(span);
+                statusEl.appendChild(line);
+                timer = setInterval(() => {
+                  span.textContent = fmtDeadline(d.deadline, Math.floor(Date.now()/1000));
+                }, 1000);
+              }
+            } else {
+              statusEl.innerHTML = `Status: ${esc(d.status)}`;
+            }
+          } catch (e) { statusEl.textContent = "Failed to load"; }
+        }
+
+        refreshBtn.addEventListener("click", refreshOne);
+        removeBtn.addEventListener("click", () => {
+          saveOrders(getOrders().filter(x => x.sid !== o.sid));
+          renderOrders();
+        });
+        refreshOne();
+      }
+    }
+    document.getElementById("refreshOrders")?.addEventListener("click", renderOrders);
+
     function loadSellerPanel(){
-      // pick up connect return flags (?onboarded=1&account=...)
       const p = new URLSearchParams(location.search);
       const acct = p.get("account"); const ob = p.get("onboarded");
       if (acct) {
         localStorage.setItem(FEP_ACCT_KEY, acct);
         const prof = getSellerProfile() || {};
         setSellerProfile({ email: prof.email || localStorage.getItem(FEP_SELLER_EMAIL_KEY) || "", connectAccountId: acct });
-        // clean URL
         history.replaceState({}, "", location.pathname);
       }
       loadStripeStatus();
       renderMyListings();
+      renderOrders(); // ✅ NEW
     }
 
     /* ===========================
