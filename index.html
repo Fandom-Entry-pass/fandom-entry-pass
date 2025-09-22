@@ -306,6 +306,8 @@
               <input id="sidInput" placeholder="cs_live_..."
                      class="flex-1 rounded-xl bg-white px-4 py-3 ring-1 ring-gray-200 focus:ring-sky-300 outline-none" />
               <button id="checkSid" class="rounded-xl bg-gray-900 text-white px-4">Check</button>
+              <!-- ✅ ADDED: Copy SID button -->
+              <button id="copySid" class="rounded-xl bg-white ring-1 ring-gray-200 px-3 py-2 disabled:opacity-50" disabled>Copy SID</button>
             </div>
             <pre id="sidResult" class="mt-2 text-xs bg-gray-50 p-2 rounded-xl overflow-auto"></pre>
           </div>
@@ -974,8 +976,30 @@
       const d = await r.json().catch(()=> ({}));
       const out = document.getElementById("sidResult");
       out.textContent = JSON.stringify(d, null, 2);
+
+      // ✅ enable Copy SID button and stash the value
+      const copyBtn = document.getElementById("copySid");
+      if (copyBtn) {
+        copyBtn.disabled = !sid;
+        copyBtn.dataset.sid = sid || "";
+      }
     }
     document.getElementById("checkSid")?.addEventListener("click", checkSid);
+
+    // ✅ ADDED: Copy SID handler (manual check)
+    document.getElementById("copySid")?.addEventListener("click", async (e)=>{
+      const sid = e.currentTarget?.dataset?.sid || document.getElementById("sidInput")?.value || "";
+      if (!sid) return;
+      try {
+        await navigator.clipboard.writeText(sid);
+        const btn = e.currentTarget;
+        const prev = btn.textContent;
+        btn.textContent = "Copied!";
+        setTimeout(()=> btn.textContent = prev, 1100);
+      } catch {
+        alert("Could not copy SID. Please copy manually.");
+      }
+    });
 
     /* ✅ NEW: local saved orders utilities */
     const FEP_ORDERS_KEY = "fep_orders_v1"; // [{ sid, savedAt }]
@@ -1021,6 +1045,8 @@
           <div class="mt-2" data-status>Loading…</div>
           <div class="mt-2 flex gap-2">
             <button class="rounded-xl bg-gray-900 text-white px-3 py-1" data-refresh>Refresh</button>
+            <!-- ✅ ADDED: Copy SID button on each order card -->
+            <button class="rounded-xl bg-white ring-1 ring-gray-200 px-3 py-1" data-copy>Copy SID</button>
             <button class="rounded-xl bg-white ring-1 ring-gray-200 px-3 py-1" data-remove>Remove</button>
           </div>
         `;
@@ -1029,6 +1055,7 @@
         const statusEl = div.querySelector("[data-status]");
         const refreshBtn = div.querySelector("[data-refresh]");
         const removeBtn = div.querySelector("[data-remove]");
+        const copyBtn = div.querySelector("[data-copy]");
         let timer = null;
 
         async function refreshOne() {
@@ -1059,6 +1086,16 @@
         }
 
         refreshBtn.addEventListener("click", refreshOne);
+        copyBtn.addEventListener("click", async ()=>{
+          try {
+            await navigator.clipboard.writeText(o.sid);
+            const prev = copyBtn.textContent;
+            copyBtn.textContent = "Copied!";
+            setTimeout(()=> copyBtn.textContent = prev, 1100);
+          } catch {
+            alert("Could not copy SID. Please copy manually.");
+          }
+        });
         removeBtn.addEventListener("click", () => {
           saveOrders(getOrders().filter(x => x.sid !== o.sid));
           renderOrders();
