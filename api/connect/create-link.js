@@ -1,4 +1,4 @@
-// api/connect/create-link.js
+// api/connect/account-status.js
 import Stripe from "stripe";
 
 export const config = { runtime: "nodejs" };
@@ -6,37 +6,37 @@ export const config = { runtime: "nodejs" };
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion: "2024-06-20" });
 
 export default async function handler(req, res) {
-  if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
+  if (req.method !== "GET") {
+    res.setHeader("Allow", "GET");
+    return res.status(405).json({ error: "Method not allowed" });
+  }
+
+  const account = (req.query?.account || req.query?.accountId || "").toString().trim();
+  if (!account) return res.status(400).json({ error: "Missing account" });
 
   try {
-    const origin = req.headers.origin || process.env.APP_BASE_URL || "";
-    if (!origin) return res.status(500).json({ error: "Missing origin/APP_BASE_URL" });
+    const acc = await stripe.accounts.retrieve(account);
 
-    const { sellerEmail = "", sellerName = "", accountId = "" } = (req.body || {});
+    // Core flags your UI cares about
+    const charges_enabled = !!acc.charges_enabled;
+    const payouts_enabled = !!acc.payouts_enabled;
+    const details_submitted = !!acc.details_submitted;
 
-    // Reuse an existing account if provided, otherwise create a new Express account
-    let account;
-    if (accountId) {
-      account = await stripe.accounts.retrieve(accountId);
-    } else {
-      account = await stripe.accounts.create({
-        type: "express",
-        email: sellerEmail || undefined,
-        business_profile: sellerName ? { name: sellerName } : undefined,
-      });
-    }
+    // Optional: show what’s still required (useful for debugging “Needs info”)
+    const requirements = acc.requirements || {};
 
-    // Create an onboarding link that returns with query flags your UI listens for
-    const link = await stripe.accountLinks.create({
-      account: account.id,
-      type: "account_onboarding",
-      refresh_url: `${origin}/?onboarded=0&account=${encodeURIComponent(account.id)}`,
-      return_url:  `${origin}/?onboarded=1&account=${encodeURIComponent(account.id)}`,
+    return res.status(200).json({
+      ok: true,
+      account: acc.id,
+      charges_enabled,
+      payouts_enabled,
+      details_submitted,
+      requirements, // includes current_deadline, disabled_reason, past_due, pending_verification, etc.
     });
-
-    return res.status(200).json({ url: link.url, accountId: account.id });
   } catch (err) {
-    console.error("create-link error:", err);
-    return res.status(500).json({ error: err.message || "Internal error" });
+    console.error("account-status error:", err);
+    // Bubble up 404s if the account id is wrong
+    if (err?.statusCode === 404) return res.status(404).json({ error: "Account not found" });
+    return res.status(500).json({ error: "Failed to retrieve account status" });
   }
 }
