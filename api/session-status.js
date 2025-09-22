@@ -11,17 +11,17 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: "Method not allowed" });
   }
 
-  const { sid } = req.query || {};
-  const sessionId = String(sid || "");
-
-  if (!sessionId) return res.status(400).json({ error: "Missing sid" });
-  if (!/^cs_(test|live)_[A-Za-z0-9]+$/.test(sessionId)) {
+  const sid = (req.query?.sid || req.query?.sessionId || "").toString().trim();
+  if (!sid) return res.status(400).json({ error: "Missing sid" });
+  if (!/^cs_(test|live)_[A-Za-z0-9]+$/.test(sid)) {
     return res.status(400).json({ error: "Invalid sid" });
   }
 
   try {
-    // Retrieve the Checkout Session and associated PaymentIntent
-    const session = await stripe.checkout.sessions.retrieve(sessionId, { expand: ["payment_intent"] });
+    // Retrieve Checkout Session + PI
+    const session = await stripe.checkout.sessions.retrieve(sid, {
+      expand: ["payment_intent", "payment_intent.latest_charge.balance_transaction"],
+    });
     if (!session) return res.status(404).json({ error: "Session not found" });
 
     const pi =
@@ -31,30 +31,52 @@ export default async function handler(req, res) {
 
     if (!pi?.id) return res.status(404).json({ error: "PaymentIntent not found" });
 
-    const meta = pi.metadata || {};
-    const deadline = Number(meta.fep_confirm_deadline || 0);
-    const now = Math.floor(Date.now() / 1000);
+    const meta = pi.metadata || session.metadata || {};
 
-    // Stripe escrow state
-    const status = pi.status || "unknown";
-    const requiresCapture = status === "requires_capture";
+    // Status flags
+    const status = pi.status || session.status || "unknown";
+    const requires_capture = status === "requires_capture";
+    const succeeded = status === "succeeded";
+    const canceled = status === "canceled";
+
+    // Deadline: prefer metadata; else default to +72h from PI creation
+    const createdSec = pi.created || session.created || Math.floor(Date.now() / 1000);
+    const DEFAULT_ESCROW_SECS = 72 * 3600;
+    let deadline = Number(meta.fep_confirm_deadline || 0);
+    if (!Number.isFinite(deadline) || deadline <= createdSec) {
+      deadline = createdSec + DEFAULT_ESCROW_SECS;
+    }
+
+    // Amounts
+    const amount_total = pi.amount ?? session.amount_total ?? null; // in cents
+    const currency = (pi.currency || session.currency || "usd").toLowerCase();
+
+    // Helpful echo of metadata (if present)
+    const listingId = meta.listingId || session.metadata?.listingId || null;
+    const sellerAccountId = meta.sellerAccountId || session.metadata?.sellerAccountId || null;
 
     return res.status(200).json({
       ok: true,
       sessionId: session.id,
       payment_intent: pi.id,
-      requiresCapture,
       status,
-      deadline, // epoch seconds
-      now,
-      fep_status: meta.fep_status || ""
+      requires_capture,
+      succeeded,
+      canceled,
+      deadline,                 // unix seconds
+      now: Math.floor(Date.now() / 1000),
+      amount_total,             // cents
+      currency,
+      fep_status: meta.fep_status || "",
+      listingId,
+      sellerAccountId,
     });
   } catch (e) {
     console.error("session-status error:", e);
-    // If Stripe says not found, return 404 to help frontend logic
     if (e?.statusCode === 404) {
       return res.status(404).json({ error: "Not found" });
     }
     return res.status(500).json({ error: "Failed to get status" });
   }
 }
+
