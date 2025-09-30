@@ -1,0 +1,61 @@
+name: Auto Release (Twice Daily)
+
+on:
+  # Runs at 03:00 and 15:00 UTC every day (≈ every 12 hours)
+  schedule:
+    - cron: "0 3 * * *"
+    - cron: "0 15 * * *"
+  # Let you run it on demand from the Actions tab
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: auto-release
+  cancel-in-progress: false
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Call cron-auto-release endpoint
+        env:
+          APP_BASE_URL: ${{ secrets.FEP_APP_BASE_URL }}
+          CRON_SECRET: ${{ secrets.FEP_CRON_SECRET }}
+        run: |
+          set -euo pipefail
+
+          if [ -z "${APP_BASE_URL:-}" ] || [ -z "${CRON_SECRET:-}" ]; then
+            echo "❌ Missing FEP_APP_BASE_URL or FEP_CRON_SECRET in repo secrets."
+            exit 1
+          fi
+
+          URL="${APP_BASE_URL%/}/api/cron-auto-release"
+
+          echo "➡️  Hitting: $URL"
+          # Optional cap on operations the API will perform in one run.
+          # Remove maxOps if you want no cap.
+          HTTP_CODE=$(curl -sS -w "%{http_code}" -o response.json \
+            -H "Authorization: Bearer ${CRON_SECRET}" \
+            --get --data-urlencode "maxOps=500" \
+            "$URL")
+
+          echo "HTTP $HTTP_CODE"
+          echo "Response:"
+          cat response.json || true
+
+          # Treat non-2xx as failure
+          case "$HTTP_CODE" in
+            2*) : ;;
+            *) echo "❌ Request failed (HTTP $HTTP_CODE)"; exit 1 ;;
+          esac
+
+          # Lightweight check for {"ok": true}
+          if ! grep -q '"ok"[[:space:]]*:[[:space:]]*true' response.json; then
+            echo "❌ Endpoint did not return ok=true"
+            exit 1
+          fi
+
+          echo "✅ Done"
