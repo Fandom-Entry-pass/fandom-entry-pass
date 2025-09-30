@@ -31,7 +31,9 @@ export default async function handler(req, res) {
 
     if (!pi?.id) return res.status(404).json({ error: "PaymentIntent not found" });
 
-    const meta = pi.metadata || session.metadata || {};
+    const smeta = session.metadata || {};
+    const pmeta = pi.metadata || {};
+    const meta = { ...smeta, ...pmeta };
 
     // Status flags
     const status = pi.status || session.status || "unknown";
@@ -47,29 +49,62 @@ export default async function handler(req, res) {
       deadline = createdSec + DEFAULT_ESCROW_SECS;
     }
 
-    // Amounts
-    const amount_total = pi.amount ?? session.amount_total ?? null; // in cents
+    // Currency and totals (cents)
     const currency = (pi.currency || session.currency || "usd").toLowerCase();
 
-    // Helpful echo of metadata (if present)
-    const listingId = meta.listingId || session.metadata?.listingId || null;
-    const sellerAccountId = meta.sellerAccountId || session.metadata?.sellerAccountId || null;
+    // Pull fee & pricing hints from metadata (set in create-checkout-session)
+    const qty = Number(meta.qty || 1);
+    const priceUsd = Number(meta.price || 0);              // per ticket (USD)
+    const buyer_fee_cents = Number(meta.buyer_fee_cents || 0);
+    const seller_fee_cents = Number(meta.seller_fee_cents || 0);
+
+    // Derive helpful numbers safely
+    const unit_cents = Math.round(priceUsd * 100) || 0;
+    const ticket_subtotal_cents = unit_cents * (Number.isFinite(qty) && qty > 0 ? qty : 1);
+    const buyer_total_cents =
+      (Number.isFinite(ticket_subtotal_cents) ? ticket_subtotal_cents : 0) +
+      (Number.isFinite(buyer_fee_cents) ? buyer_fee_cents : 0);
+    const seller_estimated_payout_cents =
+      (Number.isFinite(ticket_subtotal_cents) ? ticket_subtotal_cents : 0) -
+      (Number.isFinite(seller_fee_cents) ? seller_fee_cents : 0);
+
+    // Include amount_total if Stripe computed it (may include fees/taxes if you ever add them)
+    const amount_total = Number.isFinite(session.amount_total) ? session.amount_total : null;
+
+    // Helpful echoes
+    const listingId = meta.listingId || null;
+    const sellerAccountId = meta.sellerAccountId || null;
 
     return res.status(200).json({
       ok: true,
       sessionId: session.id,
       payment_intent: pi.id,
+
       status,
       requires_capture,
       succeeded,
       canceled,
-      deadline,                 // unix seconds
+
+      deadline,                           // unix seconds
       now: Math.floor(Date.now() / 1000),
-      amount_total,             // cents
+
+      // Stripe computed (if present)
+      amount_total,                       // cents
       currency,
+
+      // FEP metadata/status
       fep_status: meta.fep_status || "",
       listingId,
       sellerAccountId,
+
+      // 🔎 Fee & payout snapshot (derived from metadata)
+      qty: Number.isFinite(qty) ? qty : 1,
+      unit_cents,
+      ticket_subtotal_cents,
+      buyer_fee_cents,
+      buyer_total_cents,
+      seller_fee_cents,
+      seller_estimated_payout_cents,
     });
   } catch (e) {
     console.error("session-status error:", e);
@@ -79,4 +114,3 @@ export default async function handler(req, res) {
     return res.status(500).json({ error: "Failed to get status" });
   }
 }
-
