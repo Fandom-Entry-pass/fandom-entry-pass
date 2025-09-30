@@ -1,5 +1,8 @@
 // api/cron-auto-release.js
-// Runs via Vercel Cron (*/15 * * * *). Captures or cancels PaymentIntents after the 72h deadline.
+// Scheduled task: capture or cancel authorized PaymentIntents after the 72h deadline.
+// Trigger this from GitHub Actions (or any scheduler) with a secret:
+//   GET /api/cron-auto-release?key=YOUR_SECRET
+// or set header: Authorization: Bearer YOUR_SECRET
 
 import Stripe from "stripe";
 
@@ -7,9 +10,11 @@ export const config = { runtime: "nodejs" };
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion: "2024-06-20" });
 
-// Optional: set CRON_SECRET to let you run this manually like
-// /api/cron-auto-release?key=YOUR_SECRET
+// Shared secret for external scheduler auth
 const CRON_SECRET = process.env.CRON_SECRET || null;
+
+// Safety cap on operations per run (capture+cancel combined)
+const DEFAULT_MAX_OPS = Number(process.env.CRON_MAX_OPS || 150);
 
 export default async function handler(req, res) {
   if (req.method !== "GET") {
@@ -17,12 +22,16 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: "Method not allowed" });
   }
 
-  // Allow only Vercel Cron or a manual run with a shared secret
-  const isCron = req.headers["x-vercel-cron"] === "1";
-  const hasKey = CRON_SECRET && req.query?.key === CRON_SECRET;
-  if (!isCron && !hasKey) {
-    return res.status(403).json({ error: "Forbidden – cron only" });
+  // --- Auth: allow either query ?key= or Authorization: Bearer
+  const bearer = String(req.headers.authorization || "").replace(/^Bearer\s+/i, "").trim();
+  const qsKey = String(req.query?.key || "");
+  const provided = bearer || qsKey;
+  if (!CRON_SECRET || provided !== CRON_SECRET) {
+    return res.status(403).json({ error: "Forbidden – missing/invalid cron secret" });
   }
+
+  // Optional: per-run cap override (?maxOps=50)
+  const maxOps = Math.max(1, Math.min(Number(req.query?.maxOps || DEFAULT_MAX_OPS), 1000));
 
   const now = Math.floor(Date.now() / 1000);
   const results = {
@@ -32,18 +41,21 @@ export default async function handler(req, res) {
     canceled: 0,
     skipped_on_hold: 0,
     already_final: 0,
-    errors: 0
+    errors: 0,
+    maxOps
   };
 
   try {
-    // Find all FEP PaymentIntents that are still awaiting capture
+    // Search all PaymentIntents that belong to FEP and are authorized/awaiting capture
+    // https://stripe.com/docs/search#search-query-language
     const query = "status:'requires_capture' AND metadata['fep']:'1'";
 
-    // Auto-pagination: iterates over all pages, not just the first 100
+    // Iterate pages; stop if we hit the per-run operation cap
     for await (const pi of stripe.paymentIntents.search({ query, limit: 100 })) {
+      if (results.captured + results.canceled >= maxOps) break;
+
       results.checked++;
 
-      // Defensive: only operate on requires_capture
       if (pi.status !== "requires_capture") {
         results.already_final++;
         continue;
@@ -52,34 +64,39 @@ export default async function handler(req, res) {
       const meta = pi.metadata || {};
       const deadline = Number(meta.fep_confirm_deadline || 0);
       const fepStatus = String(meta.fep_status || "");
-      const isOnHold = fepStatus === "on_hold" || fepStatus === "issue_reported" || fepStatus === "dispute";
+      const isOnHold =
+        fepStatus === "on_hold" || fepStatus === "issue_reported" || fepStatus === "dispute";
 
-      // Not configured with a deadline? Skip safely.
+      // No deadline? skip (defensive)
       if (!deadline) continue;
 
-      // Not yet due.
+      // Not yet due
       if (now < deadline) continue;
 
       results.due++;
 
       try {
         if (isOnHold) {
-          // If an issue was reported (or manually put on hold), cancel after deadline.
+          // If issue was reported (or you marked on-hold), cancel after deadline.
           await stripe.paymentIntents.cancel(
             pi.id,
             { cancellation_reason: "requested_by_customer" },
             { idempotencyKey: `cron-cancel:${pi.id}` }
           );
-          await stripe.paymentIntents.update(pi.id, { metadata: { ...meta, fep_status: "canceled" } });
+          await stripe.paymentIntents.update(pi.id, {
+            metadata: { ...meta, fep_status: "canceled" }
+          });
           results.canceled++;
         } else {
-          // Otherwise, auto-capture after deadline.
+          // Otherwise auto-capture after deadline
           await stripe.paymentIntents.capture(pi.id, {}, { idempotencyKey: `cron-capture:${pi.id}` });
-          await stripe.paymentIntents.update(pi.id, { metadata: { ...meta, fep_status: "captured" } });
+          await stripe.paymentIntents.update(pi.id, {
+            metadata: { ...meta, fep_status: "captured" }
+          });
           results.captured++;
         }
       } catch (e) {
-        // If a human paused it after we read, count as skipped
+        // If state changed between search & action (e.g., manually paused), count as skipped
         if (e?.code === "payment_intent_unexpected_state") {
           results.skipped_on_hold++;
         } else {
