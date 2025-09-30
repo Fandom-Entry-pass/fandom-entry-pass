@@ -8,8 +8,11 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion: "2024-06-
 // Optional: hard-code your public app base if you prefer; otherwise we’ll use the request origin
 const APP_BASE_URL = process.env.APP_BASE_URL || "";
 
-// Flat buyer fee per **order** (in cents)
+// Buyer service fee per **order** (in cents)
 const BUYER_FEE_CENTS = 350; // $3.50
+
+// Confirmation window for escrow (in hours) – used to set fep_confirm_deadline metadata
+const CONFIRM_HOURS = Number(process.env.FEP_CONFIRM_HOURS || 72);
 
 function toCents(n) {
   const num = Number(n);
@@ -80,8 +83,12 @@ export default async function handler(req, res) {
     // ----- Totals & fees -----
     const ticketSubtotalCents = unitAmount * qtyInt;
 
-    // Seller fee = 5% of ticket subtotal + $0.50 (50¢)
-    const sellerFeeCents = Math.round(ticketSubtotalCents * 0.05) + 50;
+    // ✅ Seller fee = 5% of ticket subtotal + $0.75 per ticket
+    const sellerFeeCents =
+      Math.round(ticketSubtotalCents * 0.05) + (75 * qtyInt);
+
+    // Confirmation deadline (epoch seconds)
+    const confirmDeadline = Math.floor(Date.now() / 1000) + CONFIRM_HOURS * 3600;
 
     // ----- Build Checkout payload -----
     const payload = {
@@ -93,6 +100,7 @@ export default async function handler(req, res) {
         metadata: {
           fep: "1",
           fep_status: "pending",
+          fep_confirm_deadline: String(confirmDeadline),
           listingId,
           group: group || "",
           sellerEmail: sellerEmail || "",
@@ -106,7 +114,7 @@ export default async function handler(req, res) {
         }
       },
 
-      // Two line items: tickets + buyer fee
+      // Two line items: tickets + buyer service fee (buyer only sees this)
       line_items: [
         {
           price_data: {
@@ -117,13 +125,13 @@ export default async function handler(req, res) {
           quantity: qtyInt
         },
         {
-          // Buyer Protection Fee (flat $3.50 per order)
+          // Buyer Service Fee (flat $3.50 per order)
           price_data: {
             currency: "usd",
             unit_amount: BUYER_FEE_CENTS,
             product_data: {
-              name: "Buyer Protection Fee",
-              description: "Covers escrow, support, and platform services"
+              name: "Service Fee",
+              description: "Covers escrow and platform services"
             }
           },
           quantity: 1
@@ -140,23 +148,22 @@ export default async function handler(req, res) {
         buyerEmail: buyerEmail || "",
         sellerAccountId: sellerAccountId || "",
         buyer_fee_cents: String(BUYER_FEE_CENTS),
-        seller_fee_cents: String(sellerFeeCents)
+        seller_fee_cents: String(sellerFeeCents),
+        fep_confirm_deadline: String(confirmDeadline)
       }
     };
 
-    // If a seller is connected, route funds and apply seller fee
-    if (sellerAccountId) {
-      payload.payment_intent_data.transfer_data = { destination: sellerAccountId };
-      payload.payment_intent_data.on_behalf_of = sellerAccountId;
-      payload.payment_intent_data.application_fee_amount = Math.max(0, sellerFeeCents);
-    }
-    // If no sellerAccountId, funds settle on your platform account (no application fee).
+    // IMPORTANT:
+    // Do NOT set transfer_data or application_fee_amount here,
+    // because your /api/confirm-received creates the post-capture transfer
+    // (paying seller price − (5% + $0.75) × qty). If you set them here as well,
+    // you'd double-handle payouts.
 
     const session = await stripe.checkout.sessions.create(
       payload,
       {
         // Idempotency helps prevent duplicates on retries
-        idempotencyKey: `checkout:${listingId}:${buyerEmail}:${Date.now()}`
+        idempotencyKey: `checkout:${listingId}:${buyerEmail}:${qtyInt}:${unitAmount}`
       }
     );
 
