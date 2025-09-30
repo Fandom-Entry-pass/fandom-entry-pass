@@ -170,9 +170,24 @@
           </div>
           <div>
             <label class="text-sm text-gray-600">Your Price (USD) <span class="text-rose-500">*</span></label>
-            <input name="price" type="number" min="1" step="1" required placeholder="110" class="w-full mt-1 rounded-2xl bg-white px-4 py-3 ring-1 ring-gray-200 focus:ring-sky-300 outline-none" />
+            <input id="priceInput" name="price" type="number" min="1" step="1" required placeholder="110" class="w-full mt-1 rounded-2xl bg-white px-4 py-3 ring-1 ring-gray-200 focus:ring-sky-300 outline-none" />
             <p class="text-xs text-gray-500 mt-1">We auto-check the +15% cap. Above-cap listings are blocked.</p>
           </div>
+
+          <!-- DAY6: Seller fee + payout live box -->
+          <div class="sm:col-span-3">
+            <div id="sellerFeeBox" class="mt-1 rounded-2xl border border-amber-200 bg-amber-50 p-3 text-sm">
+              <div class="flex flex-wrap items-center gap-x-4 gap-y-1">
+                <div>Platform fee (you pay): <span id="feePerTicket" class="font-semibold">$0.00</span> / ticket</div>
+                <div>Estimated payout: <span id="payoutPerTicket" class="font-semibold">$0.00</span> / ticket</div>
+                <div class="text-xs text-gray-600">Excludes Stripe processing fees.</div>
+              </div>
+              <div class="text-xs text-gray-600 mt-1">
+                Buyer sees a flat <span class="font-semibold">$3.50</span> service fee in checkout (not shown on listings).
+              </div>
+            </div>
+          </div>
+
           <div class="sm:col-span-3">
             <label class="text-sm text-gray-600">Proof of Ticket (image) <span class="text-rose-500">*</span></label>
             <input name="proof" type="file" accept="image/*" required class="w-full mt-1 rounded-2xl bg-white px-4 py-3 ring-1 ring-gray-200" />
@@ -286,7 +301,7 @@
             <div id="noListings" class="hidden text-sm text-gray-500 mt-2">No listings found for this email.</div>
           </div>
 
-          <!-- ✅ NEW Orders (this device) panel -->
+          <!-- Orders (this device) -->
           <div class="md:col-span-3 rounded-2xl border border-gray-200 p-4">
             <div class="flex items-center justify-between">
               <h4 class="font-poppins text-lg">Orders (this device)</h4>
@@ -296,7 +311,6 @@
             <div id="myOrders" class="mt-3 grid sm:grid-cols-2 lg:grid-cols-3 gap-4"></div>
             <div id="noOrders" class="hidden text-sm text-gray-500 mt-2">No orders saved yet.</div>
           </div>
-          <!-- /NEW Orders panel -->
 
           <!-- Escrow status tool (manual check) -->
           <div class="md:col-span-3 rounded-2xl border border-gray-200 p-4">
@@ -306,7 +320,7 @@
               <input id="sidInput" placeholder="cs_live_..."
                      class="flex-1 rounded-xl bg-white px-4 py-3 ring-1 ring-gray-200 focus:ring-sky-300 outline-none" />
               <button id="checkSid" class="rounded-xl bg-gray-900 text-white px-4">Check</button>
-              <!-- ✅ ADDED: Copy SID button -->
+              <!-- ✅ Copy SID button -->
               <button id="copySid" class="rounded-xl bg-white ring-1 ring-gray-200 px-3 py-2 disabled:opacity-50" disabled>Copy SID</button>
             </div>
             <pre id="sidResult" class="mt-2 text-xs bg-gray-50 p-2 rounded-xl overflow-auto"></pre>
@@ -395,11 +409,20 @@
     function load(){ try{ return JSON.parse(localStorage.getItem(KEY) || "[]") }catch{ return [] } }
     function save(list){ localStorage.setItem(KEY, JSON.stringify(list)) }
     const money = n => "$"+Number(n).toFixed(0);
+    /* DAY6: keep cents for fees/payouts */
+    const money2 = n => "$"+(isFinite(n)? Number(n).toFixed(2) : "0.00");
     const capFor = face => Math.round(Number(face)*1.15);
     const withinCap = (face, price) => Number(price) <= capFor(face) + 0.0001;
     const hoursMs = h => h*60*60*1000;
     const token = () => Math.random().toString(36).slice(2)+Math.random().toString(36).slice(2);
     const esc = s => String(s ?? "").replace(/[&<>"'`=\/]/g, c => ({'&':'&amp;','<':'&lt;','>':'&#x3E;','"':'&quot;',"'":'&#39;','/':'&#x2F;','`':'&#x60;','=':'&#x3D;'}[c]));
+
+    /* DAY6: fee constants & helpers */
+    const BUYER_SERVICE_FEE = 3.50;       // buyer-only, not shown on public cards
+    const SELLER_FEE_PCT    = 0.05;       // 5%
+    const SELLER_FEE_FLAT   = 0.75;       // $0.75 per ticket
+    const calcPlatformFee = (price)=> Math.max(0, (Number(price)||0)*SELLER_FEE_PCT + SELLER_FEE_FLAT);
+    const calcPayoutPerTicket = (price)=> Math.max(0, (Number(price)||0) - calcPlatformFee(price));
 
     /* ===========================
        Formspree (attachment) with Resend fallback
@@ -589,6 +612,21 @@
     /* ===========================
        Add Listing
        =========================== */
+    // DAY6: live fee/payout updater
+    function updateSellerFeeUI(){
+      const price = Number(document.getElementById("priceInput")?.value || 0);
+      const qty = Math.max(1, Number(document.querySelector('[name="qty"]')?.value || 1));
+      const feePer = calcPlatformFee(price);
+      const payoutPer = calcPayoutPerTicket(price);
+      const feePerEl = document.getElementById("feePerTicket");
+      const payoutPerEl = document.getElementById("payoutPerTicket");
+      if (feePerEl) feePerEl.textContent = money2(feePer);
+      if (payoutPerEl) payoutPerEl.textContent = money2(payoutPer);
+    }
+    document.addEventListener("input", (e)=>{
+      if (e.target && (e.target.id==="priceInput" || e.target.name==="qty")) updateSellerFeeUI();
+    });
+
     document.getElementById("addForm").addEventListener("submit", async (e)=>{
       e.preventDefault();
       const fd=new FormData(e.target);
@@ -619,7 +657,7 @@
         pay: String(fd.get("pay")||"").trim(),
         seller: String(fd.get("seller")||"Seller").trim(),
         sellerEmail, sellerPhone,
-        sellerAccountId,             // ⬅️ ensure it’s stored on the listing
+        sellerAccountId,
         editToken, manageCode
       };
 
@@ -743,7 +781,7 @@
         const data = await resp.json();
         if (!data?.ok) return;
 
-        <!-- ✅ NEW: Save successful session id so seller dashboard can show it -->
+        // Save successful session id so seller dashboard can show it
         addOrderSid(sid);
 
         const container = document.createElement("div");
@@ -957,6 +995,10 @@
       if(!my.length){ empty.classList.remove("hidden"); return; }
       empty.classList.add("hidden");
       for(const it of my){
+        const feePer = calcPlatformFee(it.price);
+        const payoutPer = calcPayoutPerTicket(it.price);
+        const totalIfAllSell = payoutPer * (it.qty || 0);
+
         const div = document.createElement("div");
         div.className = "rounded-2xl border border-gray-200 p-3";
         div.innerHTML = `
@@ -964,6 +1006,12 @@
           <div class="text-xs text-gray-500">${esc(it.date)}${it.city?(" • "+esc(it.city)):""}</div>
           <div class="text-xs text-gray-500 mt-1">${esc(it.seat||"")}</div>
           <div class="mt-2 text-sm">Price: ${money(it.price)} • Qty: ${it.qty} • Avail: ${(it.remaining ?? it.qty)}</div>
+          <!-- DAY6: show seller fees & payout -->
+          <div class="mt-1 text-xs text-gray-700">
+            Platform fee: <span class="font-medium">${money2(feePer)}</span> / ticket •
+            Est. payout: <span class="font-medium">${money2(payoutPer)}</span> / ticket
+          </div>
+          <div class="text-[11px] text-gray-500">If all sell: ${money2(totalIfAllSell)} (excludes Stripe processing)</div>
         `;
         wrap.appendChild(div);
       }
@@ -977,7 +1025,7 @@
       const out = document.getElementById("sidResult");
       out.textContent = JSON.stringify(d, null, 2);
 
-      // ✅ enable Copy SID button and stash the value
+      // enable Copy SID button and stash the value
       const copyBtn = document.getElementById("copySid");
       if (copyBtn) {
         copyBtn.disabled = !sid;
@@ -986,7 +1034,7 @@
     }
     document.getElementById("checkSid")?.addEventListener("click", checkSid);
 
-    // ✅ ADDED: Copy SID handler (manual check)
+    // Copy SID handler (manual check)
     document.getElementById("copySid")?.addEventListener("click", async (e)=>{
       const sid = e.currentTarget?.dataset?.sid || document.getElementById("sidInput")?.value || "";
       if (!sid) return;
@@ -1001,7 +1049,7 @@
       }
     });
 
-    /* ✅ NEW: local saved orders utilities */
+    /* Local saved orders utilities */
     const FEP_ORDERS_KEY = "fep_orders_v1"; // [{ sid, savedAt }]
     function getOrders() { try { return JSON.parse(localStorage.getItem(FEP_ORDERS_KEY) || "[]"); } catch { return []; } }
     function saveOrders(list) { localStorage.setItem(FEP_ORDERS_KEY, JSON.stringify(list || [])); }
@@ -1026,7 +1074,7 @@
       return `${h.toString().padStart(2,"0")}:${m.toString().padStart(2,"0")}:${s.toString().padStart(2,"0")}`;
     }
 
-    /* ✅ NEW: render Orders in Seller Dashboard */
+    /* render Orders in Seller Dashboard */
     async function renderOrders() {
       const wrap = document.getElementById("myOrders");
       const empty = document.getElementById("noOrders");
@@ -1045,7 +1093,6 @@
           <div class="mt-2" data-status>Loading…</div>
           <div class="mt-2 flex gap-2">
             <button class="rounded-xl bg-gray-900 text-white px-3 py-1" data-refresh>Refresh</button>
-            <!-- ✅ ADDED: Copy SID button on each order card -->
             <button class="rounded-xl bg-white ring-1 ring-gray-200 px-3 py-1" data-copy>Copy SID</button>
             <button class="rounded-xl bg-white ring-1 ring-gray-200 px-3 py-1" data-remove>Remove</button>
           </div>
@@ -1116,7 +1163,7 @@
       }
       loadStripeStatus();
       renderMyListings();
-      renderOrders(); // ✅ NEW
+      renderOrders();
     }
 
     /* ===========================
@@ -1126,7 +1173,9 @@
       gateCheck();
       applyFilters();
       document.getElementById("openSeller")?.classList.remove("hidden");
+      updateSellerFeeUI(); // DAY6: seed fee box
     })();
   </script>
 </body>
 </html>
+
