@@ -503,18 +503,69 @@
        =========================== */
     try { if (EMAILJS_PUBLIC) emailjs.init(EMAILJS_PUBLIC); } catch {}
 
-    function sendNotify(to_email, vars = {}) {
-      if (!to_email || !EMAILJS_SERVICE || !EMAILJS_TPL_SELLER) return;
-      try { return emailjs.send(EMAILJS_SERVICE, EMAILJS_TPL_SELLER, { to_email, ...vars }); } catch (e) {}
-    }
-    const sellerNotify = (email, vars = {}) => sendNotify(email, { purpose: "seller", ...vars });
-    const buyerNotify  = (email, vars = {}) => sendNotify(email, { purpose: "buyer",  ...vars });
-    async function sendLoginCodeEmail(email, code) {
-      const templateId = EMAILJS_TPL_LOGIN || EMAILJS_TPL_SELLER;
-      if (!templateId || !EMAILJS_SERVICE) throw new Error("EmailJS template/service missing");
-      return emailjs.send(EMAILJS_SERVICE, templateId, { to_email: email, code, purpose: "login" });
-    }
+   // Wait until EmailJS SDK is available, then init with your public key.
+// Handles the fact that the SDK is loaded with "defer" and our inline script runs earlier.
+let _emailjsReady = null;
+function whenEmailJSReady(timeoutMs = 8000) {
+  if (_emailjsReady) return _emailjsReady;
+  _emailjsReady = new Promise((resolve, reject) => {
+    const started = Date.now();
+    (function poll() {
+      if (window.emailjs && EMAILJS_PUBLIC) {
+        try {
+          // Guard against double-init
+          if (!window.__fep_emailjs_inited) {
+            emailjs.init(EMAILJS_PUBLIC);
+            window.__fep_emailjs_inited = true;
+          }
+          return resolve(true);
+        } catch (e) {
+          return reject(new Error("EmailJS init failed: " + (e?.message || e)));
+        }
+      }
+      if (Date.now() - started > timeoutMs) {
+        return reject(new Error("EmailJS SDK not loaded (timeout). Check script tag & network."));
+      }
+      setTimeout(poll, 50);
+    })();
+  });
+  return _emailjsReady;
+}
 
+// Generic notifier
+function sendNotify(to_email, vars = {}) {
+  // You must have all 3 set in config.js (or Vercel env → injected): PUBLIC, SERVICE, TEMPLATE
+  if (!to_email) return Promise.reject(new Error("Missing to_email"));
+  if (!EMAILJS_SERVICE) return Promise.reject(new Error("Missing EMAILJS_SERVICE"));
+  if (!EMAILJS_TPL_SELLER) return Promise.reject(new Error("Missing EMAILJS_TPL_SELLER"));
+
+  return whenEmailJSReady().then(() => {
+    return emailjs.send(EMAILJS_SERVICE, EMAILJS_TPL_SELLER, { to_email, ...vars });
+  });
+}
+
+// Dedicated login-code sender; falls back to seller template if you didn’t create a separate one
+async function sendLoginCodeEmail(email, code) {
+  const templateId = EMAILJS_TPL_LOGIN || EMAILJS_TPL_SELLER;
+  if (!EMAILJS_SERVICE) throw new Error("EMAILJS_SERVICE not set");
+  if (!templateId) throw new Error("No login template (EMAILJS_TPL_LOGIN) or seller template configured");
+
+  await whenEmailJSReady();
+  // These fields must match your EmailJS template variables
+  const params = {
+    to_email: email,
+    code,
+    purpose: "login",
+    subject: "Your login code",
+    message: "Use the code below to sign in.",
+    // Nice-to-have defaults (your template can ignore these if not used)
+    seller: "",
+    group: "", date: "", city: "", seat: "",
+    face: "", price: "", qty: "", buyerEmail: "", fep_status: "pending"
+  };
+
+  return emailjs.send(EMAILJS_SERVICE, templateId, params);
+}
     /* ===========================
        Render Listings (escaped)
        =========================== */
