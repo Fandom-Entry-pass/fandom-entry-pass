@@ -887,63 +887,161 @@ async function sendLoginCodeEmail(email, code) {
       }
     })();
 
-    /* ========= SELLER LOGIN (email code) ========= */
-    const SELLER_PROFILE_KEY = "fep_seller_profile";   // { email, connectAccountId? }
-    const CODE_KEY = "fep_seller_code";
-    const CODE_EMAIL_KEY = "fep_seller_code_email";
-    const CODE_EXPIRES_KEY = "fep_seller_code_expires";
+  <!-- ========= SELLER LOGIN (email code) ========= -->
+<script>
+  const SELLER_PROFILE_KEY = "fep_seller_profile";   // { email, connectAccountId? }
+  const CODE_KEY = "fep_seller_code";
+  const CODE_EMAIL_KEY = "fep_seller_code_email";
+  const CODE_EXPIRES_KEY = "fep_seller_code_expires";
 
-    function getSellerProfile(){
-      try { return JSON.parse(localStorage.getItem(SELLER_PROFILE_KEY) || "null"); } catch { return null; }
-    }
-    function setSellerProfile(p){ localStorage.setItem(SELLER_PROFILE_KEY, JSON.stringify(p || null)); }
+  function getSellerProfile(){
+    try { return JSON.parse(localStorage.getItem(SELLER_PROFILE_KEY) || "null"); } catch { return null; }
+  }
+  function setSellerProfile(p){ localStorage.setItem(SELLER_PROFILE_KEY, JSON.stringify(p || null)); }
 
-    function genCode(){ return String(Math.floor(100000 + Math.random()*900000)); }
-    function storeCode(email, code){
-      sessionStorage.setItem(CODE_KEY, code);
-      sessionStorage.setItem(CODE_EMAIL_KEY, email);
-      sessionStorage.setItem(CODE_EXPIRES_KEY, String(Date.now()+10*60*1000)); // 10 min
-    }
-    function readCodeState(){
-      const code = sessionStorage.getItem(CODE_KEY);
-      const email = sessionStorage.getItem(CODE_EMAIL_KEY);
-      const exp = Number(sessionStorage.getItem(CODE_EXPIRES_KEY) || 0);
-      return { code, email, exp };
-    }
+  function genCode(){ return String(Math.floor(100000 + Math.random()*900000)); }
+  function storeCode(email, code){
+    sessionStorage.setItem(CODE_KEY, code);
+    sessionStorage.setItem(CODE_EMAIL_KEY, email);
+    sessionStorage.setItem(CODE_EXPIRES_KEY, String(Date.now()+10*60*1000)); // 10 min
+  }
+  function readCodeState(){
+    const code = sessionStorage.getItem(CODE_KEY);
+    const email = sessionStorage.getItem(CODE_EMAIL_KEY);
+    const exp = Number(sessionStorage.getItem(CODE_EXPIRES_KEY) || 0);
+    return { code, email, exp };
+  }
 
-    const sellerLoginModal = document.getElementById("sellerLoginModal");
-    const openSellerBtn = document.getElementById("openSeller");
-    const closeSellerLogin = document.getElementById("closeSellerLogin");
-    const sellerStepEmail = document.getElementById("sellerStepEmail");
-    const sellerStepCode = document.getElementById("sellerStepCode");
-    const sellerLoginEmail = document.getElementById("sellerLoginEmail");
-    const sendLoginCodeBtn = document.getElementById("sendLoginCodeBtn");
-    const sellerLoginCode = document.getElementById("sellerLoginCode");
-    const verifyLoginCodeBtn = document.getElementById("verifyLoginCodeBtn");
+  const sellerLoginModal = document.getElementById("sellerLoginModal");
+  const openSellerBtn = document.getElementById("openSeller");
+  const closeSellerLogin = document.getElementById("closeSellerLogin");
+  const sellerStepEmail = document.getElementById("sellerStepEmail");
+  const sellerStepCode = document.getElementById("sellerStepCode");
+  const sellerLoginEmail = document.getElementById("sellerLoginEmail");
+  const sendLoginCodeBtn = document.getElementById("sendLoginCodeBtn");
+  const sellerLoginCode = document.getElementById("sellerLoginCode");
+  const verifyLoginCodeBtn = document.getElementById("verifyLoginCodeBtn");
 
-    function openSellerLogin(){ sellerLoginModal?.classList.remove("hidden"); showLoginStep("email"); }
-    function closeSellerLoginModal(){ sellerLoginModal?.classList.add("hidden"); }
-    function showLoginStep(step){
-      sellerStepEmail.classList.toggle("hidden", step!=="email");
-      sellerStepCode.classList.toggle("hidden", step!=="code");
-    }
+  function openSellerLogin(){ sellerLoginModal?.classList.remove("hidden"); showLoginStep("email"); }
+  function closeSellerLoginModal(){ sellerLoginModal?.classList.add("hidden"); }
+  function showLoginStep(step){
+    sellerStepEmail.classList.toggle("hidden", step!=="email");
+    sellerStepCode.classList.toggle("hidden", step!=="code");
+  }
 
-    closeSellerLogin?.addEventListener("click", closeSellerLoginModal);
+  closeSellerLogin?.addEventListener("click", closeSellerLoginModal);
 
-    sendLoginCodeBtn?.addEventListener("click", async ()=>{
-      const email = (sellerLoginEmail?.value || "").trim();
-      if (!email) return alert("Enter your email");
-      const code = genCode();
-      storeCode(email, code);
-      try {
-        await sendLoginCodeEmail(email, code);
-        showLoginStep("code");
-        sellerLoginCode?.focus();
-      } catch (e) {
-        console.error("EmailJS send failed", e);
-        alert("Could not send code. Try again.");
-      }
+  /* ===== EmailJS: robust loader + senders ===== */
+
+  // Wait for EmailJS SDK (script tag is defer-loaded), then init with public key
+  let _emailjsReady = null;
+  function whenEmailJSReady(timeoutMs = 8000) {
+    if (_emailjsReady) return _emailjsReady;
+    _emailjsReady = new Promise((resolve, reject) => {
+      const t0 = Date.now();
+      (function poll() {
+        if (window.emailjs && EMAILJS_PUBLIC) {
+          try {
+            if (!window.__fep_emailjs_inited) {
+              emailjs.init(EMAILJS_PUBLIC);
+              window.__fep_emailjs_inited = true;
+            }
+            return resolve(true);
+          } catch (e) {
+            return reject(new Error("EmailJS init failed: " + (e?.message || e)));
+          }
+        }
+        if (Date.now() - t0 > timeoutMs) {
+          return reject(new Error("EmailJS SDK not loaded (timeout). Check the <script> tag & network."));
+        }
+        setTimeout(poll, 50);
+      })();
     });
+    return _emailjsReady;
+  }
+
+  // Generic notifier (used elsewhere too)
+  function sendNotify(to_email, vars = {}) {
+    if (!to_email) return Promise.reject(new Error("Missing to_email"));
+    if (!EMAILJS_SERVICE) return Promise.reject(new Error("Missing EMAILJS_SERVICE"));
+    if (!EMAILJS_TPL_SELLER) return Promise.reject(new Error("Missing EMAILJS_TPL_SELLER"));
+    return whenEmailJSReady().then(() =>
+      emailjs.send(EMAILJS_SERVICE, EMAILJS_TPL_SELLER, { to_email, ...vars })
+    );
+  }
+
+  // Dedicated login-code sender
+  async function sendLoginCodeEmail(email, code) {
+    const templateId = EMAILJS_TPL_LOGIN || EMAILJS_TPL_SELLER;
+    if (!EMAILJS_SERVICE) throw new Error("EMAILJS_SERVICE not set");
+    if (!templateId) throw new Error("No login template (EMAILJS_TPL_LOGIN) or seller template configured");
+    await whenEmailJSReady();
+
+    // These params should exist as variables in your EmailJS template (extras are fine)
+    const params = {
+      to_email: email,
+      code,
+      purpose: "login",
+      subject: "Your login code",
+      message: "Use the code below to sign in.",
+    };
+    return emailjs.send(EMAILJS_SERVICE, templateId, params);
+  }
+
+  // Send code button
+  sendLoginCodeBtn?.addEventListener("click", async ()=>{
+    const email = (sellerLoginEmail?.value || "").trim();
+    if (!email) return alert("Enter your email");
+    const code = genCode();
+    storeCode(email, code);
+
+    // small UI feedback
+    const prev = sendLoginCodeBtn.textContent;
+    sendLoginCodeBtn.disabled = true;
+    sendLoginCodeBtn.textContent = "Sending…";
+
+    try {
+      await sendLoginCodeEmail(email, code);
+      sendLoginCodeBtn.textContent = "Sent!";
+      showLoginStep("code");
+      sellerLoginCode?.focus();
+    } catch (e) {
+      console.error("EmailJS send failed:", e);
+      const msg = String(e?.message || "");
+      if (msg.includes("SDK not loaded")) {
+        alert("Email service is still loading. Wait a moment and try again.");
+      } else if (msg.includes("EMAILJS_SERVICE")) {
+        alert("Email service not configured (EMAILJS_SERVICE). Set it in config/env.");
+      } else if (msg.includes("template")) {
+        alert("Template ID missing or invalid (EMAILJS_TPL_LOGIN or EMAILJS_TPL_SELLER).");
+      } else {
+        alert("Could not send code. Check EmailJS keys, template IDs, and allowed origins.");
+      }
+      sendLoginCodeBtn.textContent = prev;
+    } finally {
+      sendLoginCodeBtn.disabled = false;
+    }
+  });
+
+  // Verify code button (unchanged)
+  verifyLoginCodeBtn?.addEventListener("click", ()=>{
+    const entered = (sellerLoginCode?.value || "").trim();
+    const { code, email, exp } = readCodeState();
+    if (!code || !email || !exp || Date.now() > exp) {
+      return alert("Code expired. Please request a new one.");
+    }
+    if (entered !== code) return alert("Incorrect code.");
+    const existing = getSellerProfile() || {};
+    const acct = localStorage.getItem("fep_connect_acct") || existing.connectAccountId || "";
+    setSellerProfile({ email, connectAccountId: acct });
+    localStorage.setItem("fep_seller_email", email);
+    sessionStorage.removeItem(CODE_KEY);
+    sessionStorage.removeItem(CODE_EMAIL_KEY);
+    sessionStorage.removeItem(CODE_EXPIRES_KEY);
+    closeSellerLoginModal();
+    openSellerDash();
+  });
+</script>
 
     verifyLoginCodeBtn?.addEventListener("click", ()=>{
       const entered = (sellerLoginCode?.value || "").trim();
