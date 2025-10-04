@@ -50,8 +50,8 @@
         </div>
       </div>
       <div class="flex items-center gap-2">
+        <!-- “Add Listing” only shows if seller is logged in -->
         <button id="openAdd" class="hidden sm:inline-flex bg-white text-sky-700 font-semibold px-4 py-2 rounded-xl shadow hover:bg-white/90">+ Add Listing</button>
-        <button id="openManageByCode" class="hidden sm:inline-flex bg-white/20 text-white font-semibold px-4 py-2 rounded-xl shadow hover:bg-white/30">Manage</button>
         <button id="openSeller" class="hidden sm:inline-flex bg-white/20 text-white font-semibold px-4 py-2 rounded-xl shadow hover:bg-white/30">Seller</button>
         <button id="installBtn" class="hidden sm:inline-flex bg-white/20 text-white font-semibold px-4 py-2 rounded-xl shadow hover:bg-white/30">Install App</button>
       </div>
@@ -70,20 +70,6 @@
       <p class="mt-2 text-[13px]">
         App is installable (PWA) and works offline for the main UI. Live payments require your backend & env vars on Vercel.
       </p>
-    </div>
-  </section>
-
-  <!-- Access code gate -->
-  <section class="max-w-6xl mx-auto px-4 mt-3">
-    <div id="gate" class="rounded-2xl border border-sky-200 bg-white p-4 text-sky-900 text-sm hidden">
-      <div class="flex items-center gap-2">
-        <span class="font-poppins">Tester Access</span>
-      </div>
-      <div class="mt-2 flex gap-2">
-        <input id="gateCode" placeholder="Enter access code" class="flex-1 rounded-xl border border-sky-200 px-3 py-2">
-        <button id="gateBtn" class="rounded-xl bg-sky-600 text-white px-4 py-2">Unlock</button>
-      </div>
-      <p class="mt-2 text-xs text-gray-500">Add Listing is hidden until unlocked. Code persists on this device.</p>
     </div>
   </section>
 
@@ -125,10 +111,9 @@
     <div id="emptyState" class="hidden text-center text-gray-500 mt-10">No listings match your filters (yet!).</div>
   </main>
 
-  <!-- Mobile FAB -->
+  <!-- Mobile FAB (only for logged-in sellers) -->
   <div class="fixed bottom-5 right-5 flex flex-col gap-2 sm:hidden">
-    <button id="openAddFab" class="gradient-brand text-white px-5 py-3 rounded-2xl shadow-xl">+ Add Listing</button>
-    <button id="openManageByCodeFab" class="bg-gray-900 text-white px-5 py-3 rounded-2xl shadow-xl">Manage</button>
+    <button id="openAddFab" class="hidden gradient-brand text-white px-5 py-3 rounded-2xl shadow-xl">+ Add Listing</button>
   </div>
 
   <!-- Add Listing Modal -->
@@ -163,15 +148,17 @@
           </div>
           <div>
             <label class="text-sm text-gray-600">Face Value (USD) <span class="text-rose-500">*</span></label>
-            <input name="face" type="number" min="1" step="1" required placeholder="100" class="w-full mt-1 rounded-2xl bg-white px-4 py-3 ring-1 ring-gray-200 focus:ring-sky-300 outline-none" />
+            <input id="faceInput" name="face" type="number" min="1" step="1" required placeholder="100" class="w-full mt-1 rounded-2xl bg-white px-4 py-3 ring-1 ring-gray-200 focus:ring-sky-300 outline-none" />
           </div>
           <div>
             <label class="text-sm text-gray-600">Your Price (USD) <span class="text-rose-500">*</span></label>
             <input id="priceInput" name="price" type="number" min="1" step="1" required placeholder="110" class="w-full mt-1 rounded-2xl bg-white px-4 py-3 ring-1 ring-gray-200 focus:ring-sky-300 outline-none" />
             <p class="text-xs text-gray-500 mt-1">We auto-check the +15% cap. Above-cap listings are blocked.</p>
+            <!-- Soft warning -->
+            <p id="priceCapWarn" class="hidden text-xs mt-1 text-rose-600">⚠️ This exceeds the +15% cap. You can continue, but saving will be blocked until you lower the price.</p>
           </div>
 
-          <!-- DAY6: Seller fee + payout live box -->
+          <!-- Seller fee + payout live box -->
           <div class="sm:col-span-3">
             <div id="sellerFeeBox" class="mt-1 rounded-2xl border border-amber-200 bg-amber-50 p-3 text-sm">
               <div class="flex flex-wrap items-center gap-x-4 gap-y-1">
@@ -219,6 +206,90 @@
     </div>
   </section>
 
+  <!-- EDIT Listing Modal -->
+  <section id="editModal" class="fixed inset-0 z-50 hidden">
+    <div class="absolute inset-0 bg-black/40"></div>
+    <div class="absolute inset-0 flex items-end sm:items-center justify-center p-3">
+      <div class="w-full sm:w-[860px] bg-white rounded-3xl shadow-2xl overflow-hidden">
+        <div class="gradient-brand p-5 text-white">
+          <h3 class="font-poppins text-xl">Edit Listing</h3>
+          <p class="text-white/90 text-sm">Update your listing details. New proof (optional) will be emailed to admin.</p>
+        </div>
+        <form id="editForm" class="p-5 grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <input type="hidden" name="id" />
+          <div class="sm:col-span-2">
+            <label class="text-sm text-gray-600">Group / Show <span class="text-rose-500">*</span></label>
+            <input name="group" required class="w-full mt-1 rounded-2xl bg-white px-4 py-3 ring-1 ring-gray-200 outline-none" />
+          </div>
+          <div>
+            <label class="text-sm text-gray-600">Quantity <span class="text-rose-500">*</span></label>
+            <input id="editQtyInput" name="qty" type="number" min="1" step="1" required class="w-full mt-1 rounded-2xl bg-white px-4 py-3 ring-1 ring-gray-200 outline-none" />
+            <p id="qtyClampNote" class="hidden text-xs text-amber-600 mt-1">Reducing quantity will clamp your available tickets to the new amount.</p>
+          </div>
+          <div>
+            <label class="text-sm text-gray-600">Date & Venue <span class="text-rose-500">*</span></label>
+            <input name="date" required class="w-full mt-1 rounded-2xl bg-white px-4 py-3 ring-1 ring-gray-200 outline-none" />
+          </div>
+          <div>
+            <label class="text-sm text-gray-600">City</label>
+            <input name="city" class="w-full mt-1 rounded-2xl bg-white px-4 py-3 ring-1 ring-gray-200 outline-none" />
+          </div>
+          <div class="sm:col-span-2">
+            <label class="text-sm text-gray-600">Section / Row / Seat</label>
+            <input name="seat" class="w-full mt-1 rounded-2xl bg-white px-4 py-3 ring-1 ring-gray-200 outline-none" />
+          </div>
+          <div>
+            <label class="text-sm text-gray-600">Face Value (USD) <span class="text-rose-500">*</span></label>
+            <input id="editFaceInput" name="face" type="number" min="1" step="1" required class="w-full mt-1 rounded-2xl bg-white px-4 py-3 ring-1 ring-gray-200 outline-none" />
+          </div>
+          <div>
+            <label class="text-sm text-gray-600">Your Price (USD) <span class="text-rose-500">*</span></label>
+            <input id="editPriceInput" name="price" type="number" min="1" step="1" required class="w-full mt-1 rounded-2xl bg-white px-4 py-3 ring-1 ring-gray-200 outline-none" />
+            <p class="text-xs text-gray-500 mt-1">We auto-check the +15% cap. Above-cap listings are blocked.</p>
+            <!-- Soft warning -->
+            <p id="editPriceCapWarn" class="hidden text-xs mt-1 text-rose-600">⚠️ This exceeds the +15% cap. You can continue, but saving will be blocked until you lower the price.</p>
+          </div>
+
+          <div class="sm:col-span-3">
+            <div class="mt-1 rounded-2xl border border-amber-200 bg-amber-50 p-3 text-sm">
+              <div class="flex flex-wrap items-center gap-x-4 gap-y-1">
+                <div>Platform fee: <span id="editFeePerTicket" class="font-semibold">$0.00</span> / ticket</div>
+                <div>Est. payout: <span id="editPayoutPerTicket" class="font-semibold">$0.00</span> / ticket</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="sm:col-span-3">
+            <label class="text-sm text-gray-600">New Proof (optional)</label>
+            <input name="proof" type="file" accept="image/*" class="w-full mt-1 rounded-2xl bg-white px-4 py-3 ring-1 ring-gray-200" />
+            <p class="text-xs text-gray-500 mt-1">Attach only if the ticket image changed.</p>
+          </div>
+          <div class="sm:col-span-2">
+            <label class="text-sm text-gray-600">Payment Link</label>
+            <input name="pay" class="w-full mt-1 rounded-2xl bg-white px-4 py-3 ring-1 ring-gray-200 outline-none" />
+          </div>
+          <div>
+            <label class="text-sm text-gray-600">Seller Name</label>
+            <input name="seller" class="w-full mt-1 rounded-2xl bg-white px-4 py-3 ring-1 ring-gray-200 outline-none" />
+          </div>
+          <div class="sm:col-span-3">
+            <label class="text-sm text-gray-600">Seller Phone</label>
+            <input name="sellerPhone" type="tel" class="w-full mt-1 rounded-2xl bg-white px-4 py-3 ring-1 ring-gray-200 outline-none" />
+          </div>
+          <div class="sm:col-span-3">
+            <label class="text-sm text-gray-600">Seller Email</label>
+            <input name="sellerEmail" type="email" class="w-full mt-1 rounded-2xl bg-white px-4 py-3 ring-1 ring-gray-200 outline-none" />
+          </div>
+
+          <div class="sm:col-span-3 flex items-center justify-end gap-3 pt-2">
+            <button type="button" id="cancelEdit" class="px-4 py-2 rounded-xl bg-gray-100 hover:bg-gray-200">Cancel</button>
+            <button class="px-5 py-2 rounded-xl text-white gradient-brand hover:opacity-90">Save Changes</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </section>
+
   <!-- SELLER LOGIN (email code) -->
   <section id="sellerLoginModal" class="fixed inset-0 z-50 hidden">
     <div class="absolute inset-0 bg-black/40"></div>
@@ -249,14 +320,18 @@
     </div>
   </section>
 
-  <!-- SELLER: Dashboard modal/section -->
+  <!-- SELLER: Dashboard -->
   <section id="sellerDash" class="fixed inset-0 z-50 hidden">
     <div class="absolute inset-0 bg-black/40"></div>
     <div class="absolute inset-0 flex items-end sm:items-center justify-center p-3">
       <div class="w-full sm:w-[920px] bg-white rounded-3xl shadow-2xl overflow-hidden">
-        <div class="gradient-brand p-5 text-white">
-          <h3 class="font-poppins text-xl">Seller Dashboard</h3>
-          <p class="text-white/90 text-sm">Manage your Stripe connection and listings.</p>
+        <div class="gradient-brand p-5 text-white flex items-center justify-between">
+          <div>
+            <h3 class="font-poppins text-xl">Seller Dashboard</h3>
+            <p class="text-white/90 text-sm">Manage your Stripe connection and listings.</p>
+          </div>
+          <!-- Add Listing button in the dashboard -->
+          <button id="openAddFromDash" class="rounded-xl bg-white/20 text-white font-semibold px-4 py-2 hover:bg-white/30">+ Add Listing</button>
         </div>
 
         <div class="p-5 grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -281,9 +356,7 @@
               </div>
               <div class="flex gap-2">
                 <button id="connectStripe" class="rounded-xl bg-indigo-600 text-white px-4 py-2">Connect Stripe</button>
-                <button id="reconnectStripe" class="rounded-xl bg-indigo-50 text-indigo-700 px-4 py-2 ring-1 ring-indigo-200 hidden">
-                  Reconnect
-                </button>
+                <button id="reconnectStripe" class="rounded-xl bg-indigo-50 text-indigo-700 px-4 py-2 ring-1 ring-indigo-200 hidden">Reconnect</button>
               </div>
             </div>
           </div>
@@ -309,13 +382,12 @@
             <div id="noOrders" class="hidden text-sm text-gray-500 mt-2">No orders saved yet.</div>
           </div>
 
-          <!-- Escrow status tool (manual check) -->
+          <!-- Escrow status tool -->
           <div class="md:col-span-3 rounded-2xl border border-gray-200 p-4">
             <h4 class="font-poppins text-lg">Check an Order (optional)</h4>
             <p class="text-xs text-gray-500">Paste a Stripe Checkout Session ID to see escrow status.</p>
             <div class="mt-2 flex gap-2">
-              <input id="sidInput" placeholder="cs_live_..."
-                     class="flex-1 rounded-xl bg-white px-4 py-3 ring-1 ring-gray-200 focus:ring-sky-300 outline-none" />
+              <input id="sidInput" placeholder="cs_live_..." class="flex-1 rounded-xl bg-white px-4 py-3 ring-1 ring-gray-200 focus:ring-sky-300 outline-none" />
               <button id="checkSid" class="rounded-xl bg-gray-900 text-white px-4">Check</button>
               <button id="copySid" class="rounded-xl bg-white ring-1 ring-gray-200 px-3 py-2 disabled:opacity-50" disabled>Copy SID</button>
             </div>
@@ -353,7 +425,6 @@
 
     const ORIGIN = (window.APP_CONFIG?.API_BASE || window.location.origin).replace(/\/+$/, "");
     if (!STRIPE_PK) console.warn("⚠️ Missing STRIPE_PK in config.js (Production must use pk_live_...)");
-
     let stripe = Stripe(STRIPE_PK);
 
     /* ===========================
@@ -376,30 +447,6 @@
     });
 
     /* ===========================
-       Access Gate
-       =========================== */
-    const ACCESS_KEY = "fep_gate_ok";
-    const ACCESS_CODE = "FEPTEST";
-    function gateCheck(){
-      const ok = localStorage.getItem(ACCESS_KEY)==="1";
-      const show = v => {
-        ["openAdd","openAddFab"].forEach(id=>{
-          const el=document.getElementById(id); if(el) el.style.display = v ? "" : "none";
-        });
-      };
-      const gate = document.getElementById("gate");
-      if(!gate) return;
-      if(ok){ gate.classList.add("hidden"); show(true); }
-      else  { gate.classList.remove("hidden"); show(false); }
-    }
-    document.getElementById("gateBtn")?.addEventListener("click", ()=>{
-      const input = document.getElementById("gateCode");
-      const code = (input?.value || "").trim().toUpperCase();
-      if(code===ACCESS_CODE){ localStorage.setItem(ACCESS_KEY,"1"); gateCheck(); }
-      else alert("Wrong code");
-    });
-
-    /* ===========================
        Storage + Helpers
        =========================== */
     const KEY = "fep_listings_v1";
@@ -413,10 +460,10 @@
     const token = () => Math.random().toString(36).slice(2)+Math.random().toString(36).slice(2);
     const esc = s => String(s ?? "").replace(/[&<>"'`=\/]/g, c => ({'&':'&amp;','<':'&lt;','>':'&#x3E;','"':'&quot;',"'":'&#39;','/':'&#x2F;','`':'&#x60;','=':'&#x3D;'}[c]));
 
-    /* DAY6: fee constants & helpers */
-    const BUYER_SERVICE_FEE = 3.50;       // buyer-only, not shown on public cards
-    const SELLER_FEE_PCT    = 0.05;       // 5%
-    const SELLER_FEE_FLAT   = 0.75;       // $0.75 per ticket
+    /* Fees */
+    const BUYER_SERVICE_FEE = 3.50;
+    const SELLER_FEE_PCT    = 0.05;
+    const SELLER_FEE_FLAT   = 0.75;
     const calcPlatformFee = (price)=> Math.max(0, (Number(price)||0)*SELLER_FEE_PCT + SELLER_FEE_FLAT);
     const calcPayoutPerTicket = (price)=> Math.max(0, (Number(price)||0) - calcPlatformFee(price));
 
@@ -425,9 +472,9 @@
        =========================== */
     async function sendProofViaFormspree(listing, proofFile){
       const fd = new FormData();
-      fd.append("_subject", "FEP: New Listing Proof of Ticket");
+      fd.append("_subject", "FEP: Listing Proof (update)");
       fd.append("message",
-        `New listing submitted with proof:\n\n`+
+        `Listing updated with proof:\n\n`+
         `Group: ${listing.group}\n`+
         `Date & Venue: ${listing.date}\n`+
         `City: ${listing.city}\n`+
@@ -438,9 +485,9 @@
         `Seller: ${listing.seller} <${listing.sellerEmail}> (${listing.sellerPhone})`
       );
       if (listing.sellerEmail) fd.append("_replyto", listing.sellerEmail);
-      fd.append("attachment", proofFile);
+      if (proofFile) fd.append("attachment", proofFile);
 
-      // include structured fields so the fallback email includes all details too
+      // structured fields
       fd.append("listingId", listing.id || "");
       fd.append("group", listing.group || "");
       fd.append("date", listing.date || "");
@@ -453,87 +500,58 @@
       fd.append("sellerEmail", listing.sellerEmail || "");
       fd.append("sellerPhone", listing.sellerPhone || "");
 
-      // UI status
-      const status = document.createElement("div");
-      status.textContent = "Sending proof...";
-      Object.assign(status.style, { position:"fixed", bottom:"12px", left:"12px", padding:"8px 10px", background:"#000", color:"#fff", borderRadius:"10px", fontSize:"12px", zIndex:"99999" });
-      document.body.appendChild(status);
-
-      const ORIGIN2 = (window.APP_CONFIG?.API_BASE || window.location.origin).replace(/\/+$/,'');
-
       try {
         const res = await fetch(FORMSPREE, { method: "POST", headers: { "Accept":"application/json" }, body: fd });
         const data = await res.json().catch(() => ({}));
-        const ok = res.ok && !data?.error && !((data?.errors || []).length);
-        if (ok) {
-          status.textContent = "Proof sent!";
-          setTimeout(() => status.remove(), 2500);
-          return true;
-        }
+        if (res.ok && !data?.error && !((data?.errors || []).length)) return true;
         throw new Error(data?.error || (data?.errors||[]).map(e=>e.message).join(", ") || res.statusText);
       } catch (e) {
         console.warn("Formspree failed, using fallback:", e.message);
+        const ORIGIN2 = (window.APP_CONFIG?.API_BASE || window.location.origin).replace(/\/+$/,'');
         try {
           const r = await fetch(`${ORIGIN2}/api/proof-fallback`, { method: "POST", body: fd });
-          if (!r.ok) {
-            const t = await r.text().catch(()=> "");
-            throw new Error(t || r.statusText);
-          }
-          status.textContent = "Proof sent (fallback)!";
-          setTimeout(() => status.remove(), 2500);
+          if (!r.ok) throw new Error(await r.text().catch(()=> "") || r.statusText);
           return true;
         } catch (e2) {
           console.error("Fallback also failed:", e2);
-          status.textContent = "Upload failed";
-          setTimeout(() => status.remove(), 2500);
-          alert("Could not send proof. Please email support with your screenshot.");
+          alert("Could not send proof update. Please email support with your screenshot.");
           return false;
         }
       }
     }
 
-   /* ===========================
-   Email notifications / Login code (robust loader)
-   =========================== */
-let _emailjsReady = null;
-
-function whenEmailJSReady(timeoutMs = 8000) {
-  if (_emailjsReady) return _emailjsReady;
-  _emailjsReady = new Promise((resolve, reject) => {
-    const t0 = Date.now();
-    (function poll() {
-      if (window.emailjs && EMAILJS_PUBLIC) {
-        try {
-          if (!window.__fep_emailjs_inited) {
-            emailjs.init(EMAILJS_PUBLIC);
-            window.__fep_emailjs_inited = true;
+    /* ===========================
+       Email notifications / Login code
+       =========================== */
+    let _emailjsReady = null;
+    function whenEmailJSReady(timeoutMs = 8000) {
+      if (_emailjsReady) return _emailjsReady;
+      _emailjsReady = new Promise((resolve, reject) => {
+        const t0 = Date.now();
+        (function poll() {
+          if (window.emailjs && EMAILJS_PUBLIC) {
+            try {
+              if (!window.__fep_emailjs_inited) {
+                emailjs.init(EMAILJS_PUBLIC);
+                window.__fep_emailjs_inited = true;
+              }
+              return resolve(true);
+            } catch (e) { return reject(e); }
           }
-          return resolve(true);
-        } catch (e) { return reject(e); }
-      }
-      if (Date.now() - t0 > timeoutMs) {
-        return reject(new Error("EmailJS SDK not loaded (timeout)"));
-      }
-      setTimeout(poll, 50);
-    })();
-  });
-  return _emailjsReady;
-}
+          if (Date.now() - t0 > timeoutMs) return reject(new Error("EmailJS SDK not loaded (timeout)"));
+          setTimeout(poll, 50);
+        })();
+      });
+      return _emailjsReady;
+    }
+    async function sendLoginCodeEmail(email, code) {
+      if (!EMAILJS_SERVICE) throw new Error("EMAILJS_SERVICE not set");
+      if (!EMAILJS_TPL_LOGIN) throw new Error("EMAILJS_TPL_LOGIN not set");
+      await whenEmailJSReady();
+      const params = { to_email: email, code };
+      return emailjs.send(EMAILJS_SERVICE, EMAILJS_TPL_LOGIN, params);
+    }
 
-// Send the 6-digit login code using your LOGIN template
-async function sendLoginCodeEmail(email, code) {
-  if (!EMAILJS_SERVICE) throw new Error("EMAILJS_SERVICE not set");
-  if (!EMAILJS_TPL_SELLER) throw new Error("EMAILJS_TPL_SELLER not set");
-  await whenEmailJSReady();
-
-  // These MUST match your EmailJS template variables exactly (e.g., {{to_email}} and {{code}})
-  const params = {
-    to_email: email,
-    code
-  };
-  
-  return emailjs.send(EMAILJS_SERVICE, EMAILJS_TPL_SELLER, params);
-}
     /* ===========================
        Render Listings (escaped)
        =========================== */
@@ -563,16 +581,14 @@ async function sendLoginCodeEmail(email, code) {
             </div>
           </div>
           <div class="flex items-center justify-between mt-3">
-            <div>
-              <div class="text-xl font-poppins ${ok?"text-gray-900":"text-rose-600"}">${money(it.price)}</div>
-            </div>
+            <div><div class="text-xl font-poppins ${ok?"text-gray-900":"text-rose-600"}">${money(it.price)}</div></div>
             <button data-buy="${esc(it.id)}" ${ remaining > 0 ? "" : "disabled" }
               class="rounded-xl px-4 py-2 text-white ${ remaining > 0 ? "gradient-brand hover:opacity-90" : "bg-gray-400" }">
               ${ remaining > 0 ? "Buy Safely" : "Sold Out" }
             </button>
           </div>
-          ${ ok ? "" : `<div class="mt-3 text-[11px] text-rose-600">⚠️ This price exceeds the +15% cap and will be blocked.</div>` }
-          <div class="mt-2 text-[11px] text-gray-500">Funds held until transfer is confirmed. Report issues to <a class="underline" href="mailto:support@fandomentrypass.com">support</a>.</div>
+          ${ ok ? "" : `<div class="mt-3 text-[11px] text-rose-600">⚠️ Price exceeds +15% cap.</div>` }
+          <div class="mt-2 text-[11px] text-gray-500">Funds held until transfer confirmed. Report issues to <a class="underline" href="mailto:support@fandomentrypass.com">support</a>.</div>
         `;
         elListings.appendChild(card);
       }
@@ -601,37 +617,39 @@ async function sendLoginCodeEmail(email, code) {
       });
       render(list);
     }
-    document.getElementById("filters").addEventListener("submit", applyFilters);
-    document.getElementById("clearFilters").addEventListener("click", ()=>{
+    document.getElementById("filters")?.addEventListener("submit", applyFilters);
+    document.getElementById("clearFilters")?.addEventListener("click", ()=>{
       document.getElementById("q").value=""; document.getElementById("city").value=""; document.getElementById("maxPrice").value="";
       applyFilters();
     });
 
     /* ===========================
-       Modals
+       Modals & UI gating for sellers
        =========================== */
     const modal = document.getElementById("modal");
     const openModal = ()=> modal?.classList.remove("hidden");
     const closeModal = ()=> modal?.classList.add("hidden");
     document.getElementById("openAdd")?.addEventListener("click", openModal);
     document.getElementById("openAddFab")?.addEventListener("click", openModal);
+    document.getElementById("openAddFromDash")?.addEventListener("click", openModal);
     document.getElementById("cancelAdd")?.addEventListener("click", closeModal);
 
-    document.getElementById("openManageByCode")?.addEventListener("click", promptManageByCode);
-    document.getElementById("openManageByCodeFab")?.addEventListener("click", promptManageByCode);
-
-    function promptManageByCode(){
-      const code=prompt("Enter your 10-character manage code:"); if(!code) return;
-      const list=load();
-      const it=list.find(x => (x.manageCode||"").slice(0,10) === code.trim().toUpperCase());
-      if(!it) return alert("No listing found for that code.");
-      alert("Editing from phone not yet enabled in this build. (Coming soon)");
-    }
+    const editModal = document.getElementById("editModal");
+    const openEditModal = ()=> editModal?.classList.remove("hidden");
+    const closeEditModal = ()=> editModal?.classList.add("hidden");
+    document.getElementById("cancelEdit")?.addEventListener("click", closeEditModal);
 
     /* ===========================
        Add Listing
        =========================== */
+    function showSoftCapWarn(faceVal, priceVal, warnEl){
+      const cap = capFor(faceVal || 0);
+      const over = Number(priceVal||0) > cap + 0.0001;
+      if (warnEl) warnEl.classList.toggle("hidden", !over);
+    }
+
     function updateSellerFeeUI(){
+      const face = Number(document.getElementById("faceInput")?.value || 0);
       const price = Number(document.getElementById("priceInput")?.value || 0);
       const feePer = calcPlatformFee(price);
       const payoutPer = calcPayoutPerTicket(price);
@@ -639,9 +657,16 @@ async function sendLoginCodeEmail(email, code) {
       const payoutPerEl = document.getElementById("payoutPerTicket");
       if (feePerEl) feePerEl.textContent = money2(feePer);
       if (payoutPerEl) payoutPerEl.textContent = money2(payoutPer);
+      // soft warning
+      showSoftCapWarn(face, price, document.getElementById("priceCapWarn"));
     }
+
     document.addEventListener("input", (e)=>{
-      if (e.target && (e.target.id==="priceInput" || e.target.name==="qty")) updateSellerFeeUI();
+      if (e.target && (e.target.id==="priceInput" || e.target.id==="faceInput" || e.target.name==="qty")) updateSellerFeeUI();
+      if (e.target && (e.target.id==="editPriceInput" || e.target.id==="editFaceInput" || (e.target.form && e.target.form.id==="editForm" && e.target.name==="qty"))) {
+        updateEditFeeUI();
+        if (e.target.id === "editQtyInput") maybeShowQtyClampNote();
+      }
     });
 
     document.getElementById("addForm").addEventListener("submit", async (e)=>{
@@ -660,7 +685,6 @@ async function sendLoginCodeEmail(email, code) {
 
       const editToken = token();
       const manageCode = editToken.slice(0,10).toUpperCase();
-
       const sellerAccountId = localStorage.getItem("fep_connect_acct") || "";
 
       const listing = {
@@ -679,7 +703,6 @@ async function sendLoginCodeEmail(email, code) {
       };
 
       await sendProofViaFormspree(listing, proofFile);
-
       const list=load(); list.unshift(listing); save(list);
 
       try{
@@ -691,6 +714,120 @@ async function sendLoginCodeEmail(email, code) {
       }
 
       closeModal(); e.target.reset(); applyFilters(); window.scrollTo({ top:0, behavior:"smooth" });
+      renderMyListings();
+    });
+
+    /* ===========================
+       EDIT / DELETE (Seller Dashboard)
+       =========================== */
+    function updateEditFeeUI(){
+      const form = document.getElementById("editForm");
+      if (!form) return;
+      const face = Number(form.face.value || 0);
+      const price = Number(form.price.value || 0);
+      const feePer = calcPlatformFee(price);
+      const payoutPer = calcPayoutPerTicket(price);
+      const feePerEl = document.getElementById("editFeePerTicket");
+      const payoutPerEl = document.getElementById("editPayoutPerTicket");
+      if (feePerEl) feePerEl.textContent = money2(feePer);
+      if (payoutPerEl) payoutPerEl.textContent = money2(payoutPer);
+      // soft warning
+      showSoftCapWarn(face, price, document.getElementById("editPriceCapWarn"));
+    }
+
+    // When seller reduces Qty, warn we will clamp remaining
+    function maybeShowQtyClampNote(){
+      const note = document.getElementById("qtyClampNote");
+      const form = document.getElementById("editForm");
+      if (!note || !form) return;
+      const newQty = Number(form.qty.value || 1);
+      const id = form.id.value;
+      const prev = (load() || []).find(x => x.id === id);
+      if (!prev) { note.classList.add("hidden"); return; }
+      const remaining = prev.remaining ?? prev.qty ?? newQty;
+      // Show note if remaining > newQty (will be clamped)
+      note.classList.toggle("hidden", !(remaining > newQty));
+    }
+
+    function fillEditForm(it){
+      const f = document.getElementById("editForm");
+      f.id.value = it.id;
+      f.group.value = it.group || "";
+      f.qty.value = it.qty || 1;
+      f.date.value = it.date || "";
+      f.city.value = it.city || "";
+      f.seat.value = it.seat || "";
+      f.face.value = it.face || 0;
+      f.price.value = it.price || 0;
+      f.pay.value = it.pay || "";
+      f.seller.value = it.seller || "Seller";
+      f.sellerPhone.value = it.sellerPhone || "";
+      f.sellerEmail.value = it.sellerEmail || "";
+      f.proof.value = ""; // reset file input
+      updateEditFeeUI();
+      maybeShowQtyClampNote();
+    }
+
+    function openEdit(id){
+      const it = (load() || []).find(x => x.id === id);
+      if(!it) return alert("Listing not found.");
+      fillEditForm(it);
+      openEditModal();
+    }
+
+    function deleteListing(id){
+      if(!confirm("Delete this listing? This cannot be undone.")) return;
+      const list = load().filter(x => x.id !== id);
+      save(list);
+      applyFilters();
+      renderMyListings();
+    }
+
+    document.getElementById("editForm").addEventListener("submit", async (e)=>{
+      e.preventDefault();
+      const fd = new FormData(e.target);
+      const id = fd.get("id");
+      let list = load();
+      const idx = list.findIndex(x => x.id === id);
+      if (idx < 0) { alert("Listing not found."); return; }
+
+      // build updated listing
+      const face=Number(fd.get("face"));
+      const price=Number(fd.get("price"));
+      const qty=Math.max(1, Number(fd.get("qty")||1));
+      if(!withinCap(face,price)) return alert("This price exceeds the +15% cap. Please lower the price.");
+
+      const prev = list[idx];
+      // Clamp remaining to the new qty, but don’t drop below 0
+      const prevRemaining = (prev.remaining ?? prev.qty ?? qty);
+      const remaining = Math.max(0, Math.min(qty, prevRemaining));
+
+      const updated = {
+        ...prev,
+        group: String(fd.get("group")||"").trim(),
+        date: String(fd.get("date")||"").trim(),
+        city: String(fd.get("city")||"").trim(),
+        seat: String(fd.get("seat")||"").trim(),
+        face, price, qty,
+        remaining,
+        pay: String(fd.get("pay")||"").trim(),
+        seller: String(fd.get("seller")||"Seller").trim(),
+        sellerEmail: String(fd.get("sellerEmail")||"").trim(),
+        sellerPhone: String(fd.get("sellerPhone")||"").trim()
+      };
+
+      // If a new proof is attached, send to admin
+      const proofFile = fd.get("proof");
+      if (proofFile && proofFile.size) {
+        await sendProofViaFormspree(updated, proofFile);
+      }
+
+      list[idx] = updated;
+      save(list);
+      closeEditModal();
+      applyFilters();
+      renderMyListings();
+      alert("Listing updated.");
     });
 
     /* ===========================
@@ -751,8 +888,6 @@ async function sendLoginCodeEmail(email, code) {
         tokenExpiresAt: Date.now() + hoursMs(ESCROW_HOURS)
       });
       save(list); render(list);
-      sendNotify(it.sellerEmail, { group: it.group, price: money(it.price) }).catch(()=>{});
-      if (buyerEmail) sendNotify(buyerEmail, { group: it.group, price: money(it.price) }).catch(()=>{});
       alert("Payment authorized (demo). Funds auto-release in 72h unless buyer confirms received earlier.");
     }
 
@@ -885,19 +1020,16 @@ async function sendLoginCodeEmail(email, code) {
 
     closeSellerLogin?.addEventListener("click", closeSellerLoginModal);
 
-   // Send code button
-sendLoginCodeBtn?.addEventListener("click", async ()=>{
-  const email = (sellerLoginEmail?.value || "").trim();
-  if (!email) return alert("Enter your email");
-  const code = String(Math.floor(100000 + Math.random()*900000));
-  storeCode(email, code);
+    // Send code button
+    sendLoginCodeBtn?.addEventListener("click", async ()=>{
+      const email = (sellerLoginEmail?.value || "").trim();
+      if (!email) return alert("Enter your email");
+      const code = genCode();
+      storeCode(email, code);
 
-  // quick on-screen debug so YOU can see the code was generated correctly
-  console.log("[login] generated code:", code);
-
-  const prev = sendLoginCodeBtn.textContent;
-  sendLoginCodeBtn.disabled = true;
-  sendLoginCodeBtn.textContent = "Sending…";
+      const prev = sendLoginCodeBtn.textContent;
+      sendLoginCodeBtn.disabled = true;
+      sendLoginCodeBtn.textContent = "Sending…";
 
       try {
         await sendLoginCodeEmail(email, code);
@@ -907,15 +1039,10 @@ sendLoginCodeBtn?.addEventListener("click", async ()=>{
       } catch (e) {
         console.error("EmailJS send failed:", e);
         const msg = String(e?.message || "");
-        if (msg.includes("SDK not loaded")) {
-          alert("Email service is still loading. Wait a moment and try again.");
-        } else if (msg.includes("EMAILJS_SERVICE")) {
-          alert("Email service not configured (EMAILJS_SERVICE). Set it in config/env.");
-        } else if (msg.includes("template")) {
-          alert("Template ID missing or invalid (EMAILJS_TPL_LOGIN or EMAILJS_TPL_SELLER).");
-        } else {
-          alert("Could not send code. Check EmailJS keys, template IDs, and allowed origins.");
-        }
+        if (msg.includes("SDK not loaded")) alert("Email service is still loading. Wait a moment and try again.");
+        else if (msg.includes("EMAILJS_SERVICE")) alert("Email service not configured (EMAILJS_SERVICE). Set it in config/env.");
+        else if (msg.includes("template")) alert("Template ID missing or invalid (EMAILJS_TPL_LOGIN).");
+        else alert("Could not send code. Check EmailJS keys, template IDs, and allowed origins.");
         sendLoginCodeBtn.textContent = prev;
       } finally {
         sendLoginCodeBtn.disabled = false;
@@ -925,9 +1052,7 @@ sendLoginCodeBtn?.addEventListener("click", async ()=>{
     verifyLoginCodeBtn?.addEventListener("click", ()=>{
       const entered = (sellerLoginCode?.value || "").trim();
       const { code, email, exp } = readCodeState();
-      if (!code || !email || !exp || Date.now() > exp) {
-        return alert("Code expired. Please request a new one.");
-      }
+      if (!code || !email || !exp || Date.now() > exp) return alert("Code expired. Please request a new one.");
       if (entered !== code) return alert("Incorrect code.");
       const existing = getSellerProfile() || {};
       const acct = localStorage.getItem("fep_connect_acct") || existing.connectAccountId || "";
@@ -938,18 +1063,32 @@ sendLoginCodeBtn?.addEventListener("click", async ()=>{
       sessionStorage.removeItem(CODE_EXPIRES_KEY);
       closeSellerLoginModal();
       openSellerDash();
+      toggleSellerUI();
     });
 
     /* ========= SELLER DASHBOARD LOGIC ========= */
     const FEP_ACCT_KEY = "fep_connect_acct";
     const FEP_SELLER_EMAIL_KEY = "fep_seller_email";
 
+    function isSellerLoggedIn(){
+      const p = getSellerProfile();
+      const email = localStorage.getItem(FEP_SELLER_EMAIL_KEY) || p?.email;
+      return !!(email && email.includes("@"));
+    }
+
+    function toggleSellerUI(){
+      const loggedIn = isSellerLoggedIn();
+      ["openAdd","openAddFab"].forEach(id=>{
+        const el=document.getElementById(id);
+        if(el) el.classList.toggle("hidden", !loggedIn);
+      });
+    }
+
     function openSellerDash(){ document.getElementById("sellerDash").classList.remove("hidden"); loadSellerPanel(); }
     function closeSellerDash(){ document.getElementById("sellerDash").classList.add("hidden"); }
 
     openSellerBtn?.addEventListener("click", ()=>{
-      const email = localStorage.getItem(FEP_SELLER_EMAIL_KEY) || "";
-      if (!email) openSellerLogin(); else openSellerDash();
+      if (!isSellerLoggedIn()) openSellerLogin(); else openSellerDash();
     });
     document.getElementById("closeSeller")?.addEventListener("click", closeSellerDash);
 
@@ -960,6 +1099,7 @@ sendLoginCodeBtn?.addEventListener("click", async ()=>{
       const prof = getSellerProfile() || {};
       setSellerProfile({ email, connectAccountId: prof.connectAccountId || localStorage.getItem(FEP_ACCT_KEY) || "" });
       renderMyListings();
+      toggleSellerUI();
       alert("Saved.");
     });
 
@@ -988,8 +1128,51 @@ sendLoginCodeBtn?.addEventListener("click", async ()=>{
     document.getElementById("reconnectStripe")?.addEventListener("click", connectOrReconnectStripe);
     document.getElementById("refreshListings")?.addEventListener("click", renderMyListings);
 
+    function renderMyListings(){
+      const email = (localStorage.getItem(FEP_SELLER_EMAIL_KEY) || "").toLowerCase();
+      document.getElementById("sellerEmailInput").value = email;
+      const my = (load() || []).filter(x => (x.sellerEmail||"").toLowerCase() === email);
+      const wrap = document.getElementById("myListings");
+      const empty = document.getElementById("noListings");
+      wrap.textContent = "";
+      if(!my.length){ empty.classList.remove("hidden"); return; }
+      empty.classList.add("hidden");
+      for(const it of my){
+        const feePer = calcPlatformFee(it.price);
+        const payoutPer = calcPayoutPerTicket(it.price);
+        const totalIfAllSell = payoutPer * (it.qty || 0);
+
+        const div = document.createElement("div");
+        div.className = "rounded-2xl border border-gray-200 p-3";
+        div.innerHTML = `
+          <div class="font-semibold">${esc(it.group)}</div>
+          <div class="text-xs text-gray-500">${esc(it.date)}${it.city?(" • "+esc(it.city)):""}</div>
+          <div class="text-xs text-gray-500 mt-1">${esc(it.seat||"")}</div>
+          <div class="mt-2 text-sm">Price: ${money(it.price)} • Qty: ${it.qty} • Avail: ${(it.remaining ?? it.qty)}</div>
+          <div class="mt-1 text-xs text-gray-700">
+            Platform fee: <span class="font-medium">${money2(feePer)}</span> / ticket •
+            Est. payout: <span class="font-medium">${money2(payoutPer)}</span> / ticket
+          </div>
+          <div class="text-[11px] text-gray-500">If all sell: ${money2(totalIfAllSell)} (excludes Stripe processing)</div>
+          <div class="mt-3 flex gap-2">
+            <button class="rounded-xl px-3 py-2 bg-gray-900 text-white" data-edit="${esc(it.id)}">Edit</button>
+            <button class="rounded-xl px-3 py-2 bg-white ring-1 ring-rose-200 text-rose-700 hover:bg-rose-50" data-del="${esc(it.id)}">Delete</button>
+          </div>
+        `;
+        wrap.appendChild(div);
+      }
+
+      // Hook up buttons
+      wrap.querySelectorAll("[data-edit]").forEach(btn=>{
+        btn.addEventListener("click", ()=> openEdit(btn.getAttribute("data-edit")));
+      });
+      wrap.querySelectorAll("[data-del]").forEach(btn=>{
+        btn.addEventListener("click", ()=> deleteListing(btn.getAttribute("data-del")));
+      });
+    }
+
     async function loadStripeStatus(){
-      const acct = localStorage.getItem(FEP_ACCT_KEY) || "";
+      const acct = localStorage.getItem("fep_connect_acct") || "";
       const elStatus = document.getElementById("stripeStatus");
       const elAcct = document.getElementById("stripeAcct");
       const btnReconnect = document.getElementById("reconnectStripe");
@@ -1013,37 +1196,6 @@ sendLoginCodeBtn?.addEventListener("click", async ()=>{
       if (ok) btnReconnect.classList.add("hidden"); else btnReconnect.classList.remove("hidden");
     }
 
-    function renderMyListings(){
-      const email = localStorage.getItem(FEP_SELLER_EMAIL_KEY) || "";
-      document.getElementById("sellerEmailInput").value = email;
-      const my = (load() || []).filter(x => (x.sellerEmail||"").toLowerCase() === email.toLowerCase());
-      const wrap = document.getElementById("myListings");
-      const empty = document.getElementById("noListings");
-      wrap.textContent = "";
-      if(!my.length){ empty.classList.remove("hidden"); return; }
-      empty.classList.add("hidden");
-      for(const it of my){
-        const feePer = calcPlatformFee(it.price);
-        const payoutPer = calcPayoutPerTicket(it.price);
-        const totalIfAllSell = payoutPer * (it.qty || 0);
-
-        const div = document.createElement("div");
-        div.className = "rounded-2xl border border-gray-200 p-3";
-        div.innerHTML = `
-          <div class="font-semibold">${esc(it.group)}</div>
-          <div class="text-xs text-gray-500">${esc(it.date)}${it.city?(" • "+esc(it.city)):""}</div>
-          <div class="text-xs text-gray-500 mt-1">${esc(it.seat||"")}</div>
-          <div class="mt-2 text-sm">Price: ${money(it.price)} • Qty: ${it.qty} • Avail: ${(it.remaining ?? it.qty)}</div>
-          <div class="mt-1 text-xs text-gray-700">
-            Platform fee: <span class="font-medium">${money2(feePer)}</span> / ticket •
-            Est. payout: <span class="font-medium">${money2(payoutPer)}</span> / ticket
-          </div>
-          <div class="text-[11px] text-gray-500">If all sell: ${money2(totalIfAllSell)} (excludes Stripe processing)</div>
-        `;
-        wrap.appendChild(div);
-      }
-    }
-
     async function checkSid(){
       const sid = document.getElementById("sidInput").value.trim();
       if(!sid) return;
@@ -1059,7 +1211,6 @@ sendLoginCodeBtn?.addEventListener("click", async ()=>{
       }
     }
     document.getElementById("checkSid")?.addEventListener("click", checkSid);
-
     document.getElementById("copySid")?.addEventListener("click", async (e)=>{
       const sid = e.currentTarget?.dataset?.sid || document.getElementById("sidInput")?.value || "";
       if (!sid) return;
@@ -1180,7 +1331,7 @@ sendLoginCodeBtn?.addEventListener("click", async ()=>{
       const p = new URLSearchParams(location.search);
       const acct = p.get("account");
       if (acct) {
-        localStorage.setItem(FEP_ACCT_KEY, acct);
+        localStorage.setItem("fep_connect_acct", acct);
         const prof = getSellerProfile() || {};
         setSellerProfile({ email: prof.email || localStorage.getItem(FEP_SELLER_EMAIL_KEY) || "", connectAccountId: acct });
         history.replaceState({}, "", location.pathname);
@@ -1194,10 +1345,10 @@ sendLoginCodeBtn?.addEventListener("click", async ()=>{
        Init
        =========================== */
     (function init(){
-      gateCheck();
       applyFilters();
       document.getElementById("openSeller")?.classList.remove("hidden");
       updateSellerFeeUI();
+      toggleSellerUI(); // show/hide Add buttons based on login
     })();
   </script>
 </body>
