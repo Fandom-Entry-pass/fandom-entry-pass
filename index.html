@@ -520,17 +520,12 @@ function whenEmailJSReady(timeoutMs = 8000) {
 }
 
 async function sendLoginCodeEmail(email, code) {
-  if (!EMAILJS_SERVICE) throw new Error("EMAILJS_SERVICE not set");
-  if (!EMAILJS_TPL_SELLER) throw new Error("EMAILJS_TPL_SELLERnot set");
+  if (!APP_CONFIG.EMAILJS_SERVICE) throw new Error("EMAILJS_SERVICE not set");
+  if (!APP_CONFIG.EMAILJS_TPL_SELLER) throw new Error("EMAILJS_TPL_SELLER not set");
   await whenEmailJSReady();
 
-  const params = {
-    to_email: email,
-    message: `Your login code is: ${code}\n(Expires in 10 minutes)\n\nThank you for using FandomEntryPass 💖`
-  };
-
-// Must match the template exactly:
-  return emailjs.send(APP_CONFIG.EMAILJS_SERVICE, APP_CONFIG.EMAILJS_TPL_LOGIN, {
+  // Must match the template exactly:
+  return emailjs.send(APP_CONFIG.EMAILJS_SERVICE, APP_CONFIG.EMAILJS_TPL_SELLER {
     to_email: email,   // matches {{to_email}}
     code               // matches {{code}}
   });
