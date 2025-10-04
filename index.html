@@ -688,10 +688,16 @@ async function sendLoginCodeEmail(email, code) {
       if(!withinCap(face,price)) return alert("This price exceeds the +15% cap. Please lower the price.");
       const proofFile=fd.get("proof");
       if(!proofFile || !proofFile.size) return alert("Proof of ticket is required. Please upload your proof image.");
-
+    
       const sellerEmail=String(fd.get("sellerEmail")||"").trim();
       const sellerPhone=String(fd.get("sellerPhone")||"").trim();
       if(!sellerEmail || !sellerPhone) return alert("Seller email and phone are required for notifications.");
+
+            // Ensure logged-in seller matches form email
+  const current = loggedInSellerEmail();
+  if (!current) return alert("Please log in as a seller first.");
+  if ((sellerEmail || "").toLowerCase() !== current) {
+    return alert("Seller email must match your logged-in seller account.");
 
       const editToken = token();
       const manageCode = editToken.slice(0,10).toUpperCase();
@@ -1345,7 +1351,24 @@ async function sendLoginCodeEmail(email, code) {
         const prof = getSellerProfile() || {};
         setSellerProfile({ email: prof.email || localStorage.getItem(FEP_SELLER_EMAIL_KEY) || "", connectAccountId: acct });
         history.replaceState({}, "", location.pathname);
-      }
+        function loggedInSellerEmail() {
+  return (localStorage.getItem("fep_seller_email") || "").toLowerCase();
+}
+function openEditListing(id){
+  const list = load();
+  const it = list.find(x => x.id === id);
+  if (!it) return alert("Listing not found.");
+  if ((it.sellerEmail || "").toLowerCase() !== loggedInSellerEmail()) {
+    return alert("You can only edit your own listings.");
+  }
+  // ... proceed to prefill & open modal
+}
+const current = loggedInSellerEmail();
+if (!current) return alert("Please log in as a seller first.");
+if ((sellerEmail || "").toLowerCase() !== current) {
+  return alert("Seller email must match your logged-in seller account.");
+}
+    
       loadStripeStatus();
       renderMyListings();
       renderOrders();
