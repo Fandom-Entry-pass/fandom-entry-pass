@@ -896,15 +896,19 @@
 
     closeSellerLogin?.addEventListener("click", closeSellerLoginModal);
 
-    sendLoginCodeBtn?.addEventListener("click", async ()=>{
-      const email = (sellerLoginEmail?.value || "").trim();
-      if (!email) return alert("Enter your email");
-      const code = genCode();
-      storeCode(email, code);
+   // Send code button
+sendLoginCodeBtn?.addEventListener("click", async ()=>{
+  const email = (sellerLoginEmail?.value || "").trim();
+  if (!email) return alert("Enter your email");
+  const code = String(Math.floor(100000 + Math.random()*900000));
+  storeCode(email, code);
 
-      const prev = sendLoginCodeBtn.textContent;
-      sendLoginCodeBtn.disabled = true;
-      sendLoginCodeBtn.textContent = "Sending…";
+  // quick on-screen debug so YOU can see the code was generated correctly
+  console.log("[login] generated code:", code);
+
+  const prev = sendLoginCodeBtn.textContent;
+  sendLoginCodeBtn.disabled = true;
+  sendLoginCodeBtn.textContent = "Sending…";
 
       try {
         await sendLoginCodeEmail(email, code);
