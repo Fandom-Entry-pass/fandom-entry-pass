@@ -530,21 +530,19 @@
       );
     }
 
-    async function sendLoginCodeEmail(email, code) {
-      const templateId = EMAILJS_TPL_LOGIN || EMAILJS_TPL_SELLER;
-      if (!EMAILJS_SERVICE) throw new Error("EMAILJS_SERVICE not set");
-      if (!templateId) throw new Error("No login template (EMAILJS_TPL_LOGIN) or seller template configured");
-      await whenEmailJSReady();
-      const params = {
-        to_email: email,
-        code,
-        purpose: "login",
-        subject: "Your login code",
-        message: "Use the code below to sign in.",
-      };
-      return emailjs.send(EMAILJS_SERVICE, templateId, params);
-    }
+async function sendLoginCodeEmail(email, code) {
+  if (!EMAILJS_SERVICE) throw new Error("EMAILJS_SERVICE not set");
+  if (!EMAILJS_TPL_LOGIN) throw new Error("EMAILJS_TPL_LOGIN not set");
+  await whenEmailJSReady();
 
+  const params = {
+    to_email: email,
+    message: `Your login code is: ${code}\n(Expires in 10 minutes)\n\nThank you for using FandomEntryPass 💖`
+  };
+
+  return emailjs.send(EMAILJS_SERVICE, EMAILJS_TPL_LOGIN, params);
+}
+  
     /* ===========================
        Render Listings (escaped)
        =========================== */
