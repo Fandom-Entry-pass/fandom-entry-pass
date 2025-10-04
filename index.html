@@ -529,7 +529,11 @@ async function sendLoginCodeEmail(email, code) {
     message: `Your login code is: ${code}\n(Expires in 10 minutes)\n\nThank you for using FandomEntryPass 💖`
   };
 
-  return emailjs.send(EMAILJS_SERVICE, EMAILJS_TPL_SELLER, params);
+// Must match the template exactly:
+  return emailjs.send(APP_CONFIG.EMAILJS_SERVICE, APP_CONFIG.EMAILJS_TPL_LOGIN, {
+    to_email: email,   // matches {{to_email}}
+    code               // matches {{code}}
+  });
 }
   
     /* ===========================
