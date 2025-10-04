@@ -58,21 +58,6 @@
     </div>
   </header>
 
-  <!-- Buyer Protection Banner -->
-  <section class="max-w-6xl mx-auto px-4 mt-4">
-    <div class="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-emerald-900 text-sm">
-      <div class="flex flex-wrap items-center gap-2">
-        <span class="inline-flex items-center gap-1 bg-white/70 px-2 py-1 rounded-full border border-emerald-200 badge-step">1) Buyer pays → <strong>Authorized</strong></span>
-        <span class="inline-flex items-center gap-1 bg-white/70 px-2 py-1 rounded-full border border-emerald-200 badge-step">2) Webhook marks <strong>Authorized</strong></span>
-        <span class="inline-flex items-center gap-1 bg-white/70 px-2 py-1 rounded-full border border-emerald-200 badge-step">3) Buyer confirms → <strong>Release</strong></span>
-        <span class="inline-flex items-center gap-1 bg-white/70 px-2 py-1 rounded-full border border-emerald-200 badge-step">⏱ Auto-release after <strong>72h</strong></span>
-      </div>
-      <p class="mt-2 text-[13px]">
-        App is installable (PWA) and works offline for the main UI. Live payments require your backend & env vars on Vercel.
-      </p>
-    </div>
-  </section>
-
   <!-- Search / Filters -->
   <section class="max-w-6xl mx-auto px-4 py-6">
     <div class="rounded-3xl gradient-brand p-[1px] shadow-lg">
@@ -178,10 +163,6 @@
             <p class="text-xs text-gray-500 mt-1">Proof is required and will be emailed to admin (not stored on the site).</p>
           </div>
           <div class="sm:col-span-2">
-            <label class="text-sm text-gray-600">Payment Link (Stripe/PayPal/etc.) <span class="text-rose-500">*</span></label>
-            <input name="pay" required placeholder="https://buy.stripe.com/... (Payment Link)" class="w-full mt-1 rounded-2xl bg-white px-4 py-3 ring-1 ring-gray-200 focus:ring-sky-300 outline-none" />
-          </div>
-          <div>
             <label class="text-sm text-gray-600">Seller Name</label>
             <input name="seller" placeholder="Mina" class="w-full mt-1 rounded-2xl bg-white px-4 py-3 ring-1 ring-gray-200 focus:ring-sky-300 outline-none" />
           </div>
