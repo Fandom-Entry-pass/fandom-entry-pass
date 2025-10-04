@@ -521,36 +521,46 @@
     }
 
     /* ===========================
-       Email notifications / Login code
-       =========================== */
-    let _emailjsReady = null;
-    function whenEmailJSReady(timeoutMs = 8000) {
-      if (_emailjsReady) return _emailjsReady;
-      _emailjsReady = new Promise((resolve, reject) => {
-        const t0 = Date.now();
-        (function poll() {
-          if (window.emailjs && EMAILJS_PUBLIC) {
-            try {
-              if (!window.__fep_emailjs_inited) {
-                emailjs.init(EMAILJS_PUBLIC);
-                window.__fep_emailjs_inited = true;
-              }
-              return resolve(true);
-            } catch (e) { return reject(e); }
+   Email notifications / Login code (robust loader)
+   =========================== */
+let _emailjsReady = null;
+
+function whenEmailJSReady(timeoutMs = 8000) {
+  if (_emailjsReady) return _emailjsReady;
+  _emailjsReady = new Promise((resolve, reject) => {
+    const t0 = Date.now();
+    (function poll() {
+      if (window.emailjs && EMAILJS_PUBLIC) {
+        try {
+          if (!window.__fep_emailjs_inited) {
+            emailjs.init(EMAILJS_PUBLIC);
+            window.__fep_emailjs_inited = true;
           }
-          if (Date.now() - t0 > timeoutMs) return reject(new Error("EmailJS SDK not loaded (timeout)"));
-          setTimeout(poll, 50);
-        })();
-      });
-      return _emailjsReady;
-    }
-    async function sendLoginCodeEmail(email, code) {
-      if (!EMAILJS_SERVICE) throw new Error("EMAILJS_SERVICE not set");
-      if (!EMAILJS_TPL_LOGIN) throw new Error("EMAILJS_TPL_LOGIN not set");
-      await whenEmailJSReady();
-      const params = { to_email: email, code };
-      return emailjs.send(EMAILJS_SERVICE, EMAILJS_TPL_LOGIN, params);
-    }
+          return resolve(true);
+        } catch (e) { return reject(e); }
+      }
+      if (Date.now() - t0 > timeoutMs) {
+        return reject(new Error("EmailJS SDK not loaded (timeout)"));
+      }
+      setTimeout(poll, 50);
+    })();
+  });
+  return _emailjsReady;
+}
+
+// Send the 6-digit login code using your LOGIN template
+async function sendLoginCodeEmail(email, code) {
+  if (!EMAILJS_SERVICE) throw new Error("EMAILJS_SERVICE not set");
+  if (!EMAILJS_TPL_LOGIN) throw new Error("EMAILJS_TPL_LOGIN not set");
+  await whenEmailJSReady();
+
+  // These MUST match your EmailJS template variables exactly (e.g., {{to_email}} and {{code}})
+  const params = {
+    to_email: email,
+    code
+  };
+  return emailjs.send(EMAILJS_SERVICE, EMAILJS_TPL_LOGIN, params);
+}
 
     /* ===========================
        Render Listings (escaped)
