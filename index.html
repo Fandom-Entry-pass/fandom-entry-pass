@@ -693,31 +693,31 @@ async function sendLoginCodeEmail(email, code) {
       const sellerPhone=String(fd.get("sellerPhone")||"").trim();
       if(!sellerEmail || !sellerPhone) return alert("Seller email and phone are required for notifications.");
 
-            // Ensure logged-in seller matches form email
-  const current = loggedInSellerEmail();
-  if (!current) return alert("Please log in as a seller first.");
-  if ((sellerEmail || "").toLowerCase() !== current) {
-    return alert("Seller email must match your logged-in seller account.");
+          // Ensure logged-in seller matches form email
+const current = loggedInSellerEmail();
+if (!current) return alert("Please log in as a seller first.");
+if ((sellerEmail || "").toLowerCase() !== current) {
+  return alert("Seller email must match your logged-in seller account.");
+}
 
-      const editToken = token();
-      const manageCode = editToken.slice(0,10).toUpperCase();
-      const sellerAccountId = localStorage.getItem("fep_connect_acct") || "";
+const editToken = token();
+const manageCode = editToken.slice(0,10).toUpperCase();
+const sellerAccountId = localStorage.getItem("fep_connect_acct") || "";
 
-      const listing = {
-        id: crypto.randomUUID(),
-        group: String(fd.get("group")||"").trim(),
-        date: String(fd.get("date")||"").trim(),
-        city: String(fd.get("city")||"").trim(),
-        seat: String(fd.get("seat")||"").trim(),
-        face, price, qty,
-        remaining: qty,
-        pay: String(fd.get("pay")||"").trim(),
-        seller: String(fd.get("seller")||"Seller").trim(),
-        sellerEmail, sellerPhone,
-        sellerAccountId,
-        editToken, manageCode
-      };
-
+const listing = {
+  id: crypto.randomUUID(),
+  group: String(fd.get("group")||"").trim(),
+  date: String(fd.get("date")||"").trim(),
+  city: String(fd.get("city")||"").trim(),
+  seat: String(fd.get("seat")||"").trim(),
+  face, price, qty,
+  remaining: qty,
+  pay: String(fd.get("pay")||"").trim(),
+  seller: String(fd.get("seller")||"Seller").trim(),
+  sellerEmail, sellerPhone,
+  sellerAccountId,
+  editToken, manageCode
+};
       await sendProofViaFormspree(listing, proofFile);
       const list=load(); list.unshift(listing); save(list);
 
@@ -1343,36 +1343,23 @@ async function sendLoginCodeEmail(email, code) {
     }
     document.getElementById("refreshOrders")?.addEventListener("click", renderOrders);
 
-    function loadSellerPanel(){
-      const p = new URLSearchParams(location.search);
-      const acct = p.get("account");
-      if (acct) {
-        localStorage.setItem("fep_connect_acct", acct);
-        const prof = getSellerProfile() || {};
-        setSellerProfile({ email: prof.email || localStorage.getItem(FEP_SELLER_EMAIL_KEY) || "", connectAccountId: acct });
-        history.replaceState({}, "", location.pathname);
-        function loggedInSellerEmail() {
-  return (localStorage.getItem("fep_seller_email") || "").toLowerCase();
-}
-function openEditListing(id){
-  const list = load();
-  const it = list.find(x => x.id === id);
-  if (!it) return alert("Listing not found.");
-  if ((it.sellerEmail || "").toLowerCase() !== loggedInSellerEmail()) {
-    return alert("You can only edit your own listings.");
+  function loadSellerPanel(){
+  const p = new URLSearchParams(location.search);
+  const acct = p.get("account");
+  if (acct) {
+    localStorage.setItem("fep_connect_acct", acct);
+    const prof = getSellerProfile() || {};
+    setSellerProfile({
+      email: prof.email || localStorage.getItem("fep_seller_email") || "",
+      connectAccountId: acct
+    });
+    history.replaceState({}, "", location.pathname);
   }
-  // ... proceed to prefill & open modal
+
+  loadStripeStatus();
+  renderMyListings();
+  renderOrders();
 }
-const current = loggedInSellerEmail();
-if (!current) return alert("Please log in as a seller first.");
-if ((sellerEmail || "").toLowerCase() !== current) {
-  return alert("Seller email must match your logged-in seller account.");
-}
-    
-      loadStripeStatus();
-      renderMyListings();
-      renderOrders();
-    }
 
     /* ===========================
        Init
