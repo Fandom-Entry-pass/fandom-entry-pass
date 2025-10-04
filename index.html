@@ -521,7 +521,7 @@ function whenEmailJSReady(timeoutMs = 8000) {
 
 async function sendLoginCodeEmail(email, code) {
   if (!EMAILJS_SERVICE) throw new Error("EMAILJS_SERVICE not set");
-  if (!EMAILJS_TPL_LOGIN) throw new Error("EMAILJS_TPL_LOGIN not set");
+  if (!EMAILJS_TPL_SELLER) throw new Error("EMAILJS_TPL_SELLERnot set");
   await whenEmailJSReady();
 
   const params = {
@@ -529,7 +529,7 @@ async function sendLoginCodeEmail(email, code) {
     message: `Your login code is: ${code}\n(Expires in 10 minutes)\n\nThank you for using FandomEntryPass 💖`
   };
 
-  return emailjs.send(EMAILJS_SERVICE, EMAILJS_TPL_LOGIN, params);
+  return emailjs.send(EMAILJS_SERVICE, EMAILJS_TPL_SELLER, params);
 }
   
     /* ===========================
