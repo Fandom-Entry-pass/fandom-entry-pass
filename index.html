@@ -460,6 +460,21 @@
     const token = () => Math.random().toString(36).slice(2)+Math.random().toString(36).slice(2);
     const esc = s => String(s ?? "").replace(/[&<>"'`=\/]/g, c => ({'&':'&amp;','<':'&lt;','>':'&#x3E;','"':'&quot;',"'":'&#39;','/':'&#x2F;','`':'&#x60;','=':'&#x3D;'}[c]));
 
+    /* ✅ Added helpers */
+    function loggedInSellerEmail() {
+      return (localStorage.getItem("fep_seller_email") || "").toLowerCase();
+    }
+    function openEditListing(id){
+      const list = load();
+      const it = list.find(x => x.id === id);
+      if (!it) return alert("Listing not found.");
+      if ((it.sellerEmail || "").toLowerCase() !== loggedInSellerEmail()) {
+        return alert("You can only edit your own listings.");
+      }
+      fillEditForm(it);
+      openEditModal();
+    }
+
     /* Fees */
     const BUYER_SERVICE_FEE = 3.50;
     const SELLER_FEE_PCT    = 0.05;
@@ -1255,7 +1270,7 @@ const listing = {
     }
     async function fetchOrderStatus(sid) {
       const r = await fetch(`${ORIGIN}/api/session-status?sid=${encodeURIComponent(sid)}`);
-      if (!r.ok) throw new Error(await r.text().catch(()=>"") || r.statusText);
+      if (!r.ok) throw new Error(await r.text().catch(()=> "") || r.statusText);
       return r.json();
     }
     function fmtDeadline(deadlineEpochSec, nowEpochSec) {
@@ -1273,7 +1288,7 @@ const listing = {
       wrap.textContent = "";
       const list = getOrders();
       if (!list.length) { empty?.classList.remove("hidden"); return; }
-      empty?.classList.add("hidden");
+      empty.classList.add("hidden");
 
       for (const o of list) {
         const div = document.createElement("div");
