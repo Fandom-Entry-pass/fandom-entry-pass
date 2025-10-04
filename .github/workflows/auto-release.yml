@@ -1,61 +1,48 @@
 name: Auto Release (Twice Daily)
 
 on:
-  # Runs at 03:00 and 15:00 UTC every day (≈ every 12 hours)
   schedule:
-    - cron: "0 3 * * *"
-    - cron: "0 15 * * *"
-  # Let you run it on demand from the Actions tab
+    - cron: "0 5,17 * * *" # 05:00 & 17:00 UTC (twice daily)
   workflow_dispatch:
 
-permissions:
-  contents: read
-
-concurrency:
-  group: auto-release
-  cancel-in-progress: false
-
 jobs:
-  run:
+  run-cron:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
     steps:
-      - name: Call cron-auto-release endpoint
-        env:
-          APP_BASE_URL: ${{ secrets.FEP_APP_BASE_URL }}
-          CRON_SECRET: ${{ secrets.FEP_CRON_SECRET }}
+      - name: Check required secrets
         run: |
-          set -euo pipefail
-
-          if [ -z "${APP_BASE_URL:-}" ] || [ -z "${CRON_SECRET:-}" ]; then
-            echo "❌ Missing FEP_APP_BASE_URL or FEP_CRON_SECRET in repo secrets."
+          if [ -z "${{ secrets.FEP_APP_BASE_URL }}" ] || [ -z "${{ secrets.FEP_CRON_SECRET }}" ]; then
+            echo "❌ Missing GitHub Secrets FEP_APP_BASE_URL or FEP_CRON_SECRET"
             exit 1
           fi
 
-          URL="${APP_BASE_URL%/}/api/cron-auto-release"
-
-          echo "➡️  Hitting: $URL"
-          # Optional cap on operations the API will perform in one run.
-          # Remove maxOps if you want no cap.
-          HTTP_CODE=$(curl -sS -w "%{http_code}" -o response.json \
-            -H "Authorization: Bearer ${CRON_SECRET}" \
-            --get --data-urlencode "maxOps=500" \
-            "$URL")
-
-          echo "HTTP $HTTP_CODE"
+      - name: Call auto-release endpoint
+        env:
+          APP_BASE: ${{ secrets.FEP_APP_BASE_URL }}
+          CRON_KEY: ${{ secrets.FEP_CRON_SECRET }}
+        run: |
+          set -e
+          URL="${APP_BASE%/}/api/cron-auto-release?key=${CRON_KEY}&maxOps=50"
+          echo "GET $URL"
+          # Make request and capture status code + body
+          HTTP_STATUS=$(curl -sS -w "%{http_code}" -o resp.json "$URL") || {
+            echo "❌ curl failed to reach ${URL}"
+            exit 1
+          }
+          echo "Status: $HTTP_STATUS"
           echo "Response:"
-          cat response.json || true
+          cat resp.json || true
 
-          # Treat non-2xx as failure
-          case "$HTTP_CODE" in
-            2*) : ;;
-            *) echo "❌ Request failed (HTTP $HTTP_CODE)"; exit 1 ;;
-          esac
-
-          # Lightweight check for {"ok": true}
-          if ! grep -q '"ok"[[:space:]]*:[[:space:]]*true' response.json; then
-            echo "❌ Endpoint did not return ok=true"
+          # Fail on HTTP error
+          if [ "$HTTP_STATUS" -ge 400 ]; then
+            echo "❌ HTTP error from endpoint"
             exit 1
           fi
 
-          echo "✅ Done"
+          # Check ok:true without needing jq
+          if ! grep -q '"ok": true' resp.json; then
+            echo "❌ Endpoint returned ok:false (or missing)."
+            exit 1
+          fi
+
+          echo "✅ Auto-release run succeeded."
