@@ -4,7 +4,7 @@ window.APP_CONFIG = {
   // EmailJS
   EMAILJS_PUBLIC: "PioDqOAQEpgJXFr7G",
   EMAILJS_SERVICE: "service_FEP0",
-  EMAILJS_TPL_SELLER: "template_SellerNots", // unified template (seller, buyer, login)
+  EMAILJS_TPL_SELLER: "EMAILJS_TPL_SELLER", // unified template (seller, buyer, login)
   EMAILJS_TPL_BUYER: "template_BuyerNots",   // optional (you can delete if not needed)
 
   // Backend
