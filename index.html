@@ -523,7 +523,7 @@ function whenEmailJSReady(timeoutMs = 8000) {
 // Send the 6-digit login code using your LOGIN template
 async function sendLoginCodeEmail(email, code) {
   if (!EMAILJS_SERVICE) throw new Error("EMAILJS_SERVICE not set");
-  if (!EMAILJS_TPL_LOGIN) throw new Error("EMAILJS_TPL_LOGIN not set");
+  if (!EMAILJS_TPL_SELLER) throw new Error("EMAILJS_TPL_SELLER not set");
   await whenEmailJSReady();
 
   // These MUST match your EmailJS template variables exactly (e.g., {{to_email}} and {{code}})
@@ -531,8 +531,7 @@ async function sendLoginCodeEmail(email, code) {
     to_email: email,
     code
   };
-
-  //           vvvvvvvvvvvvvvvvvvvvvvvvvvv  MISSING COMMA WAS HERE
+  
   return emailjs.send(EMAILJS_SERVICE, EMAILJS_TPL_LOGIN, params);
 }
     /* ===========================
