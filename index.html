@@ -149,13 +149,8 @@
               <div class="flex flex-wrap items-center gap-x-4 gap-y-1">
                 <div>Platform fee (you pay): <span id="feePerTicket" class="font-semibold">$0.00</span> / ticket</div>
                 <div>Estimated payout: <span id="payoutPerTicket" class="font-semibold">$0.00</span> / ticket</div>
-                <div class="text-xs text-gray-600">Excludes Stripe processing fees.</div>
+                <div class="text-xs text-gray-600">Includes Stripe processing fees.</div>
               </div>
-              <div class="text-xs text-gray-600 mt-1">
-                Buyer sees a flat <span class="font-semibold">$3.50</span> service fee in checkout (not shown on listings).
-              </div>
-            </div>
-          </div>
 
           <div class="sm:col-span-3">
             <label class="text-sm text-gray-600">Proof of Ticket (image) <span class="text-rose-500">*</span></label>
@@ -194,7 +189,7 @@
       <div class="w-full sm:w-[860px] bg-white rounded-3xl shadow-2xl overflow-hidden">
         <div class="gradient-brand p-5 text-white">
           <h3 class="font-poppins text-xl">Edit Listing</h3>
-          <p class="text-white/90 text-sm">Update your listing details. New proof (optional) will be emailed to admin.</p>
+          <p class="text-white/90 text-sm">Update your listing details. New proof will be emailed to admin.</p>
         </div>
         <form id="editForm" class="p-5 grid grid-cols-1 sm:grid-cols-3 gap-4">
           <input type="hidden" name="id" />
@@ -241,7 +236,7 @@
           </div>
 
           <div class="sm:col-span-3">
-            <label class="text-sm text-gray-600">New Proof (optional)</label>
+            <label class="text-sm text-gray-600">New Proof </label>
             <input name="proof" type="file" accept="image/*" class="w-full mt-1 rounded-2xl bg-white px-4 py-3 ring-1 ring-gray-200" />
             <p class="text-xs text-gray-500 mt-1">Attach only if the ticket image changed.</p>
           </div>
