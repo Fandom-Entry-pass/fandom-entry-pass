@@ -7,7 +7,7 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion: "2024-06-
 
 const ORIGIN =
   process.env.APP_ORIGIN ||
-  (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "http://fandom-entry-pass.vercel.app");
+  (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "http://localhost:3000");
 
 export default async function handler(req, res) {
   try {
@@ -16,38 +16,33 @@ export default async function handler(req, res) {
       return res.status(405).json({ ok: false, error: "Method not allowed" });
     }
 
-    // Accept JSON body (POST) or query (GET)
     const body = req.method === "POST" ? (req.body || {}) : (req.query || {});
     const sellerEmail = (body.sellerEmail || body.email || "").toString().trim();
     const sellerName  = (body.sellerName || "").toString().trim();
     let accountId     = (body.accountId || body.account || "").toString().trim();
 
-    // If an account was passed in, verify it exists; otherwise, we'll create one.
+    // If we got an account id, verify it; otherwise create a new Express account.
     if (accountId) {
       try {
         await stripe.accounts.retrieve(accountId);
       } catch {
-        accountId = ""; // invalid id -> create a fresh one
+        accountId = "";
       }
     }
 
     if (!accountId) {
-      // ✅ Create a platform-controlled account (no `type`).
-      // Must declare responsibilities explicitly via `controller.*`.
+      // ✅ Use legacy Express (NO `controller` block) to avoid the “fees.payer application” error
       const account = await stripe.accounts.create({
-        country: "US", // change if needed
+        type: "express",
+        country: "US", // change if you need a different country
         email: sellerEmail || undefined,
+        capabilities: {
+          transfers: { requested: true },
+          card_payments: { requested: true },
+        },
         business_profile: {
           product_description: "Fan ticket resale via FandomEntryPass",
           support_email: sellerEmail || undefined,
-        },
-        controller: {
-          fees:   { payer: "application" },     // your platform collects/owes application fees
-          losses: { payments: "application" },  // your platform is responsible for payments losses
-        },
-        capabilities: {
-          transfers:     { requested: true },
-          card_payments: { requested: true },
         },
         metadata: {
           fep_seller_email: sellerEmail || "",
@@ -58,7 +53,7 @@ export default async function handler(req, res) {
       accountId = account.id;
     }
 
-    // Hosted onboarding link still works with controller-style accounts
+    // Create a hosted onboarding link the frontend can open
     const refresh_url = `${ORIGIN}/?account=${encodeURIComponent(accountId)}#stripe-refresh`;
     const return_url  = `${ORIGIN}/?account=${encodeURIComponent(accountId)}#stripe-return`;
 
@@ -77,8 +72,7 @@ export default async function handler(req, res) {
     });
   } catch (err) {
     console.error("create-link error:", err);
-    const status = err?.statusCode || 400;
-    return res.status(status).json({
+    return res.status(err?.statusCode || 400).json({
       ok: false,
       error: err?.message || "Failed to create account link",
     });
