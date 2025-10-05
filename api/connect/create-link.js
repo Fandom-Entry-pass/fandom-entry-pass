@@ -8,7 +8,7 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion: "2024-06-
 const ORIGIN =
   process.env.APP_ORIGIN ||
   process.env.VERCEL_URL && `https://${process.env.VERCEL_URL}` ||
-  "http://localhost:3000";
+  "https://fandom-entry-pass.vercel.app";
 
 export default async function handler(req, res) {
   try {
