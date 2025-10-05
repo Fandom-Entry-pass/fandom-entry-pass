@@ -1063,7 +1063,8 @@ const listing = {
       if (entered !== code) return alert("Incorrect code.");
       const existing = getSellerProfile() || {};
       const acct = localStorage.getItem("fep_connect_acct") || existing.connectAccountId || "";
-      setSellerProfile({ email, connectAccountId: acct });
+      /* 🔧 PATCH: mark as verified */
+      setSellerProfile({ email, connectAccountId: acct, isVerified: true });
       localStorage.setItem("fep_seller_email", email);
       sessionStorage.removeItem(CODE_KEY);
       sessionStorage.removeItem(CODE_EMAIL_KEY);
@@ -1077,10 +1078,10 @@ const listing = {
     const FEP_ACCT_KEY = "fep_connect_acct";
     const FEP_SELLER_EMAIL_KEY = "fep_seller_email";
 
+    /* 🔧 PATCH: require verified login */
     function isSellerLoggedIn(){
       const p = getSellerProfile();
-      const email = localStorage.getItem(FEP_SELLER_EMAIL_KEY) || p?.email;
-      return !!(email && email.includes("@"));
+      return !!(p && p.isVerified === true && p.email && p.email.includes("@"));
     }
 
     function toggleSellerUI(){
@@ -1104,7 +1105,8 @@ const listing = {
       if(!email) return alert("Enter a seller email.");
       localStorage.setItem(FEP_SELLER_EMAIL_KEY, email);
       const prof = getSellerProfile() || {};
-      setSellerProfile({ email, connectAccountId: prof.connectAccountId || localStorage.getItem(FEP_ACCT_KEY) || "" });
+      /* 🔧 PATCH: preserve verification flag */
+      setSellerProfile({ email, connectAccountId: prof.connectAccountId || localStorage.getItem(FEP_ACCT_KEY) || "", isVerified: prof.isVerified === true });
       renderMyListings();
       toggleSellerUI();
       alert("Saved.");
@@ -1126,7 +1128,7 @@ const listing = {
       if (data.accountId) {
         localStorage.setItem(FEP_ACCT_KEY, data.accountId);
         const prof = getSellerProfile() || {};
-        setSellerProfile({ email: prof.email || sellerEmail, connectAccountId: data.accountId });
+        setSellerProfile({ email: prof.email || sellerEmail, connectAccountId: data.accountId, isVerified: prof.isVerified === true });
       }
       location.href = data.url;
     }
@@ -1340,9 +1342,11 @@ const listing = {
   if (acct) {
     localStorage.setItem("fep_connect_acct", acct);
     const prof = getSellerProfile() || {};
+    /* 🔧 PATCH: preserve verification flag */
     setSellerProfile({
       email: prof.email || localStorage.getItem("fep_seller_email") || "",
-      connectAccountId: acct
+      connectAccountId: acct,
+      isVerified: prof.isVerified === true
     });
     history.replaceState({}, "", location.pathname);
   }
@@ -1364,3 +1368,4 @@ const listing = {
   </script>
 </body>
 </html>
+
