@@ -16,33 +16,22 @@ jobs:
             exit 1
           fi
 
-      - name: Call auto-release endpoint
-        env:
-          APP_BASE: ${{ secrets.FEP_APP_BASE_URL }}
-          CRON_KEY: ${{ secrets.FEP_CRON_SECRET }}
-        run: |
-          set -e
-          URL="${APP_BASE%/}/api/cron-auto-release?key=${CRON_KEY}&maxOps=50"
-          echo "GET $URL"
-          # Make request and capture status code + body
-          HTTP_STATUS=$(curl -sS -w "%{http_code}" -o resp.json "$URL") || {
-            echo "❌ curl failed to reach ${URL}"
-            exit 1
-          }
-          echo "Status: $HTTP_STATUS"
-          echo "Response:"
-          cat resp.json || true
-
-          # Fail on HTTP error
-          if [ "$HTTP_STATUS" -ge 400 ]; then
-            echo "❌ HTTP error from endpoint"
-            exit 1
-          fi
-
-          # Check ok:true without needing jq
-          if ! grep -q '"ok": true' resp.json; then
-            echo "❌ Endpoint returned ok:false (or missing)."
-            exit 1
-          fi
-
-          echo "✅ Auto-release run succeeded."
+      name: Call auto-release endpoint
+  env:
+    APP_BASE: ${{ secrets.FEP_APP_BASE_URL }}
+    CRON_KEY: ${{ secrets.FEP_CRON_SECRET }}
+  run: |
+    set -e
+    URL="${APP_BASE%/}/api/cron-auto-release?key=${CRON_KEY}&maxOps=50"
+    echo "GET $URL"
+    HTTP_STATUS=$(curl -sS -L -w "%{http_code}" -o resp.json "$URL") || {
+      echo "❌ curl failed to reach ${URL}"
+      exit 1
+    }
+    echo "Status: $HTTP_STATUS"
+    echo "Response:"; cat resp.json || true
+    if ! grep -q '"ok": true' resp.json; then
+      echo "❌ Endpoint returned ok:false (or missing)."
+      exit 1
+    fi
+    echo "✅ Auto-release run succeeded."
