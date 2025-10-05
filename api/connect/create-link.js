@@ -1,85 +1,94 @@
-// /api/connect/create-link.js
+// api/connect/create-link.js
 import Stripe from "stripe";
 
 export const config = { runtime: "nodejs" };
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion: "2024-06-20" });
 
-function originFrom(req) {
-  const fromEnv = process.env.APP_ORIGIN && process.env.APP_ORIGIN.replace(/\/+$/, "");
-  if (fromEnv) return fromEnv;
-  const hdr = (req.headers["origin"] || req.headers["referer"] || "").toString();
-  if (hdr) return hdr.replace(/\/+$/, "");
-  return "http://localhost:3000";
-}
-
-function allowCORS(res) {
-  res.setHeader("Access-Control-Allow-Origin", process.env.APP_ORIGIN || "*");
-  res.setHeader("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type,Authorization");
-}
-
-async function readJson(req) {
-  return await new Promise((resolve) => {
-    let buf = "";
-    req.on("data", (c) => (buf += c));
-    req.on("end", () => {
-      try { resolve(buf ? JSON.parse(buf) : {}); } catch { resolve({}); }
-    });
-  });
-}
+const ORIGIN =
+  process.env.APP_ORIGIN ||
+  process.env.VERCEL_URL && `https://${process.env.VERCEL_URL}` ||
+  "http://localhost:3000";
 
 export default async function handler(req, res) {
-  allowCORS(res);
-  if (req.method === "OPTIONS") return res.status(204).end();
-
-  if (!process.env.STRIPE_SECRET_KEY) {
-    return res.status(500).json({ ok: false, error: "Missing STRIPE_SECRET_KEY on server." });
-  }
-
-  const body = req.method === "POST" ? await readJson(req) : {};
-  const q = req.query || {};
-
-  const sellerEmail = String(body.sellerEmail || q.sellerEmail || "").trim();
-  const sellerName  = String(body.sellerName  || q.sellerName  || "").trim();
-  let accountId     = String(body.accountId   || body.account  || q.accountId || q.account || "").trim();
-
   try {
-    const origin = originFrom(req);
+    if (req.method !== "POST" && req.method !== "GET") {
+      res.setHeader("Allow", "POST, GET");
+      return res.status(405).json({ ok: false, error: "Method not allowed" });
+    }
 
-    // 1) Create an Express account if we don't have one yet
+    // Accept both JSON body (POST) and querystring (GET) for convenience
+    const body = req.method === "POST" ? (req.body || {}) : req.query || {};
+    const sellerEmail = (body.sellerEmail || body.email || "").toString().trim();
+    const sellerName  = (body.sellerName || "").toString().trim();
+    let   accountId   = (body.accountId || body.account || "").toString().trim();
+
+    // If accountId is provided, verify it exists; otherwise create one
+    if (accountId) {
+      try {
+        await stripe.accounts.retrieve(accountId);
+      } catch (e) {
+        // If the passed account id is bogus, ignore it and fall back to creating a new account
+        accountId = "";
+      }
+    }
+
     if (!accountId) {
-      const acct = await stripe.accounts.create({
+      // 🔐 Create an Express account.
+      // The controller.* fields are REQUIRED on new API versions to declare responsibilities.
+      const account = await stripe.accounts.create({
         type: "express",
+        country: "US",           // Change if you need multi-country onboarding
         email: sellerEmail || undefined,
-        metadata: { sellerEmail: sellerEmail || "", sellerName: sellerName || "" }
+        business_profile: {
+          product_description: "Fan ticket resale via FandomEntryPass",
+          support_email: sellerEmail || undefined,
+        },
+        // ✅ Declare who pays fees & who covers losses (payments disputes/refunds).
+        controller: {
+          fees:   { payer: "application" },     // your platform collects fees
+          losses: { payments: "application" },  // your platform accepts liability for losses
+        },
+        // Common capabilities for payouts and charges
+        capabilities: {
+          transfers:       { requested: true },
+          card_payments:   { requested: true },
+        },
+        metadata: {
+          fep_seller_email: sellerEmail || "",
+          fep_seller_name: sellerName || "",
+        },
       });
-      accountId = acct.id;
+
+      accountId = account.id;
     }
 
-    // 2) Retrieve current account state
-    const acct = await stripe.accounts.retrieve(accountId);
+    // Create an onboarding or update link
+    const refresh_url = `${ORIGIN}/?account=${encodeURIComponent(accountId)}#stripe-refresh`;
+    const return_url  = `${ORIGIN}/?account=${encodeURIComponent(accountId)}#stripe-return`;
 
-    // 3) If onboarding still needed, send onboarding link
-    if (!acct.charges_enabled || !acct.payouts_enabled) {
-      const link = await stripe.accountLinks.create({
-        account: accountId,
-        type: "account_onboarding",
-        return_url: `${origin}/?account=${accountId}`,
-        refresh_url: `${origin}/?account=${accountId}&reconnect=1`,
-      });
-      return res.status(200).json({ ok: true, status: "onboarding", accountId, url: link.url });
-    }
+    const link = await stripe.accountLinks.create({
+      account: accountId,
+      refresh_url,
+      return_url,
+      type: "account_onboarding",
+    });
 
-    // 4) Already connected → dashboard login link
-    const login = await stripe.accounts.createLoginLink(accountId);
-    return res.status(200).json({ ok: true, status: "connected", accountId, url: login.url });
+    return res.status(200).json({
+      ok: true,
+      status: "onboarding",
+      accountId,
+      url: link.url,
+    });
 
   } catch (err) {
     console.error("create-link error:", err);
-    const msg = err?.message || "Unknown error";
-    // If account param is invalid, surface 400 so the UI can retry without it
-    return res.status(400).json({ ok: false, error: msg });
+    const status = err?.statusCode || 400;
+    // Surface Stripe’s message to help debugging in the UI
+    return res.status(status).json({
+      ok: false,
+      error: err?.message || "Failed to create account link",
+    });
   }
 }
 
