@@ -1112,7 +1112,7 @@ const listing = {
       alert("Saved.");
     });
 
-   async function connectOrReconnectStripe(){
+ async function connectOrReconnectStripe(){
   // Pull a valid seller email first
   const prof = (function(){ try { return JSON.parse(localStorage.getItem("fep_seller_profile") || "null"); } catch { return null; } })();
   const inputEmail = (document.getElementById("sellerEmailInput")?.value || "").trim();
@@ -1129,31 +1129,35 @@ const listing = {
   const prevText = btn ? btn.textContent : "";
   if (btn) { btn.disabled = true; btn.textContent = "Connecting…"; }
 
-  // Helper: GET fallback URL
-  const qs = new URLSearchParams({ sellerEmail, sellerName, accountId }).toString();
+  // Build endpoints
   const postUrl = `${ORIGIN}/api/connect/create-link`;
+  // IMPORTANT: backend expects ?account= (not accountId)
+  const qs = new URLSearchParams({
+    sellerEmail,
+    sellerName,
+    account: accountId || ""     // <- renamed key
+  }).toString();
   const getUrl  = `${ORIGIN}/api/connect/create-link?${qs}`;
 
-  async function handleResponse(res, method, url, rawText){
-    const text = rawText ?? await res.text();
+  async function handleResponse(res, method, url){
+    const text = await res.text();
     let data = {};
-    try { data = text ? JSON.parse(text) : {}; } catch { /* keep text for error */ }
+    try { data = text ? JSON.parse(text) : {}; } catch {}
 
     if (!res.ok) {
-      // Try GET fallback only for 405/404 after a POST attempt
+      // Retry GET if POST not allowed / missing
       if (method === "POST" && (res.status === 405 || res.status === 404)) {
-        // Retry with GET
         const res2 = await fetch(getUrl, { method: "GET" });
         return handleResponse(res2, "GET", getUrl);
       }
-      console.error("Connect link error:", res.status, text);
       alert(
         `Could not start Stripe onboarding.\n\n` +
-        `Status: ${res.status}\nMethod: ${method}\nURL: ${url}\n` +
+        `Status: ${res.status}\nMethod: ${method}\nURL: ${url}\n\n` +
         (data?.error || text || "No message returned.") +
-        `\n\nTips:\n• Ensure APP_CONFIG.API_BASE points to your backend.\n` +
-        `• Confirm your /api/connect/create-link route allows ${method}.\n` +
-        `• If you only support GET, keep this fallback or enable POST.`
+        (method === "GET" && !accountId
+          ? `\n\nNote: Your server’s GET route requires an ?account=... param. ` +
+            `There is no saved account yet on this device. Connect once to store it, or update the backend to create an account when missing.`
+          : "")
       );
       return;
     }
@@ -1168,7 +1172,6 @@ const listing = {
 
     const urlOut = data.url || data.onboardingLink || data.loginLink;
     if (!urlOut) {
-      console.error("No onboarding URL in response:", data);
       alert(`Server responded but did not include an onboarding URL.\nMethod: ${method}\nURL: ${url}`);
       return;
     }
@@ -1176,15 +1179,15 @@ const listing = {
   }
 
   try {
-    // Primary attempt: POST
+    // Primary attempt: POST (lets servers that create accounts on-demand work)
     const res = await fetch(postUrl, {
       method: "POST",
       headers: { "Content-Type":"application/json" },
-      body: JSON.stringify({ sellerEmail, sellerName, accountId })
+      // include both keys for maximum compatibility
+      body: JSON.stringify({ sellerEmail, sellerName, accountId, account: accountId })
     });
     await handleResponse(res, "POST", postUrl);
   } catch (e) {
-    console.error("Connect link fetch failed:", e);
     alert(`Could not start Stripe onboarding.\n\n${e?.message || e}`);
   } finally {
     if (btn) { btn.disabled = false; btn.textContent = prevText; }
