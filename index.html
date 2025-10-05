@@ -1113,26 +1113,73 @@ const listing = {
     });
 
     async function connectOrReconnectStripe(){
-      const sellerEmail = localStorage.getItem(FEP_SELLER_EMAIL_KEY) || document.getElementById("sellerEmailInput").value.trim();
-      if(!sellerEmail) return alert("Save your seller email first.");
-      const accountId = localStorage.getItem(FEP_ACCT_KEY) || "";
-      const sellerName = "";
+  // 1) Require a saved seller email (prefers saved profile, falls back to input)
+  const prof = (function(){ try { return JSON.parse(localStorage.getItem("fep_seller_profile") || "null"); } catch { return null; } })();
+  const inputEmail = (document.getElementById("sellerEmailInput")?.value || "").trim();
+  const sellerEmail = (localStorage.getItem("fep_seller_email") || prof?.email || inputEmail || "").trim();
+  if (!sellerEmail || !sellerEmail.includes("@")) {
+    alert("Save your seller email first (in Seller Dashboard) and try again.");
+    return;
+  }
 
-      const r = await fetch(`${ORIGIN}/api/connect/create-link`, {
-        method: "POST",
-        headers: { "Content-Type":"application/json" },
-        body: JSON.stringify({ sellerEmail, sellerName, accountId })
-      });
-      const data = await r.json().catch(()=> ({}));
-      if(!r.ok || !data?.url) return alert("Could not start Stripe onboarding.");
-      if (data.accountId) {
-        localStorage.setItem(FEP_ACCT_KEY, data.accountId);
-        const prof = getSellerProfile() || {};
-        setSellerProfile({ email: prof.email || sellerEmail, connectAccountId: data.accountId, isVerified: prof.isVerified === true });
-      }
-      location.href = data.url;
+  // 2) Optional existing Connect account id
+  const accountId = localStorage.getItem("fep_connect_acct") || prof?.connectAccountId || "";
+  const sellerName = "";
+
+  // 3) Set loading state on the button
+  const btn = document.getElementById("connectStripe") || document.getElementById("reconnectStripe");
+  const prevText = btn ? btn.textContent : "";
+  if (btn) { btn.disabled = true; btn.textContent = "Connecting…"; }
+
+  try {
+    // 4) Call your backend
+    const res = await fetch(`${ORIGIN}/api/connect/create-link`, {
+      method: "POST",
+      headers: { "Content-Type":"application/json" },
+      body: JSON.stringify({ sellerEmail, sellerName, accountId })
+    });
+
+    // 5) Parse body (even on error) to surface details
+    const text = await res.text();
+    let data = {};
+    try { data = text ? JSON.parse(text) : {}; } catch { /* keep text for error */ }
+
+    if (!res.ok) {
+      console.error("Connect link error:", res.status, text);
+      alert(
+        `Could not start Stripe onboarding.\n\n` +
+        `Status: ${res.status}\n` +
+        (data?.error || text || "No message returned.") +
+        `\n\nTip: Check APP_CONFIG.API_BASE, server logs, and CORS.`
+      );
+      return;
     }
 
+    // 6) Persist returned accountId if provided
+    if (data.accountId) {
+      localStorage.setItem("fep_connect_acct", data.accountId);
+      const profNow = (prof || {});
+      localStorage.setItem("fep_seller_profile", JSON.stringify({
+        email: sellerEmail,
+        connectAccountId: data.accountId
+      }));
+    }
+
+    // 7) Open the onboarding link
+    const url = data.url || data.onboardingLink || data.loginLink;
+    if (!url) {
+      console.error("No onboarding URL in response:", data);
+      alert("Server responded but did not include an onboarding URL.");
+      return;
+    }
+    location.href = url;
+  } catch (e) {
+    console.error("Connect link fetch failed:", e);
+    alert(`Could not start Stripe onboarding.\n\n${e?.message || e}`);
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = prevText; }
+  }
+}
     document.getElementById("connectStripe")?.addEventListener("click", connectOrReconnectStripe);
     document.getElementById("reconnectStripe")?.addEventListener("click", connectOrReconnectStripe);
     document.getElementById("refreshListings")?.addEventListener("click", renderMyListings);
