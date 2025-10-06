@@ -5,8 +5,8 @@ import { Resend } from "resend";
 export const config = { api: { bodyParser: false }, runtime: "nodejs" };
 
 const resend = new Resend(process.env.RESEND_API_KEY);
-const TO_EMAIL = process.env.PROOF_TO_EMAIL || "admin@example.com";
-const FROM_EMAIL = process.env.PROOF_FROM_EMAIL || "fep@yourdomain.com"; // must be a verified domain/sender in Resend
+const TO_EMAIL = process.env.PROOF_TO_EMAIL || "alexisdeshong@gfcleaners.com";
+const FROM_EMAIL = process.env.PROOF_FROM_EMAIL || "alexisdeshong@gfcleaners.com"; // must be a verified domain/sender in Resend
 
 async function parseMultipart(req) {
   return await new Promise((resolve, reject) => {
