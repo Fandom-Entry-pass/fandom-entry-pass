@@ -852,9 +852,9 @@ const listing = {
       const buyerEmail = prompt("Enter your email for updates (optional):") || "";
       const sellerAccountId = it.sellerAccountId || localStorage.getItem("fep_connect_acct") || "";
 
-      if (!window.stripe) {
-        alert("Payments aren’t ready yet. Please try again later.");
-        return;
+    if (!stripe || typeof stripe.redirectToCheckout !== "function") {
+  alert("Payments aren’t ready yet. Please try again later.");
+  return;
       }
 
       try {
