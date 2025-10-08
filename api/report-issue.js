@@ -25,9 +25,19 @@ export default async function handler(req, res) {
 
     if (!pi?.id) return res.status(404).json({ error: "PaymentIntent not found" });
 
-    // ✅ New: ensure this is an escrow flow (manual capture)
+    // Must be escrow (manual capture)
     if (pi.capture_method !== "manual") {
       return res.status(400).json({ error: "Payment not in escrow (manual capture required)" });
+    }
+
+    const meta = pi.metadata || {};
+    const fepStatus = String(meta.fep_status || "");
+
+    // 🔒 Block cancellation once seller marked as sent
+    if (fepStatus === "sent") {
+      return res.status(409).json({
+        error: "Ticket already marked sent; cancellation is blocked."
+      });
     }
 
     // Idempotency / short-circuits
@@ -43,5 +53,25 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: "PaymentIntent not in a cancelable state", status: pi.status });
     }
 
-    const now = Math.floor(
+    const now = Math.floor(Date.now() / 1000);
+    // 🔁 Set on_hold so your cron respects the dispute/hold state
+    const newMeta = {
+      ...meta,
+      fep_status: "on_hold",
+      fep_canceled_at: String(now)
+    };
+    await stripe.paymentIntents.update(pi.id, { metadata: newMeta });
+
+    const canceled = await stripe.paymentIntents.cancel(
+      pi.id,
+      { cancellation_reason: "requested_by_customer" },
+      { idempotencyKey: `cancel:${pi.id}` }
+    );
+
+    return res.status(200).json({ canceled: true, payment_intent: canceled.id });
+  } catch (err) {
+    console.error("report-issue error:", err);
+    return res.status(500).json({ error: "Failed to cancel intent" });
+  }
+}
 
