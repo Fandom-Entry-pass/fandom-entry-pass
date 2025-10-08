@@ -49,12 +49,15 @@ export default async function handler(req, res) {
       deadline = createdSec + DEFAULT_ESCROW_SECS;
     }
 
+    const now = Math.floor(Date.now() / 1000);
+    const time_remaining = Math.max(0, deadline - now);
+
     // Currency and totals (cents)
     const currency = (pi.currency || session.currency || "usd").toLowerCase();
 
     // Pull fee & pricing hints from metadata (set in create-checkout-session)
     const qty = Number(meta.qty || 1);
-    const priceUsd = Number(meta.price || 0);              // per ticket (USD)
+    const priceUsd = Number(meta.price || 0); // per ticket (USD)
     const buyer_fee_cents = Number(meta.buyer_fee_cents || 0);
     const seller_fee_cents = Number(meta.seller_fee_cents || 0);
 
@@ -68,12 +71,19 @@ export default async function handler(req, res) {
       (Number.isFinite(ticket_subtotal_cents) ? ticket_subtotal_cents : 0) -
       (Number.isFinite(seller_fee_cents) ? seller_fee_cents : 0);
 
-    // Include amount_total if Stripe computed it (may include fees/taxes if you ever add them)
+    // Include amount_total if Stripe computed it
     const amount_total = Number.isFinite(session.amount_total) ? session.amount_total : null;
 
     // Helpful echoes
     const listingId = meta.listingId || null;
     const sellerAccountId = meta.sellerAccountId || null;
+    const fep_status = meta.fep_status || "";
+
+    // Convenience flags for UI (non-breaking additions)
+    const on_hold = ["on_hold", "issue_reported", "dispute"].includes(fep_status);
+    const can_buyer_cancel = requires_capture && fep_status === "authorized" && !succeeded && !canceled;
+    const can_buyer_confirm = requires_capture && !on_hold && !succeeded && !canceled;
+    const can_report_issue = requires_capture && !succeeded && !canceled;
 
     return res.status(200).json({
       ok: true,
@@ -85,19 +95,20 @@ export default async function handler(req, res) {
       succeeded,
       canceled,
 
-      deadline,                           // unix seconds
-      now: Math.floor(Date.now() / 1000),
+      deadline,                 // unix seconds
+      now,                      // unix seconds
+      time_remaining,           // seconds until deadline (0 when expired)
 
       // Stripe computed (if present)
-      amount_total,                       // cents
+      amount_total,             // cents
       currency,
 
       // FEP metadata/status
-      fep_status: meta.fep_status || "",
+      fep_status,
       listingId,
       sellerAccountId,
 
-      // 🔎 Fee & payout snapshot (derived from metadata)
+      // Derived pricing snapshot
       qty: Number.isFinite(qty) ? qty : 1,
       unit_cents,
       ticket_subtotal_cents,
@@ -105,6 +116,12 @@ export default async function handler(req, res) {
       buyer_total_cents,
       seller_fee_cents,
       seller_estimated_payout_cents,
+
+      // Helpful UI flags (optional; purely additive)
+      on_hold,
+      can_buyer_cancel,
+      can_buyer_confirm,
+      can_report_issue,
     });
   } catch (e) {
     console.error("session-status error:", e);
@@ -114,3 +131,4 @@ export default async function handler(req, res) {
     return res.status(500).json({ error: "Failed to get status" });
   }
 }
+
