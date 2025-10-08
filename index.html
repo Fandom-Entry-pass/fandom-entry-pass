@@ -51,9 +51,9 @@
       </div>
       <div class="flex items-center gap-2">
         <!-- “Add Listing” only shows if seller is logged in -->
-       <button id="openAdd"    class="hidden inline-flex bg-white text-sky-700 font-semibold px-4 py-2 rounded-xl shadow hover:bg-white/90">+ Add Listing</button>
-<button id="openSeller" class="hidden inline-flex bg-white/20 text-white font-semibold px-4 py-2 rounded-xl shadow hover:bg-white/30">Seller</button>
-<button id="installBtn" class="hidden inline-flex bg-white/20 text-white font-semibold px-4 py-2 rounded-xl shadow hover:bg-white/30">Install App</button>
+        <button id="openAdd"    class="hidden inline-flex bg-white text-sky-700 font-semibold px-4 py-2 rounded-xl shadow hover:bg-white/90">+ Add Listing</button>
+        <button id="openSeller" class="hidden inline-flex bg-white/20 text-white font-semibold px-4 py-2 rounded-xl shadow hover:bg-white/30">Seller</button>
+        <button id="installBtn" class="hidden inline-flex bg-white/20 text-white font-semibold px-4 py-2 rounded-xl shadow hover:bg-white/30">Install App</button>
       </div>
     </div>
   </header>
@@ -366,6 +366,10 @@
               <input id="sidInput" placeholder="cs_live_..." class="flex-1 rounded-xl bg-white px-4 py-3 ring-1 ring-gray-200 focus:ring-sky-300 outline-none" />
               <button id="checkSid" class="rounded-xl bg-gray-900 text-white px-4">Check</button>
               <button id="copySid" class="rounded-xl bg-white ring-1 ring-gray-200 px-3 py-2 disabled:opacity-50" disabled>Copy SID</button>
+              <!-- ✅ NEW: Mark as Sent -->
+              <button id="markSentBtn" class="rounded-xl bg-emerald-600 text-white px-4 py-2 disabled:opacity-50" disabled>
+                Mark Ticket as Sent
+              </button>
             </div>
             <pre id="sidResult" class="mt-2 text-xs bg-gray-50 p-2 rounded-xl overflow-auto"></pre>
           </div>
@@ -684,31 +688,31 @@ async function sendLoginCodeEmail(email, code) {
       const sellerPhone=String(fd.get("sellerPhone")||"").trim();
       if(!sellerEmail || !sellerPhone) return alert("Seller email and phone are required for notifications.");
 
-          // Ensure logged-in seller matches form email
-const current = loggedInSellerEmail();
-if (!current) return alert("Please log in as a seller first.");
-if ((sellerEmail || "").toLowerCase() !== current) {
-  return alert("Seller email must match your logged-in seller account.");
-}
+      // Ensure logged-in seller matches form email
+      const current = loggedInSellerEmail();
+      if (!current) return alert("Please log in as a seller first.");
+      if ((sellerEmail || "").toLowerCase() !== current) {
+        return alert("Seller email must match your logged-in seller account.");
+      }
 
-const editToken = token();
-const manageCode = editToken.slice(0,10).toUpperCase();
-const sellerAccountId = localStorage.getItem("fep_connect_acct") || "";
+      const editToken = token();
+      const manageCode = editToken.slice(0,10).toUpperCase();
+      const sellerAccountId = localStorage.getItem("fep_connect_acct") || "";
 
-const listing = {
-  id: crypto.randomUUID(),
-  group: String(fd.get("group")||"").trim(),
-  date: String(fd.get("date")||"").trim(),
-  city: String(fd.get("city")||"").trim(),
-  seat: String(fd.get("seat")||"").trim(),
-  face, price, qty,
-  remaining: qty,
-  pay: String(fd.get("pay")||"").trim(),
-  seller: String(fd.get("seller")||"Seller").trim(),
-  sellerEmail, sellerPhone,
-  sellerAccountId,
-  editToken, manageCode
-};
+      const listing = {
+        id: crypto.randomUUID(),
+        group: String(fd.get("group")||"").trim(),
+        date: String(fd.get("date")||"").trim(),
+        city: String(fd.get("city")||"").trim(),
+        seat: String(fd.get("seat")||"").trim(),
+        face, price, qty,
+        remaining: qty,
+        pay: String(fd.get("pay")||"").trim(),
+        seller: String(fd.get("seller")||"Seller").trim(),
+        sellerEmail, sellerPhone,
+        sellerAccountId,
+        editToken, manageCode
+      };
       await sendProofViaFormspree(listing, proofFile);
       const list=load(); list.unshift(listing); save(list);
 
@@ -852,9 +856,9 @@ const listing = {
       const buyerEmail = prompt("Enter your email for updates (optional):") || "";
       const sellerAccountId = it.sellerAccountId || localStorage.getItem("fep_connect_acct") || "";
 
-    if (!stripe || typeof stripe.redirectToCheckout !== "function") {
-  alert("Payments aren’t ready yet. Please try again later.");
-  return;
+      if (!stripe || typeof stripe.redirectToCheckout !== "function") {
+        alert("Payments aren’t ready yet. Please try again later.");
+        return;
       }
 
       try {
@@ -951,6 +955,24 @@ const listing = {
           </div>
         `;
         document.body.appendChild(container);
+
+        /* ✅ NEW: Show "Cancel order" when still authorized */
+        if (data.fep_status === "authorized") {
+          const cancelBtn = document.createElement("button");
+          cancelBtn.id = "fepCancel";
+          cancelBtn.className = "px-4 py-2 rounded-xl bg-white ring-1 ring-gray-300";
+          cancelBtn.textContent = "Cancel order";
+          container.querySelector(".flex.gap-2").appendChild(cancelBtn);
+
+          cancelBtn.onclick = async () => {
+            const r = await fetch(`${ORIGIN}/api/cancel-order`, {
+              method: "POST", headers: { "Content-Type":"application/json" },
+              body: JSON.stringify({ sessionId: sid })
+            });
+            if (r.ok) { alert("Order canceled. Authorization voided."); location.href = "/"; }
+            else { alert("Could not cancel. It may have been marked sent already."); }
+          };
+        }
 
         const el = container.querySelector("#fepCountdown");
         function tickDown() {
@@ -1112,87 +1134,87 @@ const listing = {
       alert("Saved.");
     });
 
- async function connectOrReconnectStripe(){
-  // Pull a valid seller email first
-  const prof = (function(){ try { return JSON.parse(localStorage.getItem("fep_seller_profile") || "null"); } catch { return null; } })();
-  const inputEmail = (document.getElementById("sellerEmailInput")?.value || "").trim();
-  const sellerEmail = (localStorage.getItem("fep_seller_email") || prof?.email || inputEmail || "").trim();
-  if (!sellerEmail || !sellerEmail.includes("@")) {
-    alert("Save your seller email first (in Seller Dashboard) and try again.");
-    return;
-  }
-
-  const accountId = localStorage.getItem("fep_connect_acct") || prof?.connectAccountId || "";
-  const sellerName = "";
-
-  const btn = document.getElementById("connectStripe") || document.getElementById("reconnectStripe");
-  const prevText = btn ? btn.textContent : "";
-  if (btn) { btn.disabled = true; btn.textContent = "Connecting…"; }
-
-  // Build endpoints
-  const postUrl = `${ORIGIN}/api/connect/create-link`;
-  // IMPORTANT: backend expects ?account= (not accountId)
-  const qs = new URLSearchParams({
-    sellerEmail,
-    sellerName,
-    account: accountId || ""     // <- renamed key
-  }).toString();
-  const getUrl  = `${ORIGIN}/api/connect/create-link?${qs}`;
-
-  async function handleResponse(res, method, url){
-    const text = await res.text();
-    let data = {};
-    try { data = text ? JSON.parse(text) : {}; } catch {}
-
-    if (!res.ok) {
-      // Retry GET if POST not allowed / missing
-      if (method === "POST" && (res.status === 405 || res.status === 404)) {
-        const res2 = await fetch(getUrl, { method: "GET" });
-        return handleResponse(res2, "GET", getUrl);
+    async function connectOrReconnectStripe(){
+      // Pull a valid seller email first
+      const prof = (function(){ try { return JSON.parse(localStorage.getItem("fep_seller_profile") || "null"); } catch { return null; } })();
+      const inputEmail = (document.getElementById("sellerEmailInput")?.value || "").trim();
+      const sellerEmail = (localStorage.getItem("fep_seller_email") || prof?.email || inputEmail || "").trim();
+      if (!sellerEmail || !sellerEmail.includes("@")) {
+        alert("Save your seller email first (in Seller Dashboard) and try again.");
+        return;
       }
-      alert(
-        `Could not start Stripe onboarding.\n\n` +
-        `Status: ${res.status}\nMethod: ${method}\nURL: ${url}\n\n` +
-        (data?.error || text || "No message returned.") +
-        (method === "GET" && !accountId
-          ? `\n\nNote: Your server’s GET route requires an ?account=... param. ` +
-            `There is no saved account yet on this device. Connect once to store it, or update the backend to create an account when missing.`
-          : "")
-      );
-      return;
-    }
 
-    if (data.accountId) {
-      localStorage.setItem("fep_connect_acct", data.accountId);
-      localStorage.setItem("fep_seller_profile", JSON.stringify({
-        email: sellerEmail,
-        connectAccountId: data.accountId
-      }));
-    }
+      const accountId = localStorage.getItem("fep_connect_acct") || prof?.connectAccountId || "";
+      const sellerName = "";
 
-    const urlOut = data.url || data.onboardingLink || data.loginLink;
-    if (!urlOut) {
-      alert(`Server responded but did not include an onboarding URL.\nMethod: ${method}\nURL: ${url}`);
-      return;
-    }
-    location.href = urlOut;
-  }
+      const btn = document.getElementById("connectStripe") || document.getElementById("reconnectStripe");
+      const prevText = btn ? btn.textContent : "";
+      if (btn) { btn.disabled = true; btn.textContent = "Connecting…"; }
 
-  try {
-    // Primary attempt: POST (lets servers that create accounts on-demand work)
-    const res = await fetch(postUrl, {
-      method: "POST",
-      headers: { "Content-Type":"application/json" },
-      // include both keys for maximum compatibility
-      body: JSON.stringify({ sellerEmail, sellerName, accountId, account: accountId })
-    });
-    await handleResponse(res, "POST", postUrl);
-  } catch (e) {
-    alert(`Could not start Stripe onboarding.\n\n${e?.message || e}`);
-  } finally {
-    if (btn) { btn.disabled = false; btn.textContent = prevText; }
-  }
-}
+      // Build endpoints
+      const postUrl = `${ORIGIN}/api/connect/create-link`;
+      // IMPORTANT: backend expects ?account= (not accountId)
+      const qs = new URLSearchParams({
+        sellerEmail,
+        sellerName,
+        account: accountId || ""
+      }).toString();
+      const getUrl  = `${ORIGIN}/api/connect/create-link?${qs}`;
+
+      async function handleResponse(res, method, url){
+        const text = await res.text();
+        let data = {};
+        try { data = text ? JSON.parse(text) : {}; } catch {}
+
+        if (!res.ok) {
+          // Retry GET if POST not allowed / missing
+          if (method === "POST" && (res.status === 405 || res.status === 404)) {
+            const res2 = await fetch(getUrl, { method: "GET" });
+            return handleResponse(res2, "GET", getUrl);
+          }
+          alert(
+            `Could not start Stripe onboarding.\n\n` +
+            `Status: ${res.status}\nMethod: ${method}\nURL: ${url}\n\n` +
+            (data?.error || text || "No message returned.") +
+            (method === "GET" && !accountId
+              ? `\n\nNote: Your server’s GET route requires an ?account=... param. ` +
+                `There is no saved account yet on this device. Connect once to store it, or update the backend to create an account when missing.`
+              : "")
+          );
+          return;
+        }
+
+        if (data.accountId) {
+          localStorage.setItem("fep_connect_acct", data.accountId);
+          localStorage.setItem("fep_seller_profile", JSON.stringify({
+            email: sellerEmail,
+            connectAccountId: data.accountId
+          }));
+        }
+
+        const urlOut = data.url || data.onboardingLink || data.loginLink;
+        if (!urlOut) {
+          alert(`Server responded but did not include an onboarding URL.\nMethod: ${method}\nURL: ${url}`);
+          return;
+        }
+        location.href = urlOut;
+      }
+
+      try {
+        // Primary attempt: POST (lets servers that create accounts on-demand work)
+        const res = await fetch(postUrl, {
+          method: "POST",
+          headers: { "Content-Type":"application/json" },
+          // include both keys for maximum compatibility
+          body: JSON.stringify({ sellerEmail, sellerName, accountId, account: accountId })
+        });
+        await handleResponse(res, "POST", postUrl);
+      } catch (e) {
+        alert(`Could not start Stripe onboarding.\n\n${e?.message || e}`);
+      } finally {
+        if (btn) { btn.disabled = false; btn.textContent = prevText; }
+      }
+    }
 
     document.getElementById("connectStripe")?.addEventListener("click", connectOrReconnectStripe);
     document.getElementById("reconnectStripe")?.addEventListener("click", connectOrReconnectStripe);
@@ -1292,6 +1314,43 @@ const listing = {
         setTimeout(()=> btn.textContent = prev, 1100);
       } catch {
         alert("Could not copy SID. Please copy manually.");
+      }
+    });
+
+    /* ✅ NEW: Enable/handle Mark Sent + Copy based on SID input */
+    (function wireSidInputEnablers() {
+      const sidInput = document.getElementById("sidInput");
+      const copyBtn = document.getElementById("copySid");
+      const markBtn = document.getElementById("markSentBtn");
+      if (!sidInput) return;
+      const sync = () => {
+        const sid = sidInput.value.trim();
+        const hasSid = !!sid;
+        if (copyBtn) { copyBtn.disabled = !hasSid; copyBtn.dataset.sid = hasSid ? sid : ""; }
+        if (markBtn) { markBtn.disabled = !hasSid; }
+      };
+      sidInput.addEventListener("input", sync);
+      sync();
+    })();
+
+    document.getElementById("markSentBtn")?.addEventListener("click", async () => {
+      const sid = document.getElementById("sidInput")?.value.trim();
+      if (!sid) return alert("Enter a Checkout Session ID first.");
+      try {
+        const r = await fetch(`${ORIGIN}/api/mark-sent`, {
+          method: "POST",
+          headers: { "Content-Type":"application/json" },
+          body: JSON.stringify({ sessionId: sid })
+        });
+        const d = await r.json().catch(()=> ({}));
+        if (!r.ok || !d?.ok) {
+          alert(d?.error || `Failed to mark as sent (HTTP ${r.status}).`);
+          return;
+        }
+        alert("✅ Ticket marked as sent. Buyer can no longer cancel.");
+        try { await checkSid(); } catch {}
+      } catch (e) {
+        alert(`Failed to mark as sent.\n${e?.message || e}`);
       }
     });
 
@@ -1397,25 +1456,25 @@ const listing = {
     }
     document.getElementById("refreshOrders")?.addEventListener("click", renderOrders);
 
-  function loadSellerPanel(){
-  const p = new URLSearchParams(location.search);
-  const acct = p.get("account");
-  if (acct) {
-    localStorage.setItem("fep_connect_acct", acct);
-    const prof = getSellerProfile() || {};
-    /* 🔧 PATCH: preserve verification flag */
-    setSellerProfile({
-      email: prof.email || localStorage.getItem("fep_seller_email") || "",
-      connectAccountId: acct,
-      isVerified: prof.isVerified === true
-    });
-    history.replaceState({}, "", location.pathname);
-  }
+    function loadSellerPanel(){
+      const p = new URLSearchParams(location.search);
+      const acct = p.get("account");
+      if (acct) {
+        localStorage.setItem("fep_connect_acct", acct);
+        const prof = getSellerProfile() || {};
+        /* 🔧 PATCH: preserve verification flag */
+        setSellerProfile({
+          email: prof.email || localStorage.getItem("fep_seller_email") || "",
+          connectAccountId: acct,
+          isVerified: prof.isVerified === true
+        });
+        history.replaceState({}, "", location.pathname);
+      }
 
-  loadStripeStatus();
-  renderMyListings();
-  renderOrders();
-}
+      loadStripeStatus();
+      renderMyListings();
+      renderOrders();
+    }
 
     /* ===========================
        Init
