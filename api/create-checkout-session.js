@@ -11,7 +11,7 @@ const APP_BASE_URL = process.env.APP_BASE_URL || "";
 // Buyer service fee per **order** (in cents)
 const BUYER_FEE_CENTS = 350; // $3.50
 
-// Confirmation window for escrow (in hours) – used to set fep_confirm_deadline metadata
+// Confirmation window for escrow (in hours)
 const CONFIRM_HOURS = Number(process.env.FEP_CONFIRM_HOURS || 72);
 
 function toCents(n) {
@@ -52,7 +52,7 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: "Invalid price" });
     }
 
-    // ----- Enforce +15% cap on ticket price (defense in depth) -----
+    // ----- Enforce +15% cap on ticket price -----
     if (face !== undefined && face !== null && face !== "") {
       const faceCents = toCents(face);
       if (faceCents !== null && faceCents > 0) {
@@ -83,7 +83,7 @@ export default async function handler(req, res) {
     // ----- Totals & fees -----
     const ticketSubtotalCents = unitAmount * qtyInt;
 
-    // ✅ Seller fee = 5% of ticket subtotal + $0.75 per ticket
+    // Seller fee = 5% of ticket subtotal + $0.75 per ticket
     const sellerFeeCents =
       Math.round(ticketSubtotalCents * 0.05) + (75 * qtyInt);
 
@@ -94,12 +94,12 @@ export default async function handler(req, res) {
     const payload = {
       mode: "payment",
 
-      // Escrow: authorize only; capture later in confirm-received
+      // Escrow: authorize only; capture later via confirm-received
       payment_intent_data: {
         capture_method: "manual",
         metadata: {
           fep: "1",
-          fep_status: "pending",
+          fep_status: "authorized",
           fep_confirm_deadline: String(confirmDeadline),
           listingId,
           group: group || "",
@@ -114,7 +114,7 @@ export default async function handler(req, res) {
         }
       },
 
-      // Two line items: tickets + buyer service fee (buyer only sees this)
+      // Two line items: tickets + buyer service fee
       line_items: [
         {
           price_data: {
@@ -153,16 +153,10 @@ export default async function handler(req, res) {
       }
     };
 
-    // IMPORTANT:
-    // Do NOT set transfer_data or application_fee_amount here,
-    // because your /api/confirm-received creates the post-capture transfer
-    // (paying seller price − (5% + $0.75) × qty). If you set them here as well,
-    // you'd double-handle payouts.
-
+    // Do NOT set transfer_data/application_fee here; handle payout on capture.
     const session = await stripe.checkout.sessions.create(
       payload,
       {
-        // Idempotency helps prevent duplicates on retries
         idempotencyKey: `checkout:${listingId}:${buyerEmail}:${qtyInt}:${unitAmount}`
       }
     );
