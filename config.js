@@ -11,7 +11,7 @@ window.APP_CONFIG = {
   API_BASE: "", // empty string defaults to same-origin
 
   // Stripe
-  STRIPE_PK: "pk_live_51LcNBuF7BMVtRlnacvmpKOmS9gMBg3IOnkdgaOjdRjCCspQNjHuvPBwLXBdxIn2qC0bJpa1yO2GZjaTbMOvwvr7n00sb6AKo1u",
+  STRIPE_PK: "pk_test_51SKMNcFMc3LdrVpazXTuvjNiSNzTGuJ1t3N4fllUQEWKBXbyJPyxR0LkEYqB6C8mhd9CwysdcOftvKRee65Lo6sy00SKbyIVyk",
 
   // Escrow
   ESCROW_HOURS: 72
