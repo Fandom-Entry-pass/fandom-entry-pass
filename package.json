@@ -8,7 +8,7 @@
   "type": "module",
   "private": true,
   "engines": {
-    "node": ">=18"
+    "node": "22.x"
   },
   "dependencies": {
     "stripe": "^16.6.0",
