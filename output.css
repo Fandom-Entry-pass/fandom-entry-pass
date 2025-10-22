@@ -1,0 +1,8 @@
+/* === Tailwind base === */
+@import "https://unpkg.com/tailwindcss@3.4.13/base.css";
+
+/* === Tailwind components === */
+@import "https://unpkg.com/tailwindcss@3.4.13/components.css";
+
+/* === Tailwind utilities === */
+@import "https://unpkg.com/tailwindcss@3.4.13/utilities.css";
