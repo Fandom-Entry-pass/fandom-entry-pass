@@ -666,7 +666,7 @@ async function startBuy(listingId, qty = 1){
     listingId: it.id,
     group: it.group, date: it.date, city: it.city, seat: it.seat,
     face: it.face, price: it.price,
-    qty: Number(qty),  // ensure numeric
+    qty: Number(qty),  // ensure numeric (BUYER-SELECTED)
     sellerEmail: it.sellerEmail, buyerEmail,
     sellerAccountId
   };
@@ -684,6 +684,12 @@ async function startBuy(listingId, qty = 1){
 
     if (!res.ok) {
       alert(`Checkout error: ${data?.error || res.status}`);
+      return;
+    }
+
+    // Prefer server-provided URL; fallback to sessionId if needed
+    if (data?.url) {
+      window.location.href = data.url;
       return;
     }
 
@@ -959,63 +965,7 @@ async function startBuy(listingId, qty = 1){
     /* ===========================
        Buy → Backend (Stripe Checkout) with fallback sim
        =========================== */
-    async function startBuy(listingId){
-      const list = load();
-      const it = list.find(x => x.id === listingId);
-      if (!it) return;
-      if ((it.remaining ?? it.qty) <= 0) {
-        alert("Sorry, this listing is sold out.");
-        return;
-      }
-
-      const buyerEmail = prompt("Enter your email for updates (optional):") || "";
-      const sellerAccountId = it.sellerAccountId || localStorage.getItem("fep_connect_acct") || "";
-
-      if (!stripe || typeof stripe.redirectToCheckout !== "function") {
-        alert("Payments aren’t ready yet. Please try again later.");
-        return;
-      }
-
-      try {
-        const res = await fetch(`${ORIGIN}/api/create-checkout-session`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            listingId: it.id,
-            group: it.group, date: it.date, city: it.city, seat: it.seat,
-            face: it.face, price: it.price, qty: 1,
-            sellerEmail: it.sellerEmail, buyerEmail,
-            sellerAccountId
-          })
-        });
-        if (!res.ok) {
-          const errText = await res.text();
-          console.error("Checkout session HTTP error", res.status, errText);
-          throw new Error(errText || `HTTP ${res.status}`);
-        }
-        const data = await res.json();
-        if (data.sessionId) {
-          await stripe.redirectToCheckout({ sessionId: data.sessionId });
-          return;
-        }
-      } catch (e) {
-        console.error("Checkout session request failed", e);
-        console.warn("Backend not ready, falling back to demo auth:", e.message);
-      }
-
-      it.remaining = Math.max(0, (it.remaining ?? it.qty ?? 1) - 1);
-      it.orders = it.orders || [];
-      it.orders.push({
-        id: crypto.randomUUID(),
-        status: "authorized",
-        authorizedAt: Date.now(),
-        buyerEmail,
-        token: token(),
-        tokenExpiresAt: Date.now() + hoursMs(ESCROW_HOURS)
-      });
-      save(list); render(list);
-      alert("Payment authorized (demo). Funds auto-release in 72h unless buyer confirms received earlier.");
-    }
+    /*  (intentionally removed duplicate startBuy that forced qty:1)  */
 
     /* ===========================
        Auto-release + Privacy purge (demo)
@@ -1185,7 +1135,6 @@ async function startBuy(listingId, qty = 1){
         const msg = String(e?.message || "");
         if (msg.includes("SDK not loaded")) alert("Email service is still loading. Wait a moment and try again.");
         else if (msg.includes("EMAILJS_SERVICE")) alert("Email service not configured (EMAILJS_SERVICE). Set it in config/env.");
-        else if (msg.includes("template")) alert("Template ID missing or invalid (EMAILJS_TPL_LOGIN).");
         else alert("Could not send code. Check EmailJS keys, template IDs, and allowed origins.");
         sendLoginCodeBtn.textContent = prev;
       } finally {
@@ -1336,7 +1285,7 @@ async function startBuy(listingId, qty = 1){
     document.getElementById("refreshListings")?.addEventListener("click", renderMyListings);
 
     function renderMyListings(){
-      const email = (localStorage.getItem(FEP_SELLER_EMAIL_KEY) || "").toLowerCase();
+      const email = (localStorage.getItem("fep_seller_email") || "").toLowerCase();
       document.getElementById("sellerEmailInput").value = email;
       const my = (load() || []).filter(x => (x.sellerEmail||"").toLowerCase() === email);
       const wrap = document.getElementById("myListings");
