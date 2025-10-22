@@ -640,6 +640,7 @@ async function startBuy(listingId, qty = 1){
 
   // Clamp qty against available
   qty = Math.max(1, Math.min(qty, remaining));
+  console.log("[FEP] startBuy selected qty =", qty);
 
   const buyerEmail = prompt("Enter your email for updates (optional):") || "";
   const sellerAccountId = it.sellerAccountId || localStorage.getItem("fep_connect_acct") || "";
@@ -668,6 +669,8 @@ async function startBuy(listingId, qty = 1){
       throw new Error(errText || `HTTP ${res.status}`);
     }
     const data = await res.json();
+     console.log("[FEP] server returned:", data);
+    alert(`Sent qty=${qty}; server says qty=${data?.qty ?? "n/a"}`);
     if (data.sessionId) {
       await stripe.redirectToCheckout({ sessionId: data.sessionId });
       return;
