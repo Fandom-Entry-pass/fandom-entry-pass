@@ -15,7 +15,7 @@
     "resend": "^3.2.0"
   },
   "scripts": {
-    "build:css": "tailwindcss -i ./src/input.css -o ./public/output.css --minify",
-    "vercel-build": "npm run build:css"
-  }
+  "build:css": "tailwindcss -i ./src/input.css -o ./output.css --minify",
+  "vercel-build": "npm run build:css"
+}
 }
