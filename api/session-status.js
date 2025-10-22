@@ -39,7 +39,7 @@ export default async function handler(req, res) {
   }
 
   try {
-    // Retrieve Checkout Session + PI (keep expand minimal for perf)
+    // Retrieve Checkout Session + PI
     const session = await stripe.checkout.sessions.retrieve(sid, {
       expand: ["payment_intent", "payment_intent.latest_charge.balance_transaction"],
     });
@@ -73,26 +73,35 @@ export default async function handler(req, res) {
     const now = Math.floor(Date.now() / 1000);
     const time_remaining = Math.max(0, deadline - now);
 
-    // Currency and totals (cents)
+    // Currency
     const currency = (pi.currency || session.currency || "usd").toLowerCase();
 
-    // Pull fee & pricing hints from metadata (set in create-checkout-session)
+    // ---- Pricing / fees from metadata (set in create-checkout-session) ----
     const qty = Number(meta.qty || 1);
     const priceUsd = Number(meta.price || 0); // per ticket (USD)
-    const buyer_fee_cents = Number(meta.buyer_fee_cents || 0);
-    const seller_fee_cents = Number(meta.seller_fee_cents || 0);
 
-    // Derive helpful numbers safely
+    // New per-ticket fee fields
+    const buyer_fee_cents_per_ticket  = Number(meta.buyer_fee_cents_per_ticket || 0);
+    const buyer_fee_total_cents       = Number(meta.buyer_fee_total_cents || 0);
+    const seller_fee_per_ticket_cents = Number(meta.seller_fee_per_ticket_cents || 0);
+    const seller_fee_total_cents      = Number(meta.seller_fee_total_cents || 0);
+
+    // Derived amounts
     const unit_cents = Math.round(priceUsd * 100) || 0;
-    const ticket_subtotal_cents = unit_cents * (Number.isFinite(qty) && qty > 0 ? qty : 1);
+    const ticket_subtotal_cents =
+      unit_cents * (Number.isFinite(qty) && qty > 0 ? qty : 1);
+
+    // Buyer pays ticket subtotal + buyer fee TOTAL (per-ticket * qty)
     const buyer_total_cents =
       (Number.isFinite(ticket_subtotal_cents) ? ticket_subtotal_cents : 0) +
-      (Number.isFinite(buyer_fee_cents) ? buyer_fee_cents : 0);
+      (Number.isFinite(buyer_fee_total_cents) ? buyer_fee_total_cents : 0);
+
+    // Seller payout estimate = ticket subtotal - seller fee TOTAL
     const seller_estimated_payout_cents =
       (Number.isFinite(ticket_subtotal_cents) ? ticket_subtotal_cents : 0) -
-      (Number.isFinite(seller_fee_cents) ? seller_fee_cents : 0);
+      (Number.isFinite(seller_fee_total_cents) ? seller_fee_total_cents : 0);
 
-    // Include amount_total if Stripe computed it
+    // Stripe computed (if present)
     const amount_total = Number.isFinite(session.amount_total) ? session.amount_total : null;
 
     // Helpful echoes
@@ -100,20 +109,18 @@ export default async function handler(req, res) {
     const sellerAccountId = meta.sellerAccountId || null;
     const fep_status = meta.fep_status || "";
 
-    // Convenience flags for UI (non-breaking additions)
+    // Convenience flags for UI
     const on_hold = ["on_hold", "issue_reported", "dispute"].includes(fep_status);
     const can_buyer_cancel = requires_capture && fep_status === "authorized" && !succeeded && !canceled;
     const can_buyer_confirm = requires_capture && !on_hold && !succeeded && !canceled;
     const can_report_issue = requires_capture && !succeeded && !canceled;
 
-    // ---------- NEW: Idempotent quantity + seats update on success ----------
-    // Only apply when final payment is succeeded AND we have identifiers.
+    // ---------- Idempotent quantity/seats file update on success ----------
     let listing_update_applied = false;
     let last_sale_seats = [];
 
     if (succeeded && listingId && Number.isFinite(qty) && qty > 0) {
       try {
-        // simple ledger so we don't double-deduct on polling
         const ledger = await readJsonSafe(LEDGER_FILE, { processed: [] });
         if (!ledger.processed.includes(pi.id)) {
           const listings = await readJsonSafe(LISTINGS_FILE, []);
@@ -121,13 +128,14 @@ export default async function handler(req, res) {
           if (idx !== -1) {
             const L = listings[idx];
 
-            // decrement remaining
-            const beforeRemaining = Number.isFinite(L.remaining) ? Number(L.remaining) : Number(L.total || 0) || 0;
+            const beforeRemaining = Number.isFinite(L.remaining)
+              ? Number(L.remaining)
+              : Number(L.total || 0) || 0;
+
             const purchased = Math.min(qty, Math.max(0, beforeRemaining));
             const afterRemaining = Math.max(0, beforeRemaining - purchased);
             L.remaining = afterRemaining;
 
-            // mark seats as sold if seatNumbers exist
             if (Array.isArray(L.seatNumbers) && L.seatNumbers.length) {
               const sold = Array.isArray(L.soldSeats) ? L.soldSeats : [];
               const available = L.seatNumbers.filter((s) => !sold.includes(s));
@@ -138,7 +146,6 @@ export default async function handler(req, res) {
             listings[idx] = L;
             await writeJsonSafe(LISTINGS_FILE, listings);
 
-            // record processed PI
             ledger.processed.push(pi.id);
             await writeJsonSafe(LEDGER_FILE, ledger);
 
@@ -147,10 +154,9 @@ export default async function handler(req, res) {
         }
       } catch (err) {
         console.error("listing quantity update error:", err);
-        // do not fail the whole request; just report in response
       }
     }
-    // -----------------------------------------------------------------------
+    // ---------------------------------------------------------------------
 
     return res.status(200).json({
       ok: true,
@@ -164,10 +170,9 @@ export default async function handler(req, res) {
 
       deadline,                 // unix seconds
       now,                      // unix seconds
-      time_remaining,           // seconds until deadline (0 when expired)
+      time_remaining,           // seconds
 
-      // Stripe computed (if present)
-      amount_total,             // cents
+      amount_total,             // cents (Stripe’s computed)
       currency,
 
       // FEP metadata/status
@@ -175,22 +180,24 @@ export default async function handler(req, res) {
       listingId,
       sellerAccountId,
 
-      // Derived pricing snapshot
-      qty: Number.isFinite(qty) ? qty : 1,
+      // Pricing snapshot (all cents)
+      qty,
       unit_cents,
       ticket_subtotal_cents,
-      buyer_fee_cents,
+      buyer_fee_cents_per_ticket,
+      buyer_fee_total_cents,
       buyer_total_cents,
-      seller_fee_cents,
+      seller_fee_per_ticket_cents,
+      seller_fee_total_cents,
       seller_estimated_payout_cents,
 
-      // Helpful UI flags
+      // UI flags
       on_hold,
       can_buyer_cancel,
       can_buyer_confirm,
       can_report_issue,
 
-      // NEW response hints for your UI
+      // Update hints
       listing_update_applied,
       last_sale_seats,
     });
@@ -202,4 +209,3 @@ export default async function handler(req, res) {
     return res.status(500).json({ error: "Failed to get status" });
   }
 }
-
