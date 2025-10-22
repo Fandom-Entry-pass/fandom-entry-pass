@@ -15,10 +15,10 @@ const APP_BASE_URL = process.env.APP_BASE_URL || "";
  * - SELLER_FEE_FIXED       // per-ticket fixed seller fee in cents (e.g., 75)
  * - SELLER_FEE_PERCENT     // per-ticket percent as decimal (e.g., 0.05)
  */
-const BUYER_FEE_CENTS = Number(process.env.BUYER_FEE_CENTS || 350);
-const ESCROW_HOURS = Number(process.env.ESCROW_HOURS || 72);
-const SELLER_FEE_FIXED = Number(process.env.SELLER_FEE_FIXED || 75);
-const SELLER_FEE_PERCENT = Number(process.env.SELLER_FEE_PERCENT || 0.05);
+const BUYER_FEE_CENTS   = Number(process.env.BUYER_FEE_CENTS   || 350);
+const ESCROW_HOURS      = Number(process.env.ESCROW_HOURS      || 72);
+const SELLER_FEE_FIXED  = Number(process.env.SELLER_FEE_FIXED  || 75);
+const SELLER_FEE_PERCENT= Number(process.env.SELLER_FEE_PERCENT|| 0.05);
 
 function toCents(n) {
   const num = Number(n);
@@ -59,7 +59,7 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: "Invalid price" });
     }
 
-    // Enforce +15% cap on ticket price (per ticket)
+    // Enforce +15% cap (per ticket)
     if (face !== undefined && face !== null && face !== "") {
       const faceCents = toCents(face);
       if (faceCents !== null && faceCents > 0) {
@@ -73,8 +73,8 @@ export default async function handler(req, res) {
       }
     }
 
-    // Presentation
-    const name = `${group || "Ticket"} (${qtyInt}x)`;
+    // Presentation (no "(1x)" suffix—Checkout shows Qty)
+    const name = String(group || "Ticket");
     const descParts = [];
     if (date) descParts.push(String(date));
     if (city) descParts.push(String(city));
@@ -89,16 +89,15 @@ export default async function handler(req, res) {
 
     // Fees per ticket
     const sellerFeePerTicketCents = Math.round(unitAmount * SELLER_FEE_PERCENT) + SELLER_FEE_FIXED;
-    const sellerFeeTotalCents = sellerFeePerTicketCents * qtyInt;
-    const buyerFeeTotalCents = BUYER_FEE_CENTS * qtyInt;
+    const sellerFeeTotalCents     = sellerFeePerTicketCents * qtyInt;
+    const buyerFeeTotalCents      = BUYER_FEE_CENTS * qtyInt;
 
     // Escrow deadline
     const confirmDeadline = Math.floor(Date.now() / 1000) + ESCROW_HOURS * 3600;
 
-    // Build Checkout payload
+    // Build Checkout payload (NO adjustable_quantity — quantity fixed from listing)
     const payload = {
       mode: "payment",
-
       payment_intent_data: {
         capture_method: "manual",
         metadata: {
@@ -119,8 +118,6 @@ export default async function handler(req, res) {
           seller_fee_total_cents: String(sellerFeeTotalCents)
         }
       },
-
-      // Tickets + buyer fee (both per ticket), with adjustable quantity enabled
       line_items: [
         {
           price_data: {
@@ -128,8 +125,7 @@ export default async function handler(req, res) {
             unit_amount: unitAmount,
             product_data: { name, description }
           },
-          quantity: qtyInt,
-          adjustable_quantity: { enabled: true, minimum: 1, maximum: Math.max(qtyInt, 10) } // show qty control in Checkout
+          quantity: qtyInt
         },
         {
           price_data: {
@@ -140,16 +136,12 @@ export default async function handler(req, res) {
               description: "Covers escrow and platform services"
             }
           },
-          quantity: qtyInt,
-          adjustable_quantity: { enabled: false } // keep fee tied to ticket qty
+          quantity: qtyInt
         }
       ],
-
       customer_email: buyerEmail || undefined,
-
       success_url: `${origin}/?success=1&sid={CHECKOUT_SESSION_ID}`,
       cancel_url: `${origin}/?canceled=1`,
-
       metadata: {
         listingId,
         sellerEmail: sellerEmail || "",
@@ -169,7 +161,6 @@ export default async function handler(req, res) {
     const session = await stripe.checkout.sessions.create(
       payload,
       {
-        // ensure different qty creates a new session instead of reusing an old one
         idempotencyKey: `checkout:${listingId}:${buyerEmail}:${qtyInt}:${unitAmount}:${BUYER_FEE_CENTS}:${sellerFeePerTicketCents}`
       }
     );
@@ -180,4 +171,3 @@ export default async function handler(req, res) {
     return res.status(500).json({ error: "Internal error creating session" });
   }
 }
-
