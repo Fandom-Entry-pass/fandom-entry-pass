@@ -17,8 +17,7 @@
     "resend": "^3.2.0"
   },
   "scripts": {
-    "vercel-build": "echo no-build",
-    "build:css": "tailwindcss -i ./src/input.css -o ./public/output.css --minify"
+    "vercel-build": "build:css": "tailwindcss -i ./src/input.css -o ./public/output.css --minify"
   }
 }
 
