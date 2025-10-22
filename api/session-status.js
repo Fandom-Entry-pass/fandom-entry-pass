@@ -1,9 +1,30 @@
 // api/session-status.js
 import Stripe from "stripe";
+import fs from "fs/promises";
+import path from "path";
 
 export const config = { runtime: "nodejs" };
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion: "2024-06-20" });
+
+// ---- Simple file helpers (replace with your DB if needed) ----
+const DATA_DIR = path.join(process.cwd(), "data");
+const LISTINGS_FILE = path.join(DATA_DIR, "listings.json");
+const LEDGER_FILE = path.join(DATA_DIR, "processed-intents.json");
+
+async function readJsonSafe(file, fallback) {
+  try {
+    const raw = await fs.readFile(file, "utf8");
+    return JSON.parse(raw);
+  } catch {
+    return fallback;
+  }
+}
+async function writeJsonSafe(file, obj) {
+  await fs.mkdir(path.dirname(file), { recursive: true });
+  await fs.writeFile(file, JSON.stringify(obj, null, 2));
+}
+// ---------------------------------------------------------------
 
 export default async function handler(req, res) {
   if (req.method !== "GET") {
@@ -18,7 +39,7 @@ export default async function handler(req, res) {
   }
 
   try {
-    // Retrieve Checkout Session + PI
+    // Retrieve Checkout Session + PI (keep expand minimal for perf)
     const session = await stripe.checkout.sessions.retrieve(sid, {
       expand: ["payment_intent", "payment_intent.latest_charge.balance_transaction"],
     });
@@ -85,6 +106,52 @@ export default async function handler(req, res) {
     const can_buyer_confirm = requires_capture && !on_hold && !succeeded && !canceled;
     const can_report_issue = requires_capture && !succeeded && !canceled;
 
+    // ---------- NEW: Idempotent quantity + seats update on success ----------
+    // Only apply when final payment is succeeded AND we have identifiers.
+    let listing_update_applied = false;
+    let last_sale_seats = [];
+
+    if (succeeded && listingId && Number.isFinite(qty) && qty > 0) {
+      try {
+        // simple ledger so we don't double-deduct on polling
+        const ledger = await readJsonSafe(LEDGER_FILE, { processed: [] });
+        if (!ledger.processed.includes(pi.id)) {
+          const listings = await readJsonSafe(LISTINGS_FILE, []);
+          const idx = listings.findIndex((l) => String(l.id) === String(listingId));
+          if (idx !== -1) {
+            const L = listings[idx];
+
+            // decrement remaining
+            const beforeRemaining = Number.isFinite(L.remaining) ? Number(L.remaining) : Number(L.total || 0) || 0;
+            const purchased = Math.min(qty, Math.max(0, beforeRemaining));
+            const afterRemaining = Math.max(0, beforeRemaining - purchased);
+            L.remaining = afterRemaining;
+
+            // mark seats as sold if seatNumbers exist
+            if (Array.isArray(L.seatNumbers) && L.seatNumbers.length) {
+              const sold = Array.isArray(L.soldSeats) ? L.soldSeats : [];
+              const available = L.seatNumbers.filter((s) => !sold.includes(s));
+              last_sale_seats = available.slice(0, purchased);
+              L.soldSeats = [...sold, ...last_sale_seats];
+            }
+
+            listings[idx] = L;
+            await writeJsonSafe(LISTINGS_FILE, listings);
+
+            // record processed PI
+            ledger.processed.push(pi.id);
+            await writeJsonSafe(LEDGER_FILE, ledger);
+
+            listing_update_applied = true;
+          }
+        }
+      } catch (err) {
+        console.error("listing quantity update error:", err);
+        // do not fail the whole request; just report in response
+      }
+    }
+    // -----------------------------------------------------------------------
+
     return res.status(200).json({
       ok: true,
       sessionId: session.id,
@@ -117,11 +184,15 @@ export default async function handler(req, res) {
       seller_fee_cents,
       seller_estimated_payout_cents,
 
-      // Helpful UI flags (optional; purely additive)
+      // Helpful UI flags
       on_hold,
       can_buyer_cancel,
       can_buyer_confirm,
       can_report_issue,
+
+      // NEW response hints for your UI
+      listing_update_applied,
+      last_sale_seats,
     });
   } catch (e) {
     console.error("session-status error:", e);
