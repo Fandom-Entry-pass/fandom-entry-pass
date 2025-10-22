@@ -657,40 +657,54 @@ async function startBuy(listingId, qty = 1){
     alert("Payments aren’t ready yet. Please try again later.");
     return;
   }
+// -------------------------------------------
+  // New debug + payload visibility section
+  // -------------------------------------------
 
-try {
-  const res = await fetch(`${ORIGIN}/api/create-checkout-session`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "Cache-Control": "no-store"
-    },
-    cache: "no-store",
-    body: JSON.stringify({
-      listingId: it.id,
-      group: it.group, date: it.date, city: it.city, seat: it.seat,
-      face: it.face, price: it.price,
-      qty: Number(qty),                 // <-- ensure numeric
-      sellerEmail: it.sellerEmail, buyerEmail,
-      sellerAccountId
-    })
-  });
+  // Build payload as numbers
+  const payload = {
+    listingId: it.id,
+    group: it.group, date: it.date, city: it.city, seat: it.seat,
+    face: it.face, price: it.price,
+    qty: Number(qty),  // ensure numeric
+    sellerEmail: it.sellerEmail, buyerEmail,
+    sellerAccountId
+  };
 
-  const data = await res.json();
-  if (!res.ok) {
-    console.error("Checkout session HTTP error", res.status, data);
-    throw new Error(data?.error || `HTTP ${res.status}`);
+  const url = `${ORIGIN}/api/create-checkout-session`;
+
+  try {
+    const res = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "Cache-Control": "no-store" },
+      cache: "no-store",
+      body: JSON.stringify(payload)
+    });
+    const data = await res.json().catch(()=> ({}));
+
+    if (!res.ok) {
+      alert(`Checkout error: ${data?.error || res.status}`);
+      return;
+    }
+
+    // 🔔 Show exactly what we sent and what server used
+    alert(
+      `Creating session…\n\n` +
+      `Client sent qty: ${payload.qty}\n` +
+      `Server used qtyEcho: ${data?.qtyEcho}\n` +
+      `Line items: ${JSON.stringify(data?.lineItemsEcho || [], null, 2)}\n\n` +
+      `Next: Stripe Checkout`
+    );
+
+    if (data?.sessionId) {
+      await stripe.redirectToCheckout({ sessionId: data.sessionId });
+      return;
+    } else {
+      alert("No sessionId returned from server.");
+    }
+  } catch (e) {
+    alert(`Failed to create session.\n${e?.message || e}`);
   }
-
-  if (data.sessionId) {
-    await stripe.redirectToCheckout({ sessionId: data.sessionId });
-    return;
-  }
-} catch (e) {
-  console.error("Checkout session request failed", e);
-  console.warn("Backend not ready, falling back to demo auth:", e.message);
-}
-
   // Fallback (demo auth) — deduct the correct amount locally
   it.remaining = Math.max(0, (it.remaining ?? it.qty ?? 1) - qty);
   it.orders = it.orders || [];
