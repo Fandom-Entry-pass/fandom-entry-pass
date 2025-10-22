@@ -8,8 +8,8 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion: "2024-06-
 // Optional: hard-code your public app base if you prefer; otherwise we’ll use the request origin
 const APP_BASE_URL = process.env.APP_BASE_URL || "";
 
-// Buyer service fee per **order** (in cents)
-const BUYER_FEE_CENTS = 350; // $3.50
+// Buyer service fee per **ticket** (in cents)
+const BUYER_FEE_CENTS_PER_TICKET = 350; // $3.50 per ticket
 
 // Confirmation window for escrow (in hours)
 const CONFIRM_HOURS = Number(process.env.FEP_CONFIRM_HOURS || 72);
@@ -80,12 +80,15 @@ export default async function handler(req, res) {
       return res.status(500).json({ error: "Missing APP_BASE_URL / origin for redirects" });
     }
 
-    // ----- Totals & fees -----
+    // ----- Totals & fees (per ticket) -----
     const ticketSubtotalCents = unitAmount * qtyInt;
 
-    // Seller fee = 5% of ticket subtotal + $0.75 per ticket
-    const sellerFeeCents =
-      Math.round(ticketSubtotalCents * 0.05) + (75 * qtyInt);
+    // Seller fee **per ticket** = 5% of price + $0.75
+    const sellerFeePerTicketCents = Math.round(unitAmount * 0.05) + 75;
+    const sellerFeeTotalCents = sellerFeePerTicketCents * qtyInt;
+
+    // Buyer fee **per ticket**
+    const buyerFeeTotalCents = BUYER_FEE_CENTS_PER_TICKET * qtyInt;
 
     // Confirmation deadline (epoch seconds)
     const confirmDeadline = Math.floor(Date.now() / 1000) + CONFIRM_HOURS * 3600;
@@ -109,12 +112,14 @@ export default async function handler(req, res) {
           face: face !== undefined && face !== null ? String(face) : "",
           price: String(price),
           qty: String(qtyInt),
-          buyer_fee_cents: String(BUYER_FEE_CENTS),
-          seller_fee_cents: String(sellerFeeCents)
+          buyer_fee_cents_per_ticket: String(BUYER_FEE_CENTS_PER_TICKET),
+          buyer_fee_total_cents: String(buyerFeeTotalCents),
+          seller_fee_per_ticket_cents: String(sellerFeePerTicketCents),
+          seller_fee_total_cents: String(sellerFeeTotalCents)
         }
       },
 
-      // Two line items: tickets + buyer service fee
+      // Two line items: tickets + buyer service fee (per ticket)
       line_items: [
         {
           price_data: {
@@ -125,39 +130,45 @@ export default async function handler(req, res) {
           quantity: qtyInt
         },
         {
-          // Buyer Service Fee (flat $3.50 per order)
           price_data: {
             currency: "usd",
-            unit_amount: BUYER_FEE_CENTS,
+            unit_amount: BUYER_FEE_CENTS_PER_TICKET,
             product_data: {
-              name: "Service Fee",
+              name: "Service Fee (per ticket)",
               description: "Covers escrow and platform services"
             }
           },
-          quantity: 1
+          quantity: qtyInt
         }
       ],
+
+      // Prefill buyer email in Checkout (optional)
+      customer_email: buyerEmail || undefined,
 
       success_url: `${origin}/?success=1&sid={CHECKOUT_SESSION_ID}`,
       cancel_url: `${origin}/?canceled=1`,
 
-      // Mirror a few fields at session level
+      // Mirror useful fields at session level
       metadata: {
         listingId,
         sellerEmail: sellerEmail || "",
         buyerEmail: buyerEmail || "",
         sellerAccountId: sellerAccountId || "",
-        buyer_fee_cents: String(BUYER_FEE_CENTS),
-        seller_fee_cents: String(sellerFeeCents),
+        qty: String(qtyInt),
+        price: String(price),
+        face: face !== undefined && face !== null ? String(face) : "",
+        buyer_fee_cents_per_ticket: String(BUYER_FEE_CENTS_PER_TICKET),
+        buyer_fee_total_cents: String(buyerFeeTotalCents),
+        seller_fee_per_ticket_cents: String(sellerFeePerTicketCents),
+        seller_fee_total_cents: String(sellerFeeTotalCents),
         fep_confirm_deadline: String(confirmDeadline)
       }
     };
 
-    // Do NOT set transfer_data/application_fee here; handle payout on capture.
     const session = await stripe.checkout.sessions.create(
       payload,
       {
-        idempotencyKey: `checkout:${listingId}:${buyerEmail}:${qtyInt}:${unitAmount}`
+        idempotencyKey: `checkout:${listingId}:${buyerEmail}:${qtyInt}:${unitAmount}:${BUYER_FEE_CENTS_PER_TICKET}:${sellerFeePerTicketCents}`
       }
     );
 
