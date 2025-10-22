@@ -5,16 +5,8 @@ export const config = { runtime: "nodejs" };
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion: "2024-06-20" });
 
-// Optional: hard-code your public app base if you prefer; otherwise we’ll use the request origin
 const APP_BASE_URL = process.env.APP_BASE_URL || "";
 
-/**
- * Expected env / config:
- * - BUYER_FEE_CENTS        // per-ticket buyer fee in cents (e.g., 350)
- * - ESCROW_HOURS           // escrow window in hours (e.g., 72)
- * - SELLER_FEE_FIXED       // per-ticket fixed seller fee in cents (e.g., 75)
- * - SELLER_FEE_PERCENT     // per-ticket percent as decimal (e.g., 0.05)
- */
 const BUYER_FEE_CENTS   = Number(process.env.BUYER_FEE_CENTS   || 350);
 const ESCROW_HOURS      = Number(process.env.ESCROW_HOURS      || 72);
 const SELLER_FEE_FIXED  = Number(process.env.SELLER_FEE_FIXED  || 75);
@@ -39,17 +31,16 @@ export default async function handler(req, res) {
       date,
       city,
       seat,
-      face,                     // face value per ticket (USD)
-      price,                    // asking price per ticket (USD)
+      face,
+      price,
       qty = 1,
       sellerEmail,
       buyerEmail = "",
-      sellerAccountId = ""      // Stripe Connect account id for seller (optional)
+      sellerAccountId = ""
     } = req.body || {};
 
     if (!listingId) return res.status(400).json({ error: "Missing listingId" });
 
-    // Robust qty parse (accepts number or string)
     let qtyInt = Number(qty);
     if (!Number.isFinite(qtyInt)) qtyInt = parseInt(String(qty), 10);
     qtyInt = Math.max(1, Math.min(10, Number.isFinite(qtyInt) ? qtyInt : 1));
@@ -59,7 +50,6 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: "Invalid price" });
     }
 
-    // Enforce +15% cap (per ticket)
     if (face !== undefined && face !== null && face !== "") {
       const faceCents = toCents(face);
       if (faceCents !== null && faceCents > 0) {
@@ -73,7 +63,6 @@ export default async function handler(req, res) {
       }
     }
 
-    // Presentation (no "(1x)" suffix—Checkout shows Qty)
     const name = String(group || "Ticket");
     const descParts = [];
     if (date) descParts.push(String(date));
@@ -81,21 +70,17 @@ export default async function handler(req, res) {
     if (seat) descParts.push(String(seat));
     const description = descParts.join(" • ");
 
-    // Redirect URLs
     const origin = APP_BASE_URL || req.headers.origin || "";
     if (!origin) {
       return res.status(500).json({ error: "Missing APP_BASE_URL / origin for redirects" });
     }
 
-    // Fees per ticket
     const sellerFeePerTicketCents = Math.round(unitAmount * SELLER_FEE_PERCENT) + SELLER_FEE_FIXED;
     const sellerFeeTotalCents     = sellerFeePerTicketCents * qtyInt;
     const buyerFeeTotalCents      = BUYER_FEE_CENTS * qtyInt;
 
-    // Escrow deadline
     const confirmDeadline = Math.floor(Date.now() / 1000) + ESCROW_HOURS * 3600;
 
-    // Build Checkout payload (NO adjustable_quantity — quantity fixed from listing)
     const payload = {
       mode: "payment",
       payment_intent_data: {
@@ -158,16 +143,25 @@ export default async function handler(req, res) {
       }
     };
 
-    const session = await stripe.checkout.sessions.create(
-      payload,
-      {
-        idempotencyKey: `checkout:${listingId}:${buyerEmail}:${qtyInt}:${unitAmount}:${BUYER_FEE_CENTS}:${sellerFeePerTicketCents}`
-      }
-    );
+    // Log exactly what we're sending (helps when you open Vercel logs)
+    try {
+      console.log("[create-checkout-session] qtyInt =", qtyInt,
+        "line_items:", payload.line_items.map(li => ({ unit_amount: li.price_data.unit_amount, quantity: li.quantity })));
+    } catch {}
 
-    return res.status(200).json({ sessionId: session.id });
+    // Force a brand-new session every time
+    const session = await stripe.checkout.sessions.create(payload, {
+      idempotencyKey: `checkout:${listingId}:${Date.now()}:${Math.random().toString(36).slice(2)}`
+    });
+
+    // Echo back what the server received so the client can display it
+    return res.status(200).json({
+      sessionId: session.id,
+      qtyEcho: qtyInt
+    });
   } catch (err) {
     console.error("create-checkout-session error:", err);
     return res.status(500).json({ error: "Internal error creating session" });
   }
 }
+
