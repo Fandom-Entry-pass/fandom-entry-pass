@@ -9,11 +9,11 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion: "2024-06-
 const APP_BASE_URL = process.env.APP_BASE_URL || "";
 
 /**
- * Expected env / config (already in your app):
+ * Expected env / config:
  * - BUYER_FEE_CENTS        // per-ticket buyer fee in cents (e.g., 350)
  * - ESCROW_HOURS           // escrow window in hours (e.g., 72)
  * - SELLER_FEE_FIXED       // per-ticket fixed seller fee in cents (e.g., 75)
- * - SELLER_FEE_PERCENT     // per-ticket percent as decimal (e.g., 0.05 for 5%)
+ * - SELLER_FEE_PERCENT     // per-ticket percent as decimal (e.g., 0.05)
  */
 const BUYER_FEE_CENTS = Number(process.env.BUYER_FEE_CENTS || 350);
 const ESCROW_HOURS = Number(process.env.ESCROW_HOURS || 72);
@@ -47,7 +47,6 @@ export default async function handler(req, res) {
       sellerAccountId = ""      // Stripe Connect account id for seller (optional)
     } = req.body || {};
 
-    // ----- Basic validation -----
     if (!listingId) return res.status(400).json({ error: "Missing listingId" });
 
     // Robust qty parse (accepts number or string)
@@ -60,7 +59,7 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: "Invalid price" });
     }
 
-    // ----- Enforce +15% cap on ticket price -----
+    // Enforce +15% cap on ticket price (per ticket)
     if (face !== undefined && face !== null && face !== "") {
       const faceCents = toCents(face);
       if (faceCents !== null && faceCents > 0) {
@@ -74,7 +73,7 @@ export default async function handler(req, res) {
       }
     }
 
-    // ----- Presentation -----
+    // Presentation
     const name = `${group || "Ticket"} (${qtyInt}x)`;
     const descParts = [];
     if (date) descParts.push(String(date));
@@ -82,30 +81,24 @@ export default async function handler(req, res) {
     if (seat) descParts.push(String(seat));
     const description = descParts.join(" • ");
 
-    // ----- Redirect URLs -----
+    // Redirect URLs
     const origin = APP_BASE_URL || req.headers.origin || "";
     if (!origin) {
       return res.status(500).json({ error: "Missing APP_BASE_URL / origin for redirects" });
     }
 
-    // ----- Totals & fees (per ticket) -----
-    const ticketSubtotalCents = unitAmount * qtyInt;
-
-    // Seller fee **per ticket** = (percent * price) + fixed (all in cents)
+    // Fees per ticket
     const sellerFeePerTicketCents = Math.round(unitAmount * SELLER_FEE_PERCENT) + SELLER_FEE_FIXED;
     const sellerFeeTotalCents = sellerFeePerTicketCents * qtyInt;
-
-    // Buyer fee **per ticket** (in cents)
     const buyerFeeTotalCents = BUYER_FEE_CENTS * qtyInt;
 
-    // Confirmation deadline (epoch seconds)
+    // Escrow deadline
     const confirmDeadline = Math.floor(Date.now() / 1000) + ESCROW_HOURS * 3600;
 
-    // ----- Build Checkout payload -----
+    // Build Checkout payload
     const payload = {
       mode: "payment",
 
-      // Escrow: authorize only; capture later via confirm-received
       payment_intent_data: {
         capture_method: "manual",
         metadata: {
@@ -127,7 +120,7 @@ export default async function handler(req, res) {
         }
       },
 
-      // Two line items: tickets + buyer service fee (per ticket)
+      // Tickets + buyer fee (both per ticket), with adjustable quantity enabled
       line_items: [
         {
           price_data: {
@@ -135,7 +128,8 @@ export default async function handler(req, res) {
             unit_amount: unitAmount,
             product_data: { name, description }
           },
-          quantity: qtyInt
+          quantity: qtyInt,
+          adjustable_quantity: { enabled: true, minimum: 1, maximum: Math.max(qtyInt, 10) } // show qty control in Checkout
         },
         {
           price_data: {
@@ -146,17 +140,16 @@ export default async function handler(req, res) {
               description: "Covers escrow and platform services"
             }
           },
-          quantity: qtyInt
+          quantity: qtyInt,
+          adjustable_quantity: { enabled: false } // keep fee tied to ticket qty
         }
       ],
 
-      // Prefill buyer email in Checkout (optional)
       customer_email: buyerEmail || undefined,
 
       success_url: `${origin}/?success=1&sid={CHECKOUT_SESSION_ID}`,
       cancel_url: `${origin}/?canceled=1`,
 
-      // Mirror useful fields at session level
       metadata: {
         listingId,
         sellerEmail: sellerEmail || "",
@@ -173,23 +166,18 @@ export default async function handler(req, res) {
       }
     };
 
-    // Helpful server log to confirm qty reaching the backend
-    try {
-      console.log("[create-checkout-session] qtyInt =", qtyInt,
-        "line_items:", payload.line_items.map(li => ({ unit_amount: li.price_data.unit_amount, quantity: li.quantity })));
-    } catch {}
-
     const session = await stripe.checkout.sessions.create(
       payload,
       {
-        // include qty in the idempotency key to avoid reusing a prior 1-qty session
+        // ensure different qty creates a new session instead of reusing an old one
         idempotencyKey: `checkout:${listingId}:${buyerEmail}:${qtyInt}:${unitAmount}:${BUYER_FEE_CENTS}:${sellerFeePerTicketCents}`
       }
     );
 
-    return res.status(200).json({ sessionId: session.id, qty: qtyInt });
+    return res.status(200).json({ sessionId: session.id });
   } catch (err) {
     console.error("create-checkout-session error:", err);
     return res.status(500).json({ error: "Internal error creating session" });
   }
 }
+
