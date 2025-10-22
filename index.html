@@ -617,16 +617,22 @@ function render(list = load()){
     elListings.appendChild(card);
   }
 
-  // Attach click handlers AFTER cards are in the DOM
-  document.querySelectorAll("[data-buy]").forEach(btn=>{
-    btn.addEventListener("click", ()=>{
-      const id = btn.getAttribute("data-buy");
-      const card = btn.closest("article");
-      const qtyInput = card?.querySelector(`input[data-qty="${id}"]`);
-      const max = Number(qtyInput?.max || 1);
-      const raw = Number(qtyInput?.value || 1);
-      const qty = Math.max(1, Math.min(raw, max));
-      startBuy(id, qty);
+// Attach click handlers AFTER cards are in the DOM
+document.querySelectorAll("[data-buy]").forEach(btn=>{
+  btn.addEventListener("click", ()=>{
+    const id = btn.getAttribute("data-buy");
+    const card = btn.closest("article");
+    const qtyInput = card?.querySelector(`input[data-qty="${id}"]`);
+    const max = Number(qtyInput?.max || 1);
+
+    // Robust parse (avoid empty/NaN/decimals)
+    let raw = String(qtyInput?.value ?? "1").trim();
+    if (!/^\d+$/.test(raw)) raw = "1";
+    let qty = parseInt(raw, 10);
+    if (!Number.isFinite(qty) || qty < 1) qty = 1;
+    qty = Math.min(qty, max);
+
+    startBuy(id, qty);
     });
   });
 }
@@ -650,35 +656,38 @@ async function startBuy(listingId, qty = 1){
     return;
   }
 
-  try {
-    const res = await fetch(`${ORIGIN}/api/create-checkout-session`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        listingId: it.id,
-        group: it.group, date: it.date, city: it.city, seat: it.seat,
-        face: it.face, price: it.price,
-        qty,                       // send selected quantity
-        sellerEmail: it.sellerEmail, buyerEmail,
-        sellerAccountId
-      })
-    });
-    if (!res.ok) {
-      const errText = await res.text();
-      console.error("Checkout session HTTP error", res.status, errText);
-      throw new Error(errText || `HTTP ${res.status}`);
-    }
-    const data = await res.json();
-     console.log("[FEP] server returned:", data);
-    alert(`Sent qty=${qty}; server says qty=${data?.qty ?? "n/a"}`);
-    if (data.sessionId) {
-      await stripe.redirectToCheckout({ sessionId: data.sessionId });
-      return;
-    }
-  } catch (e) {
-    console.error("Checkout session request failed", e);
-    console.warn("Backend not ready, falling back to demo auth:", e.message);
+try {
+  const res = await fetch(`${ORIGIN}/api/create-checkout-session`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Cache-Control": "no-store"
+    },
+    cache: "no-store",
+    body: JSON.stringify({
+      listingId: it.id,
+      group: it.group, date: it.date, city: it.city, seat: it.seat,
+      face: it.face, price: it.price,
+      qty: Number(qty),                 // <-- ensure numeric
+      sellerEmail: it.sellerEmail, buyerEmail,
+      sellerAccountId
+    })
+  });
+
+  const data = await res.json();
+  if (!res.ok) {
+    console.error("Checkout session HTTP error", res.status, data);
+    throw new Error(data?.error || `HTTP ${res.status}`);
   }
+
+  if (data.sessionId) {
+    await stripe.redirectToCheckout({ sessionId: data.sessionId });
+    return;
+  }
+} catch (e) {
+  console.error("Checkout session request failed", e);
+  console.warn("Backend not ready, falling back to demo auth:", e.message);
+}
 
   // Fallback (demo auth) — deduct the correct amount locally
   it.remaining = Math.max(0, (it.remaining ?? it.qty ?? 1) - qty);
