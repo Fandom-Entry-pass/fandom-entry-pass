@@ -625,12 +625,14 @@ document.querySelectorAll("[data-buy]").forEach(btn=>{
     const qtyInput = card?.querySelector(`input[data-qty="${id}"]`);
     const max = Number(qtyInput?.max || 1);
 
-    // Robust parse (avoid empty/NaN/decimals)
-    let raw = String(qtyInput?.value ?? "1").trim();
-    if (!/^\d+$/.test(raw)) raw = "1";
-    let qty = parseInt(raw, 10);
-    if (!Number.isFinite(qty) || qty < 1) qty = 1;
-    qty = Math.min(qty, max);
+    // Strict integer parsing (no blanks/NaN/decimals)
+    let qty = Number(qtyInput?.valueAsNumber);
+    if (!Number.isFinite(qty)) {
+      const raw = String(qtyInput?.value ?? "1").trim();
+      qty = /^\d+$/.test(raw) ? parseInt(raw, 10) : 1;
+    }
+    if (qty < 1) qty = 1;
+    if (qty > max) qty = max;
 
     startBuy(id, qty);
     });
