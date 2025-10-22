@@ -8,11 +8,17 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion: "2024-06-
 // Optional: hard-code your public app base if you prefer; otherwise we’ll use the request origin
 const APP_BASE_URL = process.env.APP_BASE_URL || "";
 
-// Buyer service fee per **ticket** (in cents)
-const BUYER_FEE_CENTS_PER_TICKET = 350; // $3.50 per ticket
-
-// Confirmation window for escrow (in hours)
-const CONFIRM_HOURS = Number(process.env.FEP_CONFIRM_HOURS || 72);
+/**
+ * Expected env / config (already in your app):
+ * - BUYER_FEE_CENTS        // per-ticket buyer fee in cents (e.g., 350)
+ * - ESCROW_HOURS           // escrow window in hours (e.g., 72)
+ * - SELLER_FEE_FIXED       // per-ticket fixed seller fee in cents (e.g., 75)
+ * - SELLER_FEE_PERCENT     // per-ticket percent as decimal (e.g., 0.05 for 5%)
+ */
+const BUYER_FEE_CENTS = Number(process.env.BUYER_FEE_CENTS || 350);
+const ESCROW_HOURS = Number(process.env.ESCROW_HOURS || 72);
+const SELLER_FEE_FIXED = Number(process.env.SELLER_FEE_FIXED || 75);
+const SELLER_FEE_PERCENT = Number(process.env.SELLER_FEE_PERCENT || 0.05);
 
 function toCents(n) {
   const num = Number(n);
@@ -43,10 +49,12 @@ export default async function handler(req, res) {
 
     // ----- Basic validation -----
     if (!listingId) return res.status(400).json({ error: "Missing listingId" });
-    const qtyInt = parseInt(qty, 10);
-    if (!qtyInt || qtyInt < 1 || qtyInt > 10) {
-      return res.status(400).json({ error: "Invalid qty (1–10)" });
-    }
+
+    // Robust qty parse (accepts number or string)
+    let qtyInt = Number(qty);
+    if (!Number.isFinite(qtyInt)) qtyInt = parseInt(String(qty), 10);
+    qtyInt = Math.max(1, Math.min(10, Number.isFinite(qtyInt) ? qtyInt : 1));
+
     const unitAmount = toCents(price);
     if (unitAmount === null || unitAmount <= 0) {
       return res.status(400).json({ error: "Invalid price" });
@@ -83,15 +91,15 @@ export default async function handler(req, res) {
     // ----- Totals & fees (per ticket) -----
     const ticketSubtotalCents = unitAmount * qtyInt;
 
-    // Seller fee **per ticket** = 5% of price + $0.75
-    const sellerFeePerTicketCents = Math.round(unitAmount * 0.05) + 75;
+    // Seller fee **per ticket** = (percent * price) + fixed (all in cents)
+    const sellerFeePerTicketCents = Math.round(unitAmount * SELLER_FEE_PERCENT) + SELLER_FEE_FIXED;
     const sellerFeeTotalCents = sellerFeePerTicketCents * qtyInt;
 
-    // Buyer fee **per ticket**
-    const buyerFeeTotalCents = BUYER_FEE_CENTS_PER_TICKET * qtyInt;
+    // Buyer fee **per ticket** (in cents)
+    const buyerFeeTotalCents = BUYER_FEE_CENTS * qtyInt;
 
     // Confirmation deadline (epoch seconds)
-    const confirmDeadline = Math.floor(Date.now() / 1000) + CONFIRM_HOURS * 3600;
+    const confirmDeadline = Math.floor(Date.now() / 1000) + ESCROW_HOURS * 3600;
 
     // ----- Build Checkout payload -----
     const payload = {
@@ -112,7 +120,7 @@ export default async function handler(req, res) {
           face: face !== undefined && face !== null ? String(face) : "",
           price: String(price),
           qty: String(qtyInt),
-          buyer_fee_cents_per_ticket: String(BUYER_FEE_CENTS_PER_TICKET),
+          buyer_fee_cents_per_ticket: String(BUYER_FEE_CENTS),
           buyer_fee_total_cents: String(buyerFeeTotalCents),
           seller_fee_per_ticket_cents: String(sellerFeePerTicketCents),
           seller_fee_total_cents: String(sellerFeeTotalCents)
@@ -132,7 +140,7 @@ export default async function handler(req, res) {
         {
           price_data: {
             currency: "usd",
-            unit_amount: BUYER_FEE_CENTS_PER_TICKET,
+            unit_amount: BUYER_FEE_CENTS,
             product_data: {
               name: "Service Fee (per ticket)",
               description: "Covers escrow and platform services"
@@ -157,7 +165,7 @@ export default async function handler(req, res) {
         qty: String(qtyInt),
         price: String(price),
         face: face !== undefined && face !== null ? String(face) : "",
-        buyer_fee_cents_per_ticket: String(BUYER_FEE_CENTS_PER_TICKET),
+        buyer_fee_cents_per_ticket: String(BUYER_FEE_CENTS),
         buyer_fee_total_cents: String(buyerFeeTotalCents),
         seller_fee_per_ticket_cents: String(sellerFeePerTicketCents),
         seller_fee_total_cents: String(sellerFeeTotalCents),
@@ -165,14 +173,21 @@ export default async function handler(req, res) {
       }
     };
 
+    // Helpful server log to confirm qty reaching the backend
+    try {
+      console.log("[create-checkout-session] qtyInt =", qtyInt,
+        "line_items:", payload.line_items.map(li => ({ unit_amount: li.price_data.unit_amount, quantity: li.quantity })));
+    } catch {}
+
     const session = await stripe.checkout.sessions.create(
       payload,
       {
-        idempotencyKey: `checkout:${listingId}:${buyerEmail}:${qtyInt}:${unitAmount}:${BUYER_FEE_CENTS_PER_TICKET}:${sellerFeePerTicketCents}`
+        // include qty in the idempotency key to avoid reusing a prior 1-qty session
+        idempotencyKey: `checkout:${listingId}:${buyerEmail}:${qtyInt}:${unitAmount}:${BUYER_FEE_CENTS}:${sellerFeePerTicketCents}`
       }
     );
 
-    return res.status(200).json({ sessionId: session.id });
+    return res.status(200).json({ sessionId: session.id, qty: qtyInt });
   } catch (err) {
     console.error("create-checkout-session error:", err);
     return res.status(500).json({ error: "Internal error creating session" });
