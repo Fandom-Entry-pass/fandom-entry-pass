@@ -7,9 +7,7 @@
   "license": "ISC",
   "type": "module",
   "private": true,
-  "engines": {
-    "node": "22.x"
-  },
+  "engines": { "node": "22.x" },
   "dependencies": {
     "stripe": "^16.6.0",
     "pg": "^8.11.0",
@@ -17,7 +15,7 @@
     "resend": "^3.2.0"
   },
   "scripts": {
-    "vercel-build": "build:css": "tailwindcss -i ./src/input.css -o ./public/output.css --minify"
+    "build:css": "tailwindcss -i ./src/input.css -o ./public/output.css --minify",
+    "vercel-build": "npm run build:css"
   }
 }
-
