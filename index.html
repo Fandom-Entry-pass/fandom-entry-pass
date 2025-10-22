@@ -557,54 +557,141 @@ async function sendLoginCodeEmail(email, code) {
   return emailjs.send(EMAILJS_SERVICE, EMAILJS_TPL_LOGIN, params);
 }
 
-    /* ===========================
-       Render Listings (escaped)
-       =========================== */
-    const elListings=document.getElementById("listings"), elEmpty=document.getElementById("emptyState");
-    function render(list=load()){
-      elListings.textContent="";
-      if(!list.length){ elEmpty?.classList.remove("hidden"); return; }
-      elEmpty?.classList.add("hidden");
-      for(const it of list){
-        const ok = withinCap(it.face, it.price);
-        const cap = capFor(it.face);
-        const remaining = (it.remaining ?? it.qty);
-        const card=document.createElement("article");
-        card.className="rounded-3xl border border-gray-200 p-4 bg-white shadow-sm hover:shadow-md transition-shadow";
+   /* ===========================
+   Render Listings (escaped)
+=========================== */
+const elListings = document.getElementById("listings"), elEmpty = document.getElementById("emptyState");
+function render(list = load()){
+  elListings.textContent = "";
+  if (!list.length) { elEmpty?.classList.remove("hidden"); return; }
+  elEmpty?.classList.add("hidden");
 
-        card.innerHTML = `
-          <div class="flex items-start justify-between gap-3">
-            <div>
-              <h3 class="font-poppins text-lg">${esc(it.group)}</h3>
-              <p class="text-xs text-gray-500 mt-0.5">${esc(it.city ? `${it.date} • ${it.city}` : it.date)}</p>
-              <p class="text-xs text-gray-600 mt-1">${esc(it.seat||"")}</p>
-              <div class="mt-2 flex items-center gap-2">
-                <span class="chip inline-flex items-center gap-1 bg-gray-100 px-2 py-1 rounded-full">Face: ${money(it.face)}</span>
-                <span class="chip inline-flex items-center gap-1 bg-gray-100 px-2 py-1 rounded-full">Cap: ${money(cap)}</span>
-                <span class="chip inline-flex items-center gap-1 ${remaining>0?"bg-emerald-100":"bg-gray-200"} px-2 py-1 rounded-full">Available: ${(remaining)}/${it.qty}</span>
-              </div>
-            </div>
+  for (const it of list) {
+    const ok = withinCap(it.face, it.price);
+    const cap = capFor(it.face);
+    const remaining = (it.remaining ?? it.qty);
+    const card = document.createElement("article");
+    card.className = "rounded-3xl border border-gray-200 p-4 bg-white shadow-sm hover:shadow-md transition-shadow";
+
+    card.innerHTML = `
+      <div class="flex items-start justify-between gap-3">
+        <div>
+          <h3 class="font-poppins text-lg">${esc(it.group)}</h3>
+          <p class="text-xs text-gray-500 mt-0.5">${esc(it.city ? `${it.date} • ${it.city}` : it.date)}</p>
+          <p class="text-xs text-gray-600 mt-1">${esc(it.seat||"")}</p>
+          <div class="mt-2 flex items-center gap-2">
+            <span class="chip inline-flex items-center gap-1 bg-gray-100 px-2 py-1 rounded-full">Face: ${money(it.face)}</span>
+            <span class="chip inline-flex items-center gap-1 bg-gray-100 px-2 py-1 rounded-full">Cap: ${money(cap)}</span>
+            <span class="chip inline-flex items-center gap-1 ${remaining>0?"bg-emerald-100":"bg-gray-200"} px-2 py-1 rounded-full">Available: ${remaining}/${it.qty}</span>
           </div>
-          <div class="flex items-center justify-between mt-3">
-            <div><div class="text-xl font-poppins ${ok?"text-gray-900":"text-rose-600"}">${money(it.price)}</div></div>
-            <button data-buy="${esc(it.id)}" ${ remaining > 0 ? "" : "disabled" }
-              class="rounded-xl px-4 py-2 text-white ${ remaining > 0 ? "gradient-brand hover:opacity-90" : "bg-gray-400" }">
-              ${ remaining > 0 ? "Buy Safely" : "Sold Out" }
-            </button>
+        </div>
+      </div>
+
+      <div class="flex items-center justify-between mt-3">
+        <div>
+          <div class="text-xl font-poppins ${ok?"text-gray-900":"text-rose-600"}">${money(it.price)}</div>
+          <!-- Qty selector -->
+          <div class="mt-1 flex items-center gap-2">
+            <label class="text-xs text-gray-600">Qty</label>
+            <input
+              type="number"
+              step="1"
+              min="1"
+              max="${remaining}"
+              value="1"
+              data-qty="${esc(it.id)}"
+              class="w-16 rounded-lg ring-1 ring-gray-200 px-2 py-1"
+              ${ remaining > 0 ? "" : "disabled" }
+            />
           </div>
-          ${ ok ? "" : `<div class="mt-3 text-[11px] text-rose-600">⚠️ Price exceeds +15% cap.</div>` }
-          <div class="mt-2 text-[11px] text-gray-500">Funds held until transfer confirmed. Report issues to <a class="underline" href="mailto:support@fandomentrypass.com">support</a>.</div>
-        `;
-        elListings.appendChild(card);
-      }
-      document.querySelectorAll("[data-buy]").forEach(btn=>{
-        btn.addEventListener("click", ()=>{
-          const id = btn.getAttribute("data-buy");
-          startBuy(id);
-        });
-      });
+        </div>
+        <button data-buy="${esc(it.id)}" ${ remaining > 0 ? "" : "disabled" }
+          class="rounded-xl px-4 py-2 text-white ${ remaining > 0 ? "gradient-brand hover:opacity-90" : "bg-gray-400" }">
+          ${ remaining > 0 ? "Buy Safely" : "Sold Out" }
+        </button>
+      </div>
+
+      ${ ok ? "" : `<div class="mt-3 text-[11px] text-rose-600">⚠️ Price exceeds +15% cap.</div>` }
+      <div class="mt-2 text-[11px] text-gray-500">Funds held until transfer confirmed. Report issues to <a class="underline" href="mailto:support@fandomentrypass.com">support</a>.</div>
+    `;
+    elListings.appendChild(card);
+  }
+
+  // Attach click handlers AFTER cards are in the DOM
+  document.querySelectorAll("[data-buy]").forEach(btn=>{
+    btn.addEventListener("click", ()=>{
+      const id = btn.getAttribute("data-buy");
+      const card = btn.closest("article");
+      const qtyInput = card?.querySelector(`input[data-qty="${id}"]`);
+      const max = Number(qtyInput?.max || 1);
+      const raw = Number(qtyInput?.value || 1);
+      const qty = Math.max(1, Math.min(raw, max));
+      startBuy(id, qty);
+    });
+  });
+}
+async function startBuy(listingId, qty = 1){
+  const list = load();
+  const it = list.find(x => x.id === listingId);
+  if (!it) return;
+
+  const remaining = (it.remaining ?? it.qty);
+  if (remaining <= 0) { alert("Sorry, this listing is sold out."); return; }
+
+  // Clamp qty against available
+  qty = Math.max(1, Math.min(qty, remaining));
+
+  const buyerEmail = prompt("Enter your email for updates (optional):") || "";
+  const sellerAccountId = it.sellerAccountId || localStorage.getItem("fep_connect_acct") || "";
+
+  if (!stripe || typeof stripe.redirectToCheckout !== "function") {
+    alert("Payments aren’t ready yet. Please try again later.");
+    return;
+  }
+
+  try {
+    const res = await fetch(`${ORIGIN}/api/create-checkout-session`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        listingId: it.id,
+        group: it.group, date: it.date, city: it.city, seat: it.seat,
+        face: it.face, price: it.price,
+        qty,                       // send selected quantity
+        sellerEmail: it.sellerEmail, buyerEmail,
+        sellerAccountId
+      })
+    });
+    if (!res.ok) {
+      const errText = await res.text();
+      console.error("Checkout session HTTP error", res.status, errText);
+      throw new Error(errText || `HTTP ${res.status}`);
     }
+    const data = await res.json();
+    if (data.sessionId) {
+      await stripe.redirectToCheckout({ sessionId: data.sessionId });
+      return;
+    }
+  } catch (e) {
+    console.error("Checkout session request failed", e);
+    console.warn("Backend not ready, falling back to demo auth:", e.message);
+  }
 
+  // Fallback (demo auth) — deduct the correct amount locally
+  it.remaining = Math.max(0, (it.remaining ?? it.qty ?? 1) - qty);
+  it.orders = it.orders || [];
+  it.orders.push({
+    id: crypto.randomUUID(),
+    status: "authorized",
+    authorizedAt: Date.now(),
+    buyerEmail,
+    token: token(),
+    tokenExpiresAt: Date.now() + hoursMs(ESCROW_HOURS),
+    qty
+  });
+  save(list); render(list);
+  alert(`Payment authorized (demo). Reserved ${qty} ticket${qty>1?"s":""}. Funds auto-release in 72h unless buyer confirms received earlier.`);
+}
     /* ===========================
        Filters
        =========================== */
