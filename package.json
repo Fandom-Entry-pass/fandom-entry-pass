@@ -18,6 +18,7 @@
   },
   "scripts": {
     "vercel-build": "echo no-build"
+    "build:css": "tailwindcss -i ./src/input.css -o ./public/output.css --minify"
   }
 }
 
