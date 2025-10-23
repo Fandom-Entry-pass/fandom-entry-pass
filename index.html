@@ -114,286 +114,300 @@
 
     <!-- Add Listing Modal -->
     <section id="modal" class="fixed inset-0 z-50 hidden">
-      <div class="absolute inset-0 bg-black/40"></div>
-      <div class="absolute inset-0 flex items-end sm:items-center justify-center p-3">
-        <div class="w-full sm:w-[860px] bg-white rounded-3xl shadow-2xl overflow-hidden">
-          <div class="gradient-brand p-5 text-white">
-            <h3 class="font-poppins text-xl">Add a Listing</h3>
-            <p class="text-white/90 text-sm">Blur barcodes on proof images. Above +15% is blocked. Seller email and phone are required for notifications.</p>
-          </div>
-          <form id="addForm" class="p-5 grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div class="sm:col-span-2">
-              <label class="text-sm text-gray-600">Group / Show <span class="text-rose-500">*</span></label>
-              <input name="group" required placeholder="ATEEZ – Atlanta Day 1" class="w-full mt-1 rounded-2xl bg-white px-4 py-3 ring-1 ring-gray-200 focus:ring-sky-300 outline-none" />
-            </div>
-            <div>
-              <label class="text-sm text-gray-600">Quantity <span class="text-rose-500">*</span></label>
-              <input name="qty" type="number" min="1" step="1" required placeholder="1" class="w-full mt-1 rounded-2xl bg-white px-4 py-3 ring-1 ring-gray-200 focus:ring-sky-300 outline-none" />
-            </div>
-            <div>
-              <label class="text-sm text-gray-600">Date & Venue <span class="text-rose-500">*</span></label>
-              <input name="date" required placeholder="Nov 12, 2025 • Gas South Arena" class="w-full mt-1 rounded-2xl bg-white px-4 py-3 ring-1 ring-gray-200 focus:ring-sky-300 outline-none" />
-            </div>
-            <div>
-              <label class="text-sm text-gray-600">City</label>
-              <input name="city" placeholder="Atlanta" class="w-full mt-1 rounded-2xl bg-white px-4 py-3 ring-1 ring-gray-200 focus:ring-sky-300 outline-none" />
-            </div>
-            <div class="sm:col-span-2">
-              <label class="text-sm text-gray-600">Section / Row / Seat</label>
-              <input name="seat" placeholder="Sec 104 • Row F • Seat 12" class="w-full mt-1 rounded-2xl bg-white px-4 py-3 ring-1 ring-gray-200 focus:ring-sky-300 outline-none" />
-            </div>
-            <div>
-              <label class="text-sm text-gray-600">Face Value (USD) <span class="text-rose-500">*</span></label>
-              <input id="faceInput" name="face" type="number" min="1" step="1" required placeholder="100" class="w-full mt-1 rounded-2xl bg-white px-4 py-3 ring-1 ring-gray-200 focus:ring-sky-300 outline-none" />
-            </div>
-            <div>
-              <label class="text-sm text-gray-600">Your Price (USD) <span class="text-rose-500">*</span></label>
-              <input id="priceInput" name="price" type="number" min="1" step="1" required placeholder="110" class="w-full mt-1 rounded-2xl bg-white px-4 py-3 ring-1 ring-gray-200 focus:ring-sky-300 outline-none" />
-              <p class="text-xs text-gray-500 mt-1">We auto-check the +15% cap. Above-cap listings are blocked.</p>
-              <!-- Soft warning -->
-              <p id="priceCapWarn" class="hidden text-xs mt-1 text-rose-600">⚠️ This exceeds the +15% cap. You can continue, but saving will be blocked until you lower the price.</p>
-            </div>
+  <!-- replace the whole inner card div with this -->
+  <div class="absolute inset-0 bg-black/40"></div>
+  <div class="absolute inset-0 flex items-end sm:items-center justify-center p-3">
+    <div class="w-full sm:w-[860px] bg-white rounded-3xl shadow-2xl flex flex-col max-h-[85dvh]">
+      <!-- Fixed header -->
+      <div class="gradient-brand p-5 text-white">
+        <h3 class="font-poppins text-xl">Add a Listing</h3>
+        <p class="text-white/90 text-sm">Blur barcodes on proof images. Above +15% is blocked. Seller email and phone are required for notifications.</p>
+      </div>
 
-            <!-- Seller fee + payout live box -->
-            <div class="sm:col-span-3">
-              <div id="sellerFeeBox" class="mt-1 rounded-2xl border border-amber-200 bg-amber-50 p-3 text-sm">
-                <div class="flex flex-wrap items-center gap-x-4 gap-y-1">
-                  <div>Platform fee (you pay): <span id="feePerTicket" class="font-semibold">$0.00</span> / ticket</div>
-                  <div>Estimated payout: <span id="payoutPerTicket" class="font-semibold">$0.00</span> / ticket</div>
-                  <div class="text-xs text-gray-600">Includes Stripe processing fees.</div>
-                </div>
+      <!-- Scrollable body -->
+      <div class="flex-1 overflow-y-auto p-5">
+        <form id="addForm" class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div class="sm:col-span-2">
+            <label class="text-sm text-gray-600">Group / Show <span class="text-rose-500">*</span></label>
+            <input name="group" required placeholder="ATEEZ – Atlanta Day 1" class="w-full mt-1 rounded-2xl bg-white px-4 py-3 ring-1 ring-gray-200 focus:ring-sky-300 outline-none" />
+          </div>
+          <div>
+            <label class="text-sm text-gray-600">Quantity <span class="text-rose-500">*</span></label>
+            <input name="qty" type="number" min="1" step="1" required placeholder="1" class="w-full mt-1 rounded-2xl bg-white px-4 py-3 ring-1 ring-gray-200 focus:ring-sky-300 outline-none" />
+          </div>
+          <div>
+            <label class="text-sm text-gray-600">Date & Venue <span class="text-rose-500">*</span></label>
+            <input name="date" required placeholder="Nov 12, 2025 • Gas South Arena" class="w-full mt-1 rounded-2xl bg-white px-4 py-3 ring-1 ring-gray-200 focus:ring-sky-300 outline-none" />
+          </div>
+          <div>
+            <label class="text-sm text-gray-600">City</label>
+            <input name="city" placeholder="Atlanta" class="w-full mt-1 rounded-2xl bg-white px-4 py-3 ring-1 ring-gray-200 focus:ring-sky-300 outline-none" />
+          </div>
+          <div class="sm:col-span-2">
+            <label class="text-sm text-gray-600">Section / Row / Seat</label>
+            <input name="seat" placeholder="Sec 104 • Row F • Seat 12" class="w-full mt-1 rounded-2xl bg-white px-4 py-3 ring-1 ring-gray-200 focus:ring-sky-300 outline-none" />
+          </div>
+          <div>
+            <label class="text-sm text-gray-600">Face Value (USD) <span class="text-rose-500">*</span></label>
+            <input id="faceInput" name="face" type="number" min="1" step="1" required placeholder="100" class="w-full mt-1 rounded-2xl bg-white px-4 py-3 ring-1 ring-gray-200 focus:ring-sky-300 outline-none" />
+          </div>
+          <div>
+            <label class="text-sm text-gray-600">Your Price (USD) <span class="text-rose-500">*</span></label>
+            <input id="priceInput" name="price" type="number" min="1" step="1" required placeholder="110" class="w-full mt-1 rounded-2xl bg-white px-4 py-3 ring-1 ring-gray-200 focus:ring-sky-300 outline-none" />
+            <p class="text-xs text-gray-500 mt-1">We auto-check the +15% cap. Above-cap listings are blocked.</p>
+            <p id="priceCapWarn" class="hidden text-xs mt-1 text-rose-600">⚠️ This exceeds the +15% cap. You can continue, but saving will be blocked until you lower the price.</p>
+          </div>
+
+          <div class="sm:col-span-3">
+            <div id="sellerFeeBox" class="mt-1 rounded-2xl border border-amber-200 bg-amber-50 p-3 text-sm">
+              <div class="flex flex-wrap items-center gap-x-4 gap-y-1">
+                <div>Platform fee (you pay): <span id="feePerTicket" class="font-semibold">$0.00</span> / ticket</div>
+                <div>Estimated payout: <span id="payoutPerTicket" class="font-semibold">$0.00</span> / ticket</div>
+                <div class="text-xs text-gray-600">Includes Stripe processing fees.</div>
               </div>
             </div>
+          </div>
 
-            <div class="sm:col-span-3">
-              <label class="text-sm text-gray-600">Proof of Ticket (image) <span class="text-rose-500">*</span></label>
-              <input name="proof" type="file" accept="image/*" required class="w-full mt-1 rounded-2xl bg-white px-4 py-3 ring-1 ring-gray-200" />
-              <p class="text-xs text-gray-500 mt-1">Proof is required and will be emailed to admin (not stored on the site).</p>
-            </div>
-            <div class="sm:col-span-2">
-              <label class="text-sm text-gray-600">Seller Name</label>
-              <input name="seller" placeholder="Mina" class="w-full mt-1 rounded-2xl bg-white px-4 py-3 ring-1 ring-gray-200 focus:ring-sky-300 outline-none" />
-            </div>
-            <div class="sm:col-span-3">
-              <label class="text-sm text-gray-600">Seller Phone (required)</label>
-              <input name="sellerPhone" type="tel" required placeholder="555-123-4567" class="w-full mt-1 rounded-2xl bg-white px-4 py-3 ring-1 ring-gray-200 outline-none" />
-            </div>
-            <div class="sm:col-span-3">
-              <label class="text-sm text-gray-600">Seller Email (required)</label>
-              <input name="sellerEmail" type="email" required placeholder="you@example.com" class="w-full mt-1 rounded-2xl bg-white px-4 py-3 ring-1 ring-gray-200 outline-none" />
-            </div>
-            <div class="sm:col-span-3 flex items-center gap-2 mt-2">
-              <input id="agree" type="checkbox" required class="w-4 h-4" />
-              <label for="agree" class="text-sm text-gray-700">I agree to fair-pricing rules (+15% cap) and safe transfer.</label>
-            </div>
-            <div class="sm:col-span-3 flex items-center justify-end gap-3 pt-2">
-              <button type="button" id="cancelAdd" class="px-4 py-2 rounded-xl bg-gray-100 hover:bg-gray-200">Cancel</button>
-              <button class="px-5 py-2 rounded-xl text-white gradient-brand hover:opacity-90">Add Listing</button>
-            </div>
-          </form>
-        </div>
+          <div class="sm:col-span-3">
+            <label class="text-sm text-gray-600">Proof of Ticket (image) <span class="text-rose-500">*</span></label>
+            <input name="proof" type="file" accept="image/*" required class="w-full mt-1 rounded-2xl bg-white px-4 py-3 ring-1 ring-gray-200" />
+            <p class="text-xs text-gray-500 mt-1">Proof is required and will be emailed to admin (not stored on the site).</p>
+          </div>
+          <div class="sm:col-span-2">
+            <label class="text-sm text-gray-600">Seller Name</label>
+            <input name="seller" placeholder="Mina" class="w-full mt-1 rounded-2xl bg-white px-4 py-3 ring-1 ring-gray-200 focus:ring-sky-300 outline-none" />
+          </div>
+          <div class="sm:col-span-3">
+            <label class="text-sm text-gray-600">Seller Phone (required)</label>
+            <input name="sellerPhone" type="tel" required placeholder="555-123-4567" class="w-full mt-1 rounded-2xl bg-white px-4 py-3 ring-1 ring-gray-200 outline-none" />
+          </div>
+          <div class="sm:col-span-3">
+            <label class="text-sm text-gray-600">Seller Email (required)</label>
+            <input name="sellerEmail" type="email" required placeholder="you@example.com" class="w-full mt-1 rounded-2xl bg-white px-4 py-3 ring-1 ring-gray-200 outline-none" />
+          </div>
+          <div class="sm:col-span-3 flex items-center gap-2 mt-2">
+            <input id="agree" type="checkbox" required class="w-4 h-4" />
+            <label for="agree" class="text-sm text-gray-700">I agree to fair-pricing rules (+15% cap) and safe transfer.</label>
+          </div>
+          <div class="sm:col-span-3 flex items-center justify-end gap-3 pt-2">
+            <button type="button" id="cancelAdd" class="px-4 py-2 rounded-xl bg-gray-100 hover:bg-gray-200">Cancel</button>
+            <button class="px-5 py-2 rounded-xl text-white gradient-brand hover:opacity-90">Add Listing</button>
+          </div>
+        </form>
       </div>
-    </section>
+    </div>
+  </div>
+</section>
 
     <!-- EDIT Listing Modal -->
-    <section id="editModal" class="fixed inset-0 z-50 hidden">
-      <div class="absolute inset-0 bg-black/40"></div>
-      <div class="absolute inset-0 flex items-end sm:items-center justify-center p-3">
-        <div class="w-full sm:w-[860px] bg-white rounded-3xl shadow-2xl overflow-hidden">
-          <div class="gradient-brand p-5 text-white">
-            <h3 class="font-poppins text-xl">Edit Listing</h3>
-            <p class="text-white/90 text-sm">Update your listing details. New proof will be emailed to admin.</p>
-          </div>
-          <form id="editForm" class="p-5 grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <input type="hidden" name="id" />
-            <div class="sm:col-span-2">
-              <label class="text-sm text-gray-600">Group / Show <span class="text-rose-500">*</span></label>
-              <input name="group" required class="w-full mt-1 rounded-2xl bg-white px-4 py-3 ring-1 ring-gray-200 outline-none" />
-            </div>
-            <div>
-              <label class="text-sm text-gray-600">Quantity <span class="text-rose-500">*</span></label>
-              <input id="editQtyInput" name="qty" type="number" min="1" step="1" required class="w-full mt-1 rounded-2xl bg-white px-4 py-3 ring-1 ring-gray-200 outline-none" />
-              <p id="qtyClampNote" class="hidden text-xs text-amber-600 mt-1">Reducing quantity will clamp your available tickets to the new amount.</p>
-            </div>
-            <div>
-              <label class="text-sm text-gray-600">Date & Venue <span class="text-rose-500">*</span></label>
-              <input name="date" required class="w-full mt-1 rounded-2xl bg-white px-4 py-3 ring-1 ring-gray-200 outline-none" />
-            </div>
-            <div>
-              <label class="text-sm text-gray-600">City</label>
-              <input name="city" class="w-full mt-1 rounded-2xl bg-white px-4 py-3 ring-1 ring-gray-200 outline-none" />
-            </div>
-            <div class="sm:col-span-2">
-              <label class="text-sm text-gray-600">Section / Row / Seat</label>
-              <input name="seat" class="w-full mt-1 rounded-2xl bg-white px-4 py-3 ring-1 ring-gray-200 outline-none" />
-            </div>
-            <div>
-              <label class="text-sm text-gray-600">Face Value (USD) <span class="text-rose-500">*</span></label>
-              <input id="editFaceInput" name="face" type="number" min="1" step="1" required class="w-full mt-1 rounded-2xl bg-white px-4 py-3 ring-1 ring-gray-200 outline-none" />
-            </div>
-            <div>
-              <label class="text-sm text-gray-600">Your Price (USD) <span class="text-rose-500">*</span></label>
-              <input id="editPriceInput" name="price" type="number" min="1" step="1" required class="w-full mt-1 rounded-2xl bg-white px-4 py-3 ring-1 ring-gray-200 outline-none" />
-              <p class="text-xs text-gray-500 mt-1">We auto-check the +15% cap. Above-cap listings are blocked.</p>
-              <!-- Soft warning -->
-              <p id="editPriceCapWarn" class="hidden text-xs mt-1 text-rose-600">⚠️ This exceeds the +15% cap. You can continue, but saving will be blocked until you lower the price.</p>
-            </div>
+<section id="editModal" class="fixed inset-0 z-50 hidden">
+  <div class="absolute inset-0 bg-black/40"></div>
+  <div class="absolute inset-0 flex items-end sm:items-center justify-center p-3">
+    <div class="w-full sm:w-[860px] bg-white rounded-3xl shadow-2xl flex flex-col max-h-[85dvh]">
+      <!-- Fixed header -->
+      <div class="gradient-brand p-5 text-white">
+        <h3 class="font-poppins text-xl">Edit Listing</h3>
+        <p class="text-white/90 text-sm">Update your listing details. New proof will be emailed to admin.</p>
+      </div>
 
-            <div class="sm:col-span-3">
-              <div class="mt-1 rounded-2xl border border-amber-200 bg-amber-50 p-3 text-sm">
-                <div class="flex flex-wrap items-center gap-x-4 gap-y-1">
-                  <div>Platform fee: <span id="editFeePerTicket" class="font-semibold">$0.00</span> / ticket</div>
-                  <div>Est. payout: <span id="editPayoutPerTicket" class="font-semibold">$0.00</span> / ticket</div>
-                </div>
+      <!-- Scrollable body -->
+      <div class="flex-1 overflow-y-auto p-5">
+        <form id="editForm" class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <input type="hidden" name="id" />
+          <div class="sm:col-span-2">
+            <label class="text-sm text-gray-600">Group / Show <span class="text-rose-500">*</span></label>
+            <input name="group" required class="w-full mt-1 rounded-2xl bg-white px-4 py-3 ring-1 ring-gray-200 outline-none" />
+          </div>
+          <div>
+            <label class="text-sm text-gray-600">Quantity <span class="text-rose-500">*</span></label>
+            <input id="editQtyInput" name="qty" type="number" min="1" step="1" required class="w-full mt-1 rounded-2xl bg-white px-4 py-3 ring-1 ring-gray-200 outline-none" />
+            <p id="qtyClampNote" class="hidden text-xs text-amber-600 mt-1">Reducing quantity will clamp your available tickets to the new amount.</p>
+          </div>
+          <div>
+            <label class="text-sm text-gray-600">Date & Venue <span class="text-rose-500">*</span></label>
+            <input name="date" required class="w-full mt-1 rounded-2xl bg-white px-4 py-3 ring-1 ring-gray-200 outline-none" />
+          </div>
+          <div>
+            <label class="text-sm text-gray-600">City</label>
+            <input name="city" class="w-full mt-1 rounded-2xl bg-white px-4 py-3 ring-1 ring-gray-200 outline-none" />
+          </div>
+          <div class="sm:col-span-2">
+            <label class="text-sm text-gray-600">Section / Row / Seat</label>
+            <input name="seat" class="w-full mt-1 rounded-2xl bg-white px-4 py-3 ring-1 ring-gray-200 outline-none" />
+          </div>
+          <div>
+            <label class="text-sm text-gray-600">Face Value (USD) <span class="text-rose-500">*</span></label>
+            <input id="editFaceInput" name="face" type="number" min="1" step="1" required class="w-full mt-1 rounded-2xl bg-white px-4 py-3 ring-1 ring-gray-200 outline-none" />
+          </div>
+          <div>
+            <label class="text-sm text-gray-600">Your Price (USD) <span class="text-rose-500">*</span></label>
+            <input id="editPriceInput" name="price" type="number" min="1" step="1" required class="w-full mt-1 rounded-2xl bg-white px-4 py-3 ring-1 ring-gray-200 outline-none" />
+            <p class="text-xs text-gray-500 mt-1">We auto-check the +15% cap. Above-cap listings are blocked.</p>
+            <p id="editPriceCapWarn" class="hidden text-xs mt-1 text-rose-600">⚠️ This exceeds the +15% cap. You can continue, but saving will be blocked until you lower the price.</p>
+          </div>
+
+          <div class="sm:col-span-3">
+            <div class="mt-1 rounded-2xl border border-amber-200 bg-amber-50 p-3 text-sm">
+              <div class="flex flex-wrap items-center gap-x-4 gap-y-1">
+                <div>Platform fee: <span id="editFeePerTicket" class="font-semibold">$0.00</span> / ticket</div>
+                <div>Est. payout: <span id="editPayoutPerTicket" class="font-semibold">$0.00</span> / ticket</div>
               </div>
             </div>
+          </div>
 
-            <div class="sm:col-span-3">
-              <label class="text-sm text-gray-600">New Proof </label>
-              <input name="proof" type="file" accept="image/*" class="w-full mt-1 rounded-2xl bg-white px-4 py-3 ring-1 ring-gray-200" />
-              <p class="text-xs text-gray-500 mt-1">Attach only if the ticket image changed.</p>
-            </div>
-            <div class="sm:col-span-2">
-              <label class="text-sm text-gray-600">Payment Link</label>
-              <input name="pay" class="w-full mt-1 rounded-2xl bg-white px-4 py-3 ring-1 ring-gray-200 outline-none" />
-            </div>
-            <div>
-              <label class="text-sm text-gray-600">Seller Name</label>
-              <input name="seller" class="w-full mt-1 rounded-2xl bg-white px-4 py-3 ring-1 ring-gray-200 outline-none" />
-            </div>
-            <div class="sm:col-span-3">
-              <label class="text-sm text-gray-600">Seller Phone</label>
-              <input name="sellerPhone" type="tel" class="w-full mt-1 rounded-2xl bg-white px-4 py-3 ring-1 ring-gray-200 outline-none" />
-            </div>
-            <div class="sm:col-span-3">
-              <label class="text-sm text-gray-600">Seller Email</label>
-              <input name="sellerEmail" type="email" class="w-full mt-1 rounded-2xl bg-white px-4 py-3 ring-1 ring-gray-200 outline-none" />
-            </div>
+          <div class="sm:col-span-3">
+            <label class="text-sm text-gray-600">New Proof </label>
+            <input name="proof" type="file" accept="image/*" class="w-full mt-1 rounded-2xl bg-white px-4 py-3 ring-1 ring-gray-200" />
+            <p class="text-xs text-gray-500 mt-1">Attach only if the ticket image changed.</p>
+          </div>
+          <div class="sm:col-span-2">
+            <label class="text-sm text-gray-600">Payment Link</label>
+            <input name="pay" class="w-full mt-1 rounded-2xl bg-white px-4 py-3 ring-1 ring-gray-200 outline-none" />
+          </div>
+          <div>
+            <label class="text-sm text-gray-600">Seller Name</label>
+            <input name="seller" class="w-full mt-1 rounded-2xl bg-white px-4 py-3 ring-1 ring-gray-200 outline-none" />
+          </div>
+          <div class="sm:col-span-3">
+            <label class="text-sm text-gray-600">Seller Phone</label>
+            <input name="sellerPhone" type="tel" class="w-full mt-1 rounded-2xl bg-white px-4 py-3 ring-1 ring-gray-200 outline-none" />
+          </div>
+          <div class="sm:col-span-3">
+            <label class="text-sm text-gray-600">Seller Email</label>
+            <input name="sellerEmail" type="email" class="w-full mt-1 rounded-2xl bg-white px-4 py-3 ring-1 ring-gray-200 outline-none" />
+          </div>
 
-            <div class="sm:col-span-3 flex items-center justify-end gap-3 pt-2">
-              <button type="button" id="cancelEdit" class="px-4 py-2 rounded-xl bg-gray-100 hover:bg-gray-200">Cancel</button>
-              <button class="px-5 py-2 rounded-xl text-white gradient-brand hover:opacity-90">Save Changes</button>
-            </div>
-          </form>
-        </div>
+          <div class="sm:col-span-3 flex items-center justify-end gap-3 pt-2">
+            <button type="button" id="cancelEdit" class="px-4 py-2 rounded-xl bg-gray-100 hover:bg-gray-200">Cancel</button>
+            <button class="px-5 py-2 rounded-xl text-white gradient-brand hover:opacity-90">Save Changes</button>
+          </div>
+        </form>
       </div>
-    </section>
+    </div>
+  </div>
+</section>
 
     <!-- SELLER LOGIN (email code) -->
-    <section id="sellerLoginModal" class="fixed inset-0 z-50 hidden">
-      <div class="absolute inset-0 bg-black/40"></div>
-      <div class="absolute inset-0 flex items-end sm:items-center justify-center p-3">
-        <div class="w-full sm:w-[480px] bg-white rounded-3xl shadow-2xl overflow-hidden">
-          <div class="gradient-brand p-5 text-white">
-            <h3 class="font-poppins text-xl">Seller Login</h3>
-            <p class="text-white/90 text-sm">We’ll email you a 6-digit code to confirm it’s you.</p>
-          </div>
-          <div class="p-5 space-y-4">
-            <div id="sellerStepEmail">
-              <label class="text-sm text-gray-600">Email</label>
-              <input id="sellerLoginEmail" type="email" placeholder="you@example.com" class="w-full mt-1 rounded-2xl bg-white px-4 py-3 ring-1 ring-gray-200 focus:ring-sky-300 outline-none" />
-              <button id="sendLoginCodeBtn" class="mt-3 w-full rounded-2xl bg-gray-900 text-white px-4 py-3 hover:bg-gray-800">Send code</button>
-            </div>
+<section id="sellerLoginModal" class="fixed inset-0 z-50 hidden">
+  <div class="absolute inset-0 bg-black/40"></div>
+  <div class="absolute inset-0 flex items-end sm:items-center justify-center p-3">
+    <div class="w-full sm:w-[480px] bg-white rounded-3xl shadow-2xl flex flex-col max-h-[85dvh]">
+      <!-- Fixed header -->
+      <div class="gradient-brand p-5 text-white">
+        <h3 class="font-poppins text-xl">Seller Login</h3>
+        <p class="text-white/90 text-sm">We’ll email you a 6-digit code to confirm it’s you.</p>
+      </div>
 
-            <div id="sellerStepCode" class="hidden">
-              <label class="text-sm text-gray-600">Enter 6-digit code</label>
-              <input id="sellerLoginCode" inputmode="numeric" maxlength="6" placeholder="123456" class="w-full mt-1 rounded-2xl bg-white px-4 py-3 ring-1 ring-gray-200 focus:ring-sky-300 outline-none" />
-              <button id="verifyLoginCodeBtn" class="mt-3 w-full rounded-2xl bg-gray-900 text-white px-4 py-3 hover:bg-gray-800">Verify & Sign in</button>
-            </div>
+      <!-- Scrollable body -->
+      <div class="flex-1 overflow-y-auto p-5 space-y-4">
+        <div id="sellerStepEmail">
+          <label class="text-sm text-gray-600">Email</label>
+          <input id="sellerLoginEmail" type="email" placeholder="you@example.com" class="w-full mt-1 rounded-2xl bg-white px-4 py-3 ring-1 ring-gray-200 focus:ring-sky-300 outline-none" />
+          <button id="sendLoginCodeBtn" class="mt-3 w-full rounded-2xl bg-gray-900 text-white px-4 py-3 hover:bg-gray-800">Send code</button>
+        </div>
 
-            <div class="flex items-center justify-end gap-3 pt-2">
-              <button id="closeSellerLogin" class="px-4 py-2 rounded-xl bg-gray-100 hover:bg-gray-200">Close</button>
-            </div>
-          </div>
+        <div id="sellerStepCode" class="hidden">
+          <label class="text-sm text-gray-600">Enter 6-digit code</label>
+          <input id="sellerLoginCode" inputmode="numeric" maxlength="6" placeholder="123456" class="w-full mt-1 rounded-2xl bg-white px-4 py-3 ring-1 ring-gray-200 focus:ring-sky-300 outline-none" />
+          <button id="verifyLoginCodeBtn" class="mt-3 w-full rounded-2xl bg-gray-900 text-white px-4 py-3 hover:bg-gray-800">Verify & Sign in</button>
+        </div>
+
+        <div class="flex items-center justify-end gap-3 pt-2">
+          <button id="closeSellerLogin" class="px-4 py-2 rounded-xl bg-gray-100 hover:bg-gray-200">Close</button>
         </div>
       </div>
-    </section>
+    </div>
+  </div>
+</section>
+
 
     <!-- SELLER: Dashboard -->
-    <section id="sellerDash" class="fixed inset-0 z-50 hidden">
-      <div class="absolute inset-0 bg-black/40"></div>
-      <div class="absolute inset-0 flex items-end sm:items-center justify-center p-3">
-        <div class="w-full sm:w-[920px] bg-white rounded-3xl shadow-2xl overflow-hidden">
-          <div class="gradient-brand p-5 text-white flex items-center justify-between">
-            <div>
-              <h3 class="font-poppins text-xl">Seller Dashboard</h3>
-              <p class="text-white/90 text-sm">Manage your Stripe connection and listings.</p>
-            </div>
-            <!-- Add Listing button in the dashboard -->
-            <button id="openAddFromDash" class="rounded-xl bg-white/20 text-white font-semibold px-4 py-2 hover:bg-white/30">+ Add Listing</button>
+<section id="sellerDash" class="fixed inset-0 z-50 hidden">
+  <div class="absolute inset-0 bg-black/40"></div>
+  <div class="absolute inset-0 flex items-end sm:items-center justify-center p-3">
+    <div class="w-full sm:w-[920px] bg-white rounded-3xl shadow-2xl flex flex-col max-h-[85dvh]">
+      <!-- Fixed header -->
+      <div class="gradient-brand p-5 text-white flex items-center justify-between">
+        <div>
+          <h3 class="font-poppins text-xl">Seller Dashboard</h3>
+          <p class="text-white/90 text-sm">Manage your Stripe connection and listings.</p>
+        </div>
+        <button id="openAddFromDash" class="rounded-xl bg-white/20 text-white font-semibold px-4 py-2 hover:bg-white/30">+ Add Listing</button>
+      </div>
+
+      <!-- Scrollable body -->
+      <div class="flex-1 overflow-y-auto p-5 grid grid-cols-1 md:grid-cols-3 gap-4">
+        <!-- keep your dashboard sections exactly as-is here -->
+        <!-- Seller Identity, Stripe card, My Listings, Orders, Escrow tool, Close btn -->
+        <!-- BEGIN your existing blocks -->
+        <!-- Seller Identity -->
+        <div class="md:col-span-3 rounded-2xl border border-gray-200 p-4">
+          <label class="text-sm text-gray-600">Seller Email (for your listings)</label>
+          <div class="mt-1 flex gap-2">
+            <input id="sellerEmailInput" placeholder="you@example.com"
+                   class="flex-1 rounded-xl bg-white px-4 py-3 ring-1 ring-gray-200 focus:ring-sky-300 outline-none" />
+            <button id="saveSellerEmail" class="rounded-xl bg-gray-900 text-white px-4">Save</button>
           </div>
+          <p class="text-xs text-gray-500 mt-1">We match your listings by this email (no buyer account required).</p>
+        </div>
 
-          <div class="p-5 grid grid-cols-1 md:grid-cols-3 gap-4">
-            <!-- Seller Identity -->
-            <div class="md:col-span-3 rounded-2xl border border-gray-200 p-4">
-              <label class="text-sm text-gray-600">Seller Email (for your listings)</label>
-              <div class="mt-1 flex gap-2">
-                <input id="sellerEmailInput" placeholder="you@example.com"
-                       class="flex-1 rounded-xl bg-white px-4 py-3 ring-1 ring-gray-200 focus:ring-sky-300 outline-none" />
-                <button id="saveSellerEmail" class="rounded-xl bg-gray-900 text-white px-4">Save</button>
-              </div>
-              <p class="text-xs text-gray-500 mt-1">We match your listings by this email (no buyer account required).</p>
+        <!-- Stripe Connect Card -->
+        <div class="md:col-span-3 rounded-2xl border border-gray-200 p-4">
+          <div class="flex items-center justify-between">
+            <div>
+              <div class="text-sm text-gray-600">Stripe Status</div>
+              <div id="stripeStatus" class="text-base font-semibold">Not connected</div>
+              <div id="stripeAcct" class="text-xs text-gray-500"></div>
             </div>
-
-            <!-- Stripe Connect Card -->
-            <div class="md:col-span-3 rounded-2xl border border-gray-200 p-4">
-              <div class="flex items-center justify-between">
-                <div>
-                  <div class="text-sm text-gray-600">Stripe Status</div>
-                  <div id="stripeStatus" class="text-base font-semibold">Not connected</div>
-                  <div id="stripeAcct" class="text-xs text-gray-500"></div>
-                </div>
-                <div class="flex gap-2">
-                  <button id="connectStripe" class="rounded-xl bg-indigo-600 text-white px-4 py-2">Connect Stripe</button>
-                  <button id="reconnectStripe" class="rounded-xl bg-indigo-50 text-indigo-700 px-4 py-2 ring-1 ring-indigo-200 hidden">Reconnect</button>
-                </div>
-              </div>
-            </div>
-
-            <!-- My Listings -->
-            <div class="md:col-span-3 rounded-2xl border border-gray-200 p-4">
-              <div class="flex items-center justify-between">
-                <h4 class="font-poppins text-lg">My Listings</h4>
-                <button id="refreshListings" class="rounded-xl bg-gray-100 px-3 py-2 hover:bg-gray-200">Refresh</button>
-              </div>
-              <div id="myListings" class="mt-3 grid sm:grid-cols-2 lg:grid-cols-3 gap-4"></div>
-              <div id="noListings" class="hidden text-sm text-gray-500 mt-2">No listings found for this email.</div>
-            </div>
-
-            <!-- Orders (this device) -->
-            <div class="md:col-span-3 rounded-2xl border border-gray-200 p-4">
-              <div class="flex items-center justify-between">
-                <h4 class="font-poppins text-lg">Orders (this device)</h4>
-                <button id="refreshOrders" class="rounded-xl bg-gray-100 px-3 py-2 hover:bg-gray-200">Refresh</button>
-              </div>
-              <p class="text-xs text-gray-500 mt-1">These Checkout Sessions were saved on this device after a successful redirect.</p>
-              <div id="myOrders" class="mt-3 grid sm:grid-cols-2 lg:grid-cols-3 gap-4"></div>
-              <div id="noOrders" class="hidden text-sm text-gray-500 mt-2">No orders saved yet.</div>
-            </div>
-
-            <!-- Escrow status tool -->
-            <div class="md:col-span-3 rounded-2xl border border-gray-200 p-4">
-              <h4 class="font-poppins text-lg">Check an Order (optional)</h4>
-              <p class="text-xs text-gray-500">Paste a Stripe Checkout Session ID to see escrow status.</p>
-              <div class="mt-2 flex gap-2">
-                <input id="sidInput" placeholder="cs_live_..." class="flex-1 rounded-xl bg-white px-4 py-3 ring-1 ring-gray-200 focus:ring-sky-300 outline-none" />
-                <button id="checkSid" class="rounded-xl bg-gray-900 text-white px-4">Check</button>
-                <button id="copySid" class="rounded-xl bg-white ring-1 ring-gray-200 px-3 py-2 disabled:opacity-50" disabled>Copy SID</button>
-                <!-- ✅ NEW: Mark as Sent -->
-                <button id="markSentBtn" class="rounded-xl bg-emerald-600 text-white px-4 py-2 disabled:opacity-50" disabled>
-                  Mark Ticket as Sent
-                </button>
-              </div>
-              <pre id="sidResult" class="mt-2 text-xs bg-gray-50 p-2 rounded-xl overflow-auto"></pre>
-            </div>
-
-            <div class="md:col-span-3 flex justify-end gap-2">
-              <button id="closeSeller" class="px-4 py-2 rounded-xl bg-gray-100 hover:bg-gray-200">Close</button>
+            <div class="flex gap-2">
+              <button id="connectStripe" class="rounded-xl bg-indigo-600 text-white px-4 py-2">Connect Stripe</button>
+              <button id="reconnectStripe" class="rounded-xl bg-indigo-50 text-indigo-700 px-4 py-2 ring-1 ring-indigo-200 hidden">Reconnect</button>
             </div>
           </div>
         </div>
+
+        <!-- My Listings -->
+        <div class="md:col-span-3 rounded-2xl border border-gray-200 p-4">
+          <div class="flex items-center justify-between">
+            <h4 class="font-poppins text-lg">My Listings</h4>
+            <button id="refreshListings" class="rounded-xl bg-gray-100 px-3 py-2 hover:bg-gray-200">Refresh</button>
+          </div>
+          <div id="myListings" class="mt-3 grid sm:grid-cols-2 lg:grid-cols-3 gap-4"></div>
+          <div id="noListings" class="hidden text-sm text-gray-500 mt-2">No listings found for this email.</div>
+        </div>
+
+        <!-- Orders (this device) -->
+        <div class="md:col-span-3 rounded-2xl border border-gray-200 p-4">
+          <div class="flex items-center justify-between">
+            <h4 class="font-poppins text-lg">Orders (this device)</h4>
+            <button id="refreshOrders" class="rounded-xl bg-gray-100 px-3 py-2 hover:bg-gray-200">Refresh</button>
+          </div>
+          <p class="text-xs text-gray-500 mt-1">These Checkout Sessions were saved on this device after a successful redirect.</p>
+          <div id="myOrders" class="mt-3 grid sm:grid-cols-2 lg:grid-cols-3 gap-4"></div>
+          <div id="noOrders" class="hidden text-sm text-gray-500 mt-2">No orders saved yet.</div>
+        </div>
+
+        <!-- Escrow status tool -->
+        <div class="md:col-span-3 rounded-2xl border border-gray-200 p-4">
+          <h4 class="font-poppins text-lg">Check an Order (optional)</h4>
+          <p class="text-xs text-gray-500">Paste a Stripe Checkout Session ID to see escrow status.</p>
+          <div class="mt-2 flex gap-2">
+            <input id="sidInput" placeholder="cs_live_..." class="flex-1 rounded-xl bg-white px-4 py-3 ring-1 ring-gray-200 focus:ring-sky-300 outline-none" />
+            <button id="checkSid" class="rounded-xl bg-gray-900 text-white px-4">Check</button>
+            <button id="copySid" class="rounded-xl bg-white ring-1 ring-gray-200 px-3 py-2 disabled:opacity-50" disabled>Copy SID</button>
+            <button id="markSentBtn" class="rounded-xl bg-emerald-600 text-white px-4 py-2 disabled:opacity-50" disabled>Mark Ticket as Sent</button>
+          </div>
+          <pre id="sidResult" class="mt-2 text-xs bg-gray-50 p-2 rounded-xl overflow-auto"></pre>
+        </div>
+
+        <div class="md:col-span-3 flex justify-end gap-2">
+          <button id="closeSeller" class="px-4 py-2 rounded-xl bg-gray-100 hover:bg-gray-200">Close</button>
+        </div>
+        <!-- END your existing blocks -->
       </div>
-    </section>
+    </div>
+  </div>
+</section>
 
   <!-- ===== Single, clean app script ===== -->
   <script>
