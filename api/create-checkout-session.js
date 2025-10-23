@@ -9,8 +9,6 @@ const BUYER_FEE_CENTS    = Number(process.env.BUYER_FEE_CENTS   || 350);
 const ESCROW_HOURS       = Number(process.env.ESCROW_HOURS      || 72);
 const SELLER_FEE_FIXED   = Number(process.env.SELLER_FEE_FIXED  || 75);
 const SELLER_FEE_PERCENT = Number(process.env.SELLER_FEE_PERCENT|| 0.05);
-
-// optional per-order cap, if you want it later
 const MAX_QTY_PER_ORDER  = Number(process.env.MAX_QTY_PER_ORDER || 10);
 
 function toCents(n) {
@@ -71,15 +69,16 @@ export default async function handler(req, res) {
     const sellerFeePerTicketCents = Math.round(unitAmount * SELLER_FEE_PERCENT) + SELLER_FEE_FIXED;
     const sellerFeeTotalCents     = sellerFeePerTicketCents * qtyInt;
     const buyerFeeTotalCents      = BUYER_FEE_CENTS * qtyInt;
+    const platformFeeTotalCents   = sellerFeeTotalCents + buyerFeeTotalCents; // 👈 your platform’s take
     const confirmDeadline         = Math.floor(Date.now() / 1000) + ESCROW_HOURS * 3600;
 
-    // NOTE: Inventory check should ideally happen server-side here (e.g., read DB to ensure qtyInt <= remaining).
-    // If you share your listings storage file, I’ll add an atomic check.
+    // NOTE: Ideal place for a server-side inventory check (ensure qtyInt <= remaining in DB).
 
     const payload = {
       mode: "payment",
       payment_intent_data: {
         capture_method: "manual",
+        // application_fee_amount will be injected below ONLY for Direct Charges (when sellerAccountId is present)
         metadata: {
           fep: "1",
           fep_status: "authorized",
@@ -138,10 +137,32 @@ export default async function handler(req, res) {
       }
     };
 
-    const session = await stripe.checkout.sessions.create(payload, {
-      // include listingId in key; if you add DB inventory pre-hold later, switch to a deterministic idempotency key
-      idempotencyKey: `checkout:${listingId}:${Date.now()}:${Math.random().toString(36).slice(2)}`
-    });
+    // --- Create the Checkout Session ---
+    // If sellerAccountId exists, run a Direct Charge on the connected account,
+    // set application_fee_amount so your platform receives buyer + seller fees,
+    // and the connected account pays Stripe’s processing fees.
+    let session;
+
+    if (sellerAccountId) {
+      // inject application_fee_amount for Direct Charge
+      payload.payment_intent_data.application_fee_amount = platformFeeTotalCents;
+
+      session = await stripe.checkout.sessions.create(
+        payload,
+        {
+          stripeAccount: sellerAccountId, // Direct Charge on connected account
+          idempotencyKey: `checkout:${listingId}:${sellerAccountId}:${qtyInt}:${Date.now()}:${Math.random().toString(36).slice(2)}`
+        }
+      );
+    } else {
+      // fallback: create on platform account (no split)
+      session = await stripe.checkout.sessions.create(
+        payload,
+        {
+          idempotencyKey: `checkout:${listingId}:${qtyInt}:${Date.now()}:${Math.random().toString(36).slice(2)}`
+        }
+      );
+    }
 
     // Return url so the client can redirect immediately
     return res.status(200).json({
@@ -151,7 +172,9 @@ export default async function handler(req, res) {
       lineItemsEcho: payload.line_items.map(li => ({
         unit_amount: li.price_data.unit_amount,
         quantity: li.quantity
-      }))
+      })),
+      usedDirectCharge: !!sellerAccountId,
+      platformFeeTotalCents
     });
   } catch (err) {
     console.error("create-checkout-session error:", err);
