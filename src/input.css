@@ -1,3 +1,32 @@
 @tailwind base;
+
+/* --- Global Layout Fix for Responsive Viewports --- */
+html, body {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  overflow-x: hidden;
+  -webkit-text-size-adjust: 100%; /* Prevents zoomed text scaling on iPhone */
+  touch-action: manipulation;
+}
+
+#app, main {
+  min-height: 100dvh;                 /* dynamic viewport height - modern */
+  min-height: -webkit-fill-available; /* fallback for older iOS Safari */
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  width: 100%;
+}
+
+/* Optional: makes sure no component clips offscreen */
+section, .page, .dashboard {
+  min-height: 100%;
+  overflow-y: auto;
+}
+
+/* Optional but helpful: consistent sizing */
+*, *::before, *::after { box-sizing: border-box; }
+
 @tailwind components;
 @tailwind utilities;
