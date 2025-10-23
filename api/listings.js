@@ -1,81 +1,119 @@
-// /api/listings.js  (Serverless)
-// One endpoint for both GET (read all) and POST (upsert one listing)
-// Uses Upstash Redis REST (free) via env: UPSTASH_REDIS_REST_URL, UPSTASH_REDIS_REST_TOKEN
+// api/listings.js
+import { Pool } from "pg";
 
-export const config = { runtime: "edge" };
+export const config = { runtime: "nodejs" };
 
-const KEY = "fep:listings:v1";
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: process.env.PGSSLMODE === "require" ? { rejectUnauthorized: false } : undefined,
+});
 
-async function kvGet(reqEnv) {
-  const { UPSTASH_REDIS_REST_URL, UPSTASH_REDIS_REST_TOKEN } = reqEnv;
-  const r = await fetch(`${UPSTASH_REDIS_REST_URL}/get/${encodeURIComponent(KEY)}`, {
-    headers: { Authorization: `Bearer ${UPSTASH_REDIS_REST_TOKEN}` },
-    cache: "no-store"
-  });
-  const d = await r.json();
-  let arr = [];
-  try { arr = d.result ? JSON.parse(d.result) : []; } catch {}
-  if (!Array.isArray(arr)) arr = [];
-  return arr;
+async function ensureTable() {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS listings (
+      id TEXT PRIMARY KEY,
+      group_name TEXT,
+      date_text TEXT,
+      city TEXT,
+      seat TEXT,
+      face NUMERIC,
+      price NUMERIC,
+      qty INTEGER,
+      remaining INTEGER,
+      pay TEXT,
+      seller TEXT,
+      seller_email TEXT,
+      seller_phone TEXT,
+      seller_account_id TEXT,
+      edit_token TEXT,
+      manage_code TEXT,
+      created_at TIMESTAMPTZ DEFAULT now(),
+      updated_at TIMESTAMPTZ DEFAULT now()
+    );
+  `);
 }
 
-async function kvSet(reqEnv, value) {
-  const { UPSTASH_REDIS_REST_URL, UPSTASH_REDIS_REST_TOKEN } = reqEnv;
-  const body = new URLSearchParams();
-  body.set("value", JSON.stringify(value));
-  // NX/XX not used—just overwrite atomically
-  const r = await fetch(`${UPSTASH_REDIS_REST_URL}/set/${encodeURIComponent(KEY)}`, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${UPSTASH_REDIS_REST_TOKEN}`,
-      "Content-Type": "application/x-www-form-urlencoded"
-    },
-    body
-  });
-  if (!r.ok) throw new Error(`KV set failed: ${r.status}`);
+// util
+function cleanNumber(n) {
+  const v = Number(n);
+  return Number.isFinite(v) ? v : null;
 }
 
-function json(data, init = 200) {
-  return new Response(JSON.stringify(data), {
-    status: typeof init === "number" ? init : init.status || 200,
-    headers: { "content-type": "application/json", "cache-control": "no-store" }
-  });
-}
-
-export default async function handler(req) {
+export default async function handler(req, res) {
+  res.setHeader("Cache-Control", "no-store");
   try {
-    const env = process.env;
-    if (!env.UPSTASH_REDIS_REST_URL || !env.UPSTASH_REDIS_REST_TOKEN) {
-      return json({ ok: false, error: "KV not configured" }, 500);
+    if (!process.env.DATABASE_URL) {
+      return res.status(500).json({ ok: false, error: "Missing DATABASE_URL" });
     }
 
+    await ensureTable();
+
     if (req.method === "GET") {
-      const items = await kvGet(env);
-      return json({ ok: true, items });
+      const { rows } = await pool.query(`
+        SELECT
+          id, group_name AS "group", date_text AS date, city, seat,
+          face, price, qty, remaining, pay, seller,
+          seller_email AS "sellerEmail",
+          seller_phone AS "sellerPhone",
+          seller_account_id AS "sellerAccountId",
+          edit_token AS "editToken",
+          manage_code AS "manageCode",
+          created_at AS "createdAt",
+          updated_at AS "updatedAt"
+        FROM listings
+        ORDER BY updated_at DESC
+      `);
+      return res.status(200).json({ ok: true, items: rows });
     }
 
     if (req.method === "POST") {
-      const listing = await req.json().catch(() => null);
-      if (!listing || typeof listing !== "object") return json({ ok:false, error:"Invalid JSON" }, 400);
-      if (!listing.id) return json({ ok:false, error:"Missing listing.id" }, 400);
+      const b = req.body || {};
+      const id = String(b.id || "").trim();
+      if (!id) return res.status(400).json({ ok: false, error: "Missing id" });
 
-      // Load, upsert, save
-      const items = await kvGet(env);
-      const i = items.findIndex(x => String(x.id) === String(listing.id));
-      const nowIso = new Date().toISOString();
-      const toSave = { ...listing };
-      if (!toSave.createdAt) toSave.createdAt = nowIso;
-      toSave.updatedAt = nowIso;
-
-      if (i >= 0) items[i] = toSave; else items.unshift(toSave);
-      await kvSet(env, items);
-      return json({ ok: true, item: toSave, count: items.length });
+      const q = `
+        INSERT INTO listings (
+          id, group_name, date_text, city, seat,
+          face, price, qty, remaining, pay, seller,
+          seller_email, seller_phone, seller_account_id,
+          edit_token, manage_code, created_at, updated_at
+        ) VALUES (
+          $1,$2,$3,$4,$5,
+          $6,$7,$8,$9,$10,$11,
+          $12,$13,$14,$15,$16, now(), now()
+        )
+        ON CONFLICT (id) DO UPDATE SET
+          group_name=$2, date_text=$3, city=$4, seat=$5,
+          face=$6, price=$7, qty=$8, remaining=$9, pay=$10,
+          seller=$11, seller_email=$12, seller_phone=$13,
+          seller_account_id=$14, edit_token=$15, manage_code=$16,
+          updated_at=now()
+        RETURNING
+          id, group_name AS "group", date_text AS date, city, seat,
+          face, price, qty, remaining, pay, seller,
+          seller_email AS "sellerEmail",
+          seller_phone AS "sellerPhone",
+          seller_account_id AS "sellerAccountId",
+          edit_token AS "editToken",
+          manage_code AS "manageCode",
+          created_at AS "createdAt",
+          updated_at AS "updatedAt"
+      `;
+      const vals = [
+        id, String(b.group || ""), String(b.date || ""), String(b.city || ""), String(b.seat || ""),
+        cleanNumber(b.face), cleanNumber(b.price), b.qty || 1, b.remaining || b.qty || 1, String(b.pay || ""),
+        String(b.seller || ""), String(b.sellerEmail || "").toLowerCase(), String(b.sellerPhone || ""),
+        String(b.sellerAccountId || ""), String(b.editToken || ""), String(b.manageCode || "")
+      ];
+      const { rows } = await pool.query(q, vals);
+      return res.status(200).json({ ok: true, item: rows[0] });
     }
 
-    return json({ ok:false, error:"Method not allowed" }, 405);
-  } catch (e) {
-    return json({ ok:false, error: e?.message || "Server error" }, 500);
+    res.setHeader("Allow", "GET, POST");
+    return res.status(405).json({ ok: false, error: "Method not allowed" });
+  } catch (err) {
+    console.error("listings error:", err);
+    return res.status(500).json({ ok: false, error: "Server error" });
   }
 }
-
 
