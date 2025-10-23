@@ -41,6 +41,14 @@ module.exports = {
       fontSize: {
         badge: "11px",
       },
+
+      /* ✅ Add these: dynamic viewport helpers */
+      height: {
+        'screen-dvh': '100dvh',
+      },
+      minHeight: {
+        'screen-dvh': '100dvh',
+      },
     },
   },
   plugins: [],
