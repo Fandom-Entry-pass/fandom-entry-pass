@@ -1054,7 +1054,7 @@ document.getElementById("editForm").addEventListener("submit", async (e)=>{
       if(changed) save(list);
     }
     setInterval(tick, 30000);
-
+    
     /* ===========================
        BUYER ESCROW BANNER
        =========================== */
@@ -1065,12 +1065,16 @@ document.getElementById("editForm").addEventListener("submit", async (e)=>{
       if (!success || !sid) return;
 
       try {
-        const resp = await fetch(`${ORIGIN}/api/session-status?sid=${encodeURIComponent(sid)}`);
+        const resp = await fetch(`${ORIGIN}/api/session-status?sid=${encodeURIComponent(sid)}`, {
+          headers: { "Cache-Control": "no-store" }
+        });
         const data = await resp.json();
         if (!data?.ok) return;
 
+        // Save this SID locally for the dashboard Orders panel
         addOrderSid(sid);
 
+        // Banner shell
         const container = document.createElement("div");
         container.className = "fixed bottom-0 inset-x-0 z-50 bg-emerald-50 border-t border-emerald-200 p-4";
         container.innerHTML = `
@@ -1081,58 +1085,57 @@ document.getElementById("editForm").addEventListener("submit", async (e)=>{
                 Please confirm after you receive your ticket. Auto-capture in <span id="fepCountdown" class="font-semibold"></span>.
               </div>
             </div>
-              <div class="flex gap-2">
-+              <button id="fepConfirm" class="px-4 py-2 rounded-xl bg-emerald-600 text-white">Confirm received</button>
-+              <button id="fepIssue" class="px-4 py-2 rounded-xl bg-rose-600 text-white">Cancel order</button>
-+            </div>
+            <div class="flex gap-2">
+              <button id="fepConfirm" class="px-4 py-2 rounded-xl bg-emerald-600 text-white">Confirm received</button>
+              <button id="fepIssue"   class="px-4 py-2 rounded-xl bg-rose-600 text-white">Cancel order</button>
+            </div>
           </div>
         `;
         document.body.appendChild(container);
 
-        /* ✅ NEW: Show "Cancel order" when still authorized */
-        if (data.fep_status === "authorized") {
-          const cancelBtn = document.createElement("button");
-          cancelBtn.id = "fepCancel";
-          cancelBtn.className = "px-4 py-2 rounded-xl bg-white ring-1 ring-gray-300";
-          cancelBtn.textContent = "Cancel order";
-          container.querySelector(".flex.gap-2").appendChild(cancelBtn);
-
-          cancelBtn.onclick = async () => {
-            const r = await fetch(`${ORIGIN}/api/cancel-order`, {
-              method: "POST", headers: { "Content-Type":"application/json" },
-              body: JSON.stringify({ sessionId: sid })
-            });
-            if (r.ok) { alert("Order canceled. Authorization voided."); location.href = "/"; }
-            else { alert("Could not cancel. It may have been marked sent already."); }
-          };
-        }
-
-        const el = container.querySelector("#fepCountdown");
+        // Countdown
+        const elCountdown = container.querySelector("#fepCountdown");
         function tickDown() {
           const now = Math.floor(Date.now() / 1000);
           const remain = Math.max(0, (data.deadline || 0) - now);
           const h = Math.floor(remain / 3600);
           const m = Math.floor((remain % 3600) / 60);
           const s = remain % 60;
-          el.textContent = `${h.toString().padStart(2,"0")}:${m.toString().padStart(2,"0")}:${s.toString().padStart(2,"0")}`;
+          elCountdown.textContent = `${h.toString().padStart(2,"0")}:${m.toString().padStart(2,"0")}:${s.toString().padStart(2,"0")}`;
         }
-        tickDown(); const t = setInterval(tickDown, 1000);
+        tickDown();
+        const t = setInterval(tickDown, 1000);
 
+        // Confirm received → capture
         container.querySelector("#fepConfirm").onclick = async () => {
-          const r = await fetch(`${ORIGIN}/api/confirm-received`, {
-            method: "POST", headers: { "Content-Type":"application/json" },
-            body: JSON.stringify({ sessionId: sid })
-          });
-          if (r.ok) { alert("Thanks! Payment captured."); location.href = "/"; }
-          else { alert("Capture failed. Please contact support."); }
+          try {
+            const r = await fetch(`${ORIGIN}/api/confirm-received`, {
+              method: "POST",
+              headers: { "Content-Type":"application/json" },
+              body: JSON.stringify({ sessionId: sid })
+            });
+            if (!r.ok) throw new Error(await r.text().catch(()=> r.statusText));
+            alert("Thanks! Payment captured.");
+            location.href = "/";
+          } catch (e) {
+            alert(`Capture failed. Please contact support.\n${e?.message || e}`);
+          }
         };
-container.querySelector("#fepIssue").onclick = async () => {
-+          const r = await fetch(`${ORIGIN}/api/cancel-order`, {
-+            method: "POST", headers: { "Content-Type":"application/json" },
-+            body: JSON.stringify({ sessionId: sid })
-+          });
-+          if (r.ok) { alert("Order canceled. Authorization voided."); location.href = "/"; }
-+          else { alert("Could not cancel. Please contact support.");  }
+
+        // Cancel order → void authorization
+        container.querySelector("#fepIssue").onclick = async () => {
+          try {
+            const r = await fetch(`${ORIGIN}/api/cancel-order`, {
+              method: "POST",
+              headers: { "Content-Type":"application/json" },
+              body: JSON.stringify({ sessionId: sid })
+            });
+            if (!r.ok) throw new Error(await r.text().catch(()=> r.statusText));
+            alert("Order canceled. Authorization voided.");
+            location.href = "/";
+          } catch (e) {
+            alert(`Could not cancel. Please contact support.\n${e?.message || e}`);
+          }
         };
       } catch (e) {
         console.warn("Escrow banner failed:", e);
