@@ -7,38 +7,3 @@
 /* === Tailwind utilities === */
 @import "https://unpkg.com/tailwindcss@3.4.13/utilities.css";
 
-/* ================================
-   FEP Global Layout Fixes (load after Tailwind)
-   ================================ */
-
-/* Prevent horizontal scroll and keep fonts stable on iOS */
-html, body {
-  height: 100%;
-  margin: 0;
-  padding: 0;
-  overflow-x: hidden;
-  -webkit-text-size-adjust: 100%;
-  touch-action: manipulation;
-}
-
-/* Root wrappers: full height + scroll on all devices */
-#app, main {
-  /* modern dynamic viewport; fixes mobile toolbar issues on iOS & Android */
-  min-height: 100dvh;
-  /* fallback for older iOS Safari */
-  min-height: -webkit-fill-available;
-
-  display: flex;
-  flex-direction: column;
-  overflow-y: auto;
-  width: 100%;
-}
-
-/* Keep nested pages from clipping */
-section, .page, .dashboard {
-  min-height: 100%;
-  overflow-y: auto;
-}
-
-/* Safer box sizing everywhere */
-*, *::before, *::after { box-sizing: border-box; }
