@@ -1,151 +1,81 @@
-// api/listings.js
-import { Pool } from "pg";
+// /api/listings.js  (Serverless)
+// One endpoint for both GET (read all) and POST (upsert one listing)
+// Uses Upstash Redis REST (free) via env: UPSTASH_REDIS_REST_URL, UPSTASH_REDIS_REST_TOKEN
 
-export const config = { runtime: "nodejs" };
+export const config = { runtime: "edge" };
 
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  // Optional: require SSL in hosted DBs
-  ssl: process.env.PGSSLMODE === "require" ? { rejectUnauthorized: false } : undefined,
-});
+const KEY = "fep:listings:v1";
 
-async function ensureTable() {
-  // very light “create if not exists”
-  await pool.query(`
-    CREATE TABLE IF NOT EXISTS listings (
-      id            TEXT PRIMARY KEY,
-      group_name    TEXT,
-      date_text     TEXT,
-      city          TEXT,
-      seat          TEXT,
-      face          NUMERIC,
-      price         NUMERIC,
-      qty           INTEGER,
-      remaining     INTEGER,
-      pay           TEXT,
-      seller        TEXT,
-      seller_email  TEXT,
-      seller_phone  TEXT,
-      seller_account_id TEXT,
-      edit_token    TEXT,
-      manage_code   TEXT,
-      created_at    TIMESTAMPTZ DEFAULT now(),
-      updated_at    TIMESTAMPTZ DEFAULT now()
-    );
-    CREATE INDEX IF NOT EXISTS listings_updated_at_idx ON listings(updated_at DESC);
-  `);
+async function kvGet(reqEnv) {
+  const { UPSTASH_REDIS_REST_URL, UPSTASH_REDIS_REST_TOKEN } = reqEnv;
+  const r = await fetch(`${UPSTASH_REDIS_REST_URL}/get/${encodeURIComponent(KEY)}`, {
+    headers: { Authorization: `Bearer ${UPSTASH_REDIS_REST_TOKEN}` },
+    cache: "no-store"
+  });
+  const d = await r.json();
+  let arr = [];
+  try { arr = d.result ? JSON.parse(d.result) : []; } catch {}
+  if (!Array.isArray(arr)) arr = [];
+  return arr;
 }
 
-function cleanNumber(n) {
-  const v = Number(n);
-  return Number.isFinite(v) ? v : null;
+async function kvSet(reqEnv, value) {
+  const { UPSTASH_REDIS_REST_URL, UPSTASH_REDIS_REST_TOKEN } = reqEnv;
+  const body = new URLSearchParams();
+  body.set("value", JSON.stringify(value));
+  // NX/XX not used—just overwrite atomically
+  const r = await fetch(`${UPSTASH_REDIS_REST_URL}/set/${encodeURIComponent(KEY)}`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${UPSTASH_REDIS_REST_TOKEN}`,
+      "Content-Type": "application/x-www-form-urlencoded"
+    },
+    body
+  });
+  if (!r.ok) throw new Error(`KV set failed: ${r.status}`);
 }
 
-export default async function handler(req, res) {
-  res.setHeader("Cache-Control", "no-store");
+function json(data, init = 200) {
+  return new Response(JSON.stringify(data), {
+    status: typeof init === "number" ? init : init.status || 200,
+    headers: { "content-type": "application/json", "cache-control": "no-store" }
+  });
+}
+
+export default async function handler(req) {
   try {
-    if (!process.env.DATABASE_URL) {
-      return res.status(500).json({ ok: false, error: "Missing DATABASE_URL" });
+    const env = process.env;
+    if (!env.UPSTASH_REDIS_REST_URL || !env.UPSTASH_REDIS_REST_TOKEN) {
+      return json({ ok: false, error: "KV not configured" }, 500);
     }
-    await ensureTable();
 
     if (req.method === "GET") {
-      const { rows } = await pool.query(
-        `SELECT
-           id, group_name AS "group", date_text AS date, city, seat,
-           face, price, qty, remaining, pay, seller,
-           seller_email AS "sellerEmail",
-           seller_phone AS "sellerPhone",
-           seller_account_id AS "sellerAccountId",
-           edit_token AS "editToken",
-           manage_code AS "manageCode",
-           created_at AS "createdAt",
-           updated_at AS "updatedAt"
-         FROM listings
-         ORDER BY updated_at DESC, created_at DESC`
-      );
-      return res.status(200).json({ ok: true, items: rows });
+      const items = await kvGet(env);
+      return json({ ok: true, items });
     }
 
     if (req.method === "POST") {
-      const b = req.body || {};
-      // normalize
-      const item = {
-        id: String(b.id || "").trim(),
-        group: String(b.group || "").trim(),
-        date: String(b.date || "").trim(),
-        city: String(b.city || "").trim(),
-        seat: String(b.seat || "").trim(),
-        face: cleanNumber(b.face),
-        price: cleanNumber(b.price),
-        qty: Math.max(1, parseInt(b.qty ?? 1, 10)),
-        remaining: Math.max(0, parseInt(b.remaining ?? b.qty ?? 1, 10)),
-        pay: String(b.pay || "").trim(),
-        seller: String(b.seller || "Seller").trim(),
-        sellerEmail: String(b.sellerEmail || "").trim().toLowerCase(),
-        sellerPhone: String(b.sellerPhone || "").trim(),
-        sellerAccountId: String(b.sellerAccountId || "").trim(),
-        editToken: String(b.editToken || "").trim(),
-        manageCode: String(b.manageCode || "").trim(),
-      };
+      const listing = await req.json().catch(() => null);
+      if (!listing || typeof listing !== "object") return json({ ok:false, error:"Invalid JSON" }, 400);
+      if (!listing.id) return json({ ok:false, error:"Missing listing.id" }, 400);
 
-      if (!item.id) return res.status(400).json({ ok: false, error: "Missing id" });
+      // Load, upsert, save
+      const items = await kvGet(env);
+      const i = items.findIndex(x => String(x.id) === String(listing.id));
+      const nowIso = new Date().toISOString();
+      const toSave = { ...listing };
+      if (!toSave.createdAt) toSave.createdAt = nowIso;
+      toSave.updatedAt = nowIso;
 
-      const q = `
-        INSERT INTO listings (
-          id, group_name, date_text, city, seat,
-          face, price, qty, remaining, pay, seller,
-          seller_email, seller_phone, seller_account_id,
-          edit_token, manage_code, created_at, updated_at
-        ) VALUES (
-          $1,$2,$3,$4,$5,
-          $6,$7,$8,$9,$10,$11,
-          $12,$13,$14,
-          $15,$16, now(), now()
-        )
-        ON CONFLICT (id) DO UPDATE SET
-          group_name = EXCLUDED.group_name,
-          date_text  = EXCLUDED.date_text,
-          city       = EXCLUDED.city,
-          seat       = EXCLUDED.seat,
-          face       = EXCLUDED.face,
-          price      = EXCLUDED.price,
-          qty        = EXCLUDED.qty,
-          remaining  = EXCLUDED.remaining,
-          pay        = EXCLUDED.pay,
-          seller     = EXCLUDED.seller,
-          seller_email = EXCLUDED.seller_email,
-          seller_phone = EXCLUDED.seller_phone,
-          seller_account_id = EXCLUDED.seller_account_id,
-          edit_token = EXCLUDED.edit_token,
-          manage_code = EXCLUDED.manage_code,
-          updated_at = now()
-        RETURNING
-          id, group_name AS "group", date_text AS date, city, seat,
-          face, price, qty, remaining, pay, seller,
-          seller_email AS "sellerEmail",
-          seller_phone AS "sellerPhone",
-          seller_account_id AS "sellerAccountId",
-          edit_token AS "editToken",
-          manage_code AS "manageCode",
-          created_at AS "createdAt",
-          updated_at AS "updatedAt"
-      `;
-      const vals = [
-        item.id, item.group, item.date, item.city, item.seat,
-        item.face, item.price, item.qty, item.remaining, item.pay, item.seller,
-        item.sellerEmail, item.sellerPhone, item.sellerAccountId,
-        item.editToken, item.manageCode
-      ];
-      const { rows } = await pool.query(q, vals);
-      return res.status(200).json({ ok: true, item: rows[0] });
+      if (i >= 0) items[i] = toSave; else items.unshift(toSave);
+      await kvSet(env, items);
+      return json({ ok: true, item: toSave, count: items.length });
     }
 
-    res.setHeader("Allow", "GET, POST");
-    return res.status(405).json({ ok: false, error: "Method not allowed" });
-  } catch (err) {
-    console.error("listings error:", err);
-    return res.status(500).json({ ok: false, error: "Server error" });
+    return json({ ok:false, error:"Method not allowed" }, 405);
+  } catch (e) {
+    return json({ ok:false, error: e?.message || "Server error" }, 500);
   }
 }
+
 
