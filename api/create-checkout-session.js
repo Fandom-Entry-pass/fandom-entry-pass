@@ -9,6 +9,8 @@ const BUYER_FEE_CENTS    = Number(process.env.BUYER_FEE_CENTS   || 350);
 const ESCROW_HOURS       = Number(process.env.ESCROW_HOURS      || 72);
 const SELLER_FEE_FIXED   = Number(process.env.SELLER_FEE_FIXED  || 75);
 const SELLER_FEE_PERCENT = Number(process.env.SELLER_FEE_PERCENT|| 0.05);
+
+// optional per-order cap
 const MAX_QTY_PER_ORDER  = Number(process.env.MAX_QTY_PER_ORDER || 10);
 
 function toCents(n) {
@@ -23,6 +25,7 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: "Method not allowed" });
   }
 
+  // prevent any caching along the path
   res.setHeader("Cache-Control", "no-store");
 
   try {
@@ -44,7 +47,7 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: "Invalid price" });
     }
 
-    // +15% cap vs face
+    // 15% cap vs face value (if provided)
     if (face !== undefined && face !== null && face !== "") {
       const faceCents = toCents(face);
       if (faceCents && unitAmount > Math.round(faceCents * 1.15)) {
@@ -60,29 +63,32 @@ export default async function handler(req, res) {
     const description = descParts.join(" • ");
 
     const origin = APP_BASE_URL || req.headers.origin || "";
-    if (!origin) return res.status(500).json({ error: "Missing APP_BASE_URL / origin for redirects" });
+    if (!origin) {
+      return res.status(500).json({ error: "Missing APP_BASE_URL / origin for redirects" });
+    }
 
-    // fees
+    // ---- fees (your exact variables) ----
     const sellerFeePerTicketCents = Math.round(unitAmount * SELLER_FEE_PERCENT) + SELLER_FEE_FIXED;
     const sellerFeeTotalCents     = sellerFeePerTicketCents * qtyInt;
     const buyerFeeTotalCents      = BUYER_FEE_CENTS * qtyInt;
-    const platformFeeTotalCents   = sellerFeeTotalCents + buyerFeeTotalCents; // ← your take
+    const PLATFORM_FEE_CENTS      = buyerFeeTotalCents + sellerFeeTotalCents; // ← application fee
     const confirmDeadline         = Math.floor(Date.now() / 1000) + ESCROW_HOURS * 3600;
+    // -------------------------------------
 
     const payload = {
       mode: "payment",
       payment_intent_data: {
         capture_method: "manual",
-        // Destination Charge: keep PaymentIntent on platform,
-        // move funds to seller’s connected account after capture,
-        // and take your platform fee upfront.
-        ...(sellerAccountId
-          ? {
-              transfer_data: { destination: sellerAccountId },
-              application_fee_amount: platformFeeTotalCents
-            }
-          : {} // if no seller account yet, take payment on platform without split
-        ),
+
+        // ✅ Destination charge (seller gets net automatically)
+        transfer_data: sellerAccountId ? { destination: sellerAccountId } : undefined,
+
+        // ✅ Your platform keeps buyer fee + seller fee only
+        application_fee_amount: PLATFORM_FEE_CENTS,
+
+        // (recommended so Stripe processing fees land on the seller, not you)
+        on_behalf_of: sellerAccountId || undefined,
+
         metadata: {
           fep: "1",
           fep_status: "authorized",
@@ -142,9 +148,10 @@ export default async function handler(req, res) {
     };
 
     const session = await stripe.checkout.sessions.create(payload, {
-      idempotencyKey: `checkout:${listingId}:${qtyInt}:${Date.now()}:${Math.random().toString(36).slice(2)}`
+      idempotencyKey: `checkout:${listingId}:${Date.now()}:${Math.random().toString(36).slice(2)}`
     });
 
+    // Return url so the client can redirect immediately
     return res.status(200).json({
       url: session.url,
       sessionId: session.id,
@@ -152,14 +159,11 @@ export default async function handler(req, res) {
       lineItemsEcho: payload.line_items.map(li => ({
         unit_amount: li.price_data.unit_amount,
         quantity: li.quantity
-      })),
-      usedDestinationCharge: !!sellerAccountId,
-      platformFeeTotalCents
+      }))
     });
   } catch (err) {
     console.error("create-checkout-session error:", err);
     return res.status(500).json({ error: "Internal error creating session" });
   }
 }
-
 
