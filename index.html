@@ -1126,13 +1126,13 @@ document.getElementById("editForm").addEventListener("submit", async (e)=>{
           if (r.ok) { alert("Thanks! Payment captured."); location.href = "/"; }
           else { alert("Capture failed. Please contact support."); }
         };
-        container.querySelector("#fepIssue").onclick = async () => {
-          const r = await fetch(`${ORIGIN}/api/report-issue`, {
-            method: "POST", headers: { "Content-Type":"application/json" },
-            body: JSON.stringify({ sessionId: sid })
-          });
-          if (r.ok) { alert("Issue reported. Authorization canceled."); location.href = "/"; }
-          else { alert("Could not cancel. Please contact support."); }
+container.querySelector("#fepIssue").onclick = async () => {
++          const r = await fetch(`${ORIGIN}/api/cancel-order`, {
++            method: "POST", headers: { "Content-Type":"application/json" },
++            body: JSON.stringify({ sessionId: sid })
++          });
++          if (r.ok) { alert("Order canceled. Authorization voided."); location.href = "/"; }
++          else { alert("Could not cancel. Please contact support.");  }
         };
       } catch (e) {
         console.warn("Escrow banner failed:", e);
