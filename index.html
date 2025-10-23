@@ -1549,6 +1549,165 @@ async function startBuy(listingId, qty = 1){
       updateSellerFeeUI();
       toggleSellerUI(); // show/hide Add buttons based on login
     })();
+
+    /* ============================================
+       AUTO SYNC INVENTORY AFTER CHECKOUT (HOLD/CAPTURE/CANCEL)
+       - Decrement remaining on authorization (requires_capture)
+       - Put it back on cancel
+       - Keep it decremented on capture (succeeded)
+       - Idempotent per SID on this device
+       ============================================ */
+    (function autoInventorySyncAfterCheckout(){
+      const params = new URLSearchParams(location.search);
+      const sid = params.get("sid");
+      if (!sid) return; // only runs on the success redirect that includes ?sid=
+
+      const HELD_KEY = "fep_held_v1"; // [{ sid, listingId, qty }]
+
+      function loadListings(){ try{ return JSON.parse(localStorage.getItem("fep_listings_v1") || "[]"); }catch{ return []; } }
+      function saveListings(list){ localStorage.setItem("fep_listings_v1", JSON.stringify(list || [])); }
+      function renderIfPresent(){ try { if (typeof render === "function") render(); } catch {} }
+
+      function getHolds(){ try{ return JSON.parse(localStorage.getItem(HELD_KEY) || "[]"); }catch{ return []; } }
+      function saveHolds(list){ localStorage.setItem(HELD_KEY, JSON.stringify(list || [])); }
+
+      function adjustRemaining(listingId, qty, mode){
+        if (!listingId || !Number.isFinite(qty) || qty <= 0) return false;
+        const list = loadListings();
+        const i = list.findIndex(x => String(x.id) === String(listingId));
+        if (i === -1) return false;
+
+        const L = { ...list[i] };
+        const baseRemaining = Number.isFinite(L.remaining) ? Number(L.remaining) : Number(L.qty || 0) || 0;
+
+        if (mode === "dec") {
+          L.remaining = Math.max(0, baseRemaining - qty);
+        } else if (mode === "inc") {
+          const total = Number(L.qty || 0) || 0;
+          L.remaining = Math.min(total, baseRemaining + qty);
+        } else {
+          return false;
+        }
+
+        list[i] = L;
+        saveListings(list);
+        renderIfPresent();
+        return true;
+      }
+
+      async function run(){
+        try {
+          const r = await fetch(`${(window.APP_CONFIG?.API_BASE || window.location.origin).replace(/\/+$/,"")}/api/session-status?sid=${encodeURIComponent(sid)}`, {
+            headers: { "Cache-Control": "no-store" }
+          });
+          const d = await r.json().catch(()=> ({}));
+          if (!d?.ok) return;
+
+          const listingId = d.listingId || null;
+          const qty = Number(d.qty || 1);
+          if (!listingId || !Number.isFinite(qty) || qty <= 0) return;
+
+          let holds = getHolds();
+          const existing = holds.find(h => h.sid === sid);
+
+          if (d.requires_capture) {
+            // Authorization: HOLD inventory if not already held on this device
+            if (!existing) {
+              if (adjustRemaining(listingId, qty, "dec")) {
+                holds = [...holds, { sid, listingId, qty }];
+                saveHolds(holds);
+              }
+            }
+          } else if (d.canceled) {
+            // Buyer/system canceled before capture: RETURN held qty (if we held it)
+            if (existing) {
+              if (adjustRemaining(existing.listingId, existing.qty, "inc")) {
+                saveHolds(holds.filter(h => h.sid !== sid));
+              }
+            }
+          } else if (d.succeeded) {
+            // Captured: keep it decremented, just forget the hold locally
+            if (existing) {
+              saveHolds(holds.filter(h => h.sid !== sid));
+            }
+          }
+        } catch (e) {
+          console.warn("autoInventorySyncAfterCheckout:", e?.message || e);
+        }
+      }
+
+      run();
+    })();
+
+    /* ============================================
+       ALSO RECONCILE WHEN VIEWING ORDERS IN DASHBOARD
+       (if user opens Seller Dashboard later, we keep
+       the local inventory consistent with real status)
+       ============================================ */
+    (function autoReconcileFromOrders(){
+      const HELD_KEY = "fep_held_v1";
+      const FEP_ORDERS_KEY = "fep_orders_v1";
+
+      function getOrders(){ try{ return JSON.parse(localStorage.getItem(FEP_ORDERS_KEY) || "[]"); }catch{ return []; } }
+      function getHolds(){ try{ return JSON.parse(localStorage.getItem(HELD_KEY) || "[]"); }catch{ return []; } }
+      function saveHolds(list){ localStorage.setItem(HELD_KEY, JSON.stringify(list || [])); }
+
+      function loadListings(){ try{ return JSON.parse(localStorage.getItem("fep_listings_v1") || "[]"); }catch{ return []; } }
+      function saveListings(list){ localStorage.setItem("fep_listings_v1", JSON.stringify(list || [])); }
+      function renderIfPresent(){ try { if (typeof render === "function") render(); } catch {} }
+
+      function adjustRemaining(listingId, qty, mode){
+        if (!listingId || !Number.isFinite(qty) || qty <= 0) return false;
+        const list = loadListings();
+        const i = list.findIndex(x => String(x.id) === String(listingId));
+        if (i === -1) return false;
+
+        const L = { ...list[i] };
+        const baseRemaining = Number.isFinite(L.remaining) ? Number(L.remaining) : Number(L.qty || 0) || 0;
+
+        if (mode === "dec")      L.remaining = Math.max(0, baseRemaining - qty);
+        else if (mode === "inc") L.remaining = Math.min(Number(L.qty||0)||0, baseRemaining + qty);
+        else return false;
+
+        list[i] = L; saveListings(list); renderIfPresent(); return true;
+      }
+
+      async function checkOne(sid){
+        try {
+          const r = await fetch(`${(window.APP_CONFIG?.API_BASE || window.location.origin).replace(/\/+$/,"")}/api/session-status?sid=${encodeURIComponent(sid)}`, {
+            headers: { "Cache-Control": "no-store" }
+          });
+          const d = await r.json().catch(()=> ({}));
+          if (!d?.ok || !d.listingId) return;
+
+          const qty = Number(d.qty || 1);
+          let holds = getHolds();
+          const existing = holds.find(h => h.sid === sid);
+
+          if (d.requires_capture && !existing) {
+            if (adjustRemaining(d.listingId, qty, "dec")) {
+              holds = [...holds, { sid, listingId: d.listingId, qty }];
+              saveHolds(holds);
+            }
+          } else if (d.canceled && existing) {
+            if (adjustRemaining(existing.listingId, existing.qty, "inc")) {
+              saveHolds(holds.filter(h => h.sid !== sid));
+            }
+          } else if (d.succeeded && existing) {
+            // captured: just drop the hold
+            saveHolds(holds.filter(h => h.sid !== sid));
+          }
+        } catch {}
+      }
+
+      // Run shortly after load; harmless if no orders
+      setTimeout(()=>{
+        const orders = getOrders();
+        if (!orders.length) return;
+        // light sweep (don’t spam the API)
+        orders.slice(0, 6).forEach(o => checkOne(o.sid));
+      }, 1200);
+    })();
   </script>
 </body>
 </html>
