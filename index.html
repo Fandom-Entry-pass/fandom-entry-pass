@@ -484,6 +484,27 @@
     const calcPlatformFee = (price)=> Math.max(0, (Number(price)||0)*SELLER_FEE_PCT + SELLER_FEE_FLAT);
     const calcPayoutPerTicket = (price)=> Math.max(0, (Number(price)||0) - calcPlatformFee(price));
 
+    // === minimal remote sync ===
+async function syncFromServerIntoLocal() {
+  try {
+    const r = await fetch(`${ORIGIN}/api/listings`, { headers:{ "Cache-Control":"no-store" } });
+    const d = await r.json();
+    if (d?.ok && Array.isArray(d.items)) {
+      save(d.items);            // reuse your local save()
+      applyFilters();           // reuse your render/filter
+    }
+  } catch (e) { console.warn("sync failed:", e?.message || e); }
+}
+
+async function upsertListingRemote(listing) {
+  const r = await fetch(`${ORIGIN}/api/listings`, {
+    method: "POST",
+    headers: { "Content-Type":"application/json" },
+    body: JSON.stringify(listing)
+  });
+  const d = await r.json();
+  if (!r.ok || !d?.ok) throw new Error(d?.error || "Remote upsert failed");
+}
     /* ===========================
        Formspree (attachment) with Resend fallback
        =========================== */
@@ -790,198 +811,223 @@ async function startBuy(listingId, qty = 1){
     /* ===========================
        Add Listing
        =========================== */
-    function showSoftCapWarn(faceVal, priceVal, warnEl){
-      const cap = capFor(faceVal || 0);
-      const over = Number(priceVal||0) > cap + 0.0001;
-      if (warnEl) warnEl.classList.toggle("hidden", !over);
-    }
+   function showSoftCapWarn(faceVal, priceVal, warnEl){
+  const cap = capFor(faceVal || 0);
+  const over = Number(priceVal||0) > cap + 0.0001;
+  if (warnEl) warnEl.classList.toggle("hidden", !over);
+}
 
-    function updateSellerFeeUI(){
-      const face = Number(document.getElementById("faceInput")?.value || 0);
-      const price = Number(document.getElementById("priceInput")?.value || 0);
-      const feePer = calcPlatformFee(price);
-      const payoutPer = calcPayoutPerTicket(price);
-      const feePerEl = document.getElementById("feePerTicket");
-      const payoutPerEl = document.getElementById("payoutPerTicket");
-      if (feePerEl) feePerEl.textContent = money2(feePer);
-      if (payoutPerEl) payoutPerEl.textContent = money2(payoutPer);
-      // soft warning
-      showSoftCapWarn(face, price, document.getElementById("priceCapWarn"));
-    }
+function updateSellerFeeUI(){
+  const face = Number(document.getElementById("faceInput")?.value || 0);
+  const price = Number(document.getElementById("priceInput")?.value || 0);
+  const feePer = calcPlatformFee(price);
+  const payoutPer = calcPayoutPerTicket(price);
+  const feePerEl = document.getElementById("feePerTicket");
+  const payoutPerEl = document.getElementById("payoutPerTicket");
+  if (feePerEl) feePerEl.textContent = money2(feePer);
+  if (payoutPerEl) payoutPerEl.textContent = money2(payoutPer);
+  // soft warning
+  showSoftCapWarn(face, price, document.getElementById("priceCapWarn"));
+}
 
-    document.addEventListener("input", (e)=>{
-      if (e.target && (e.target.id==="priceInput" || e.target.id==="faceInput" || e.target.name==="qty")) updateSellerFeeUI();
-      if (e.target && (e.target.id==="editPriceInput" || e.target.id==="editFaceInput" || (e.target.form && e.target.form.id==="editForm" && e.target.name==="qty"))) {
-        updateEditFeeUI();
-        if (e.target.id === "editQtyInput") maybeShowQtyClampNote();
-      }
+document.addEventListener("input", (e)=>{
+  if (e.target && (e.target.id==="priceInput" || e.target.id==="faceInput" || e.target.name==="qty")) updateSellerFeeUI();
+  if (e.target && (e.target.id==="editPriceInput" || e.target.id==="editFaceInput" || (e.target.form && e.target.form.id==="editForm" && e.target.name==="qty"))) {
+    updateEditFeeUI();
+    if (e.target.id === "editQtyInput") maybeShowQtyClampNote();
+  }
+});
+
+document.getElementById("addForm").addEventListener("submit", async (e)=>{
+  e.preventDefault();
+  const fd = new FormData(e.target);
+
+  const face = Number(fd.get("face"));
+  const price = Number(fd.get("price"));
+  const qty = Math.max(1, Number(fd.get("qty") || 1));
+  if (!withinCap(face, price)) return alert("This price exceeds the +15% cap. Please lower the price.");
+
+  const proofFile = fd.get("proof");
+  if (!proofFile || !proofFile.size) return alert("Proof of ticket is required. Please upload your proof image.");
+
+  const sellerEmailRaw = String(fd.get("sellerEmail") || "").trim();
+  const sellerPhone = String(fd.get("sellerPhone") || "").trim();
+  if (!sellerEmailRaw || !sellerPhone) return alert("Seller email and phone are required for notifications.");
+
+  const current = loggedInSellerEmail();
+  if (!current) return alert("Please log in as a seller first.");
+  if (sellerEmailRaw.toLowerCase() !== current) {
+    return alert("Seller email must match your logged-in seller account.");
+  }
+
+  const editToken = token();
+  const manageCode = editToken.slice(0,10).toUpperCase();
+  const sellerAccountId = localStorage.getItem("fep_connect_acct") || "";
+
+  const nowIso = new Date().toISOString();
+  const listing = {
+    id: crypto.randomUUID(),
+    group: String(fd.get("group") || "").trim(),
+    date: String(fd.get("date") || "").trim(),
+    city: String(fd.get("city") || "").trim(),
+    seat: String(fd.get("seat") || "").trim(),
+    face, price, qty,
+    remaining: qty,
+    pay: String(fd.get("pay") || "").trim(),
+    seller: String(fd.get("seller") || "Seller").trim(),
+    sellerEmail: sellerEmailRaw.toLowerCase(),
+    sellerPhone,
+    sellerAccountId,
+    editToken, manageCode,
+    createdAt: nowIso,
+    updatedAt: nowIso
+  };
+
+  // send proof (non-blocking failure is OK)
+  await sendProofViaFormspree(listing, proofFile).catch(()=>{});
+
+  // local save first (snappy UI)
+  const list = load(); list.unshift(listing); save(list);
+  applyFilters();            // ✅ show immediately on current device
+
+  try {
+    // write to server, then pull canonical copy back
+    await upsertListingRemote(listing);
+    await syncFromServerIntoLocal(); // ✅ keeps cross-device sync
+  } catch (e) {
+    console.warn("remote upsert failed:", e?.message || e);
+  }
+
+  closeModal();
+  e.target.reset();
+  window.scrollTo({ top: 0, behavior: "smooth" });
+  renderMyListings();
     });
 
-    document.getElementById("addForm").addEventListener("submit", async (e)=>{
-      e.preventDefault();
-      const fd=new FormData(e.target);
-      const face=Number(fd.get("face"));
-      const price=Number(fd.get("price"));
-      const qty=Math.max(1, Number(fd.get("qty")||1));
-      if(!withinCap(face,price)) return alert("This price exceeds the +15% cap. Please lower the price.");
-      const proofFile=fd.get("proof");
-      if(!proofFile || !proofFile.size) return alert("Proof of ticket is required. Please upload your proof image.");
-    
-      const sellerEmail=String(fd.get("sellerEmail")||"").trim();
-      const sellerPhone=String(fd.get("sellerPhone")||"").trim();
-      if(!sellerEmail || !sellerPhone) return alert("Seller email and phone are required for notifications.");
+ /* ===========================
+   EDIT / DELETE (Seller Dashboard)
+   =========================== */
+function updateEditFeeUI(){
+  const form = document.getElementById("editForm");
+  if (!form) return;
+  const face = Number(form.face.value || 0);
+  const price = Number(form.price.value || 0);
+  const feePer = calcPlatformFee(price);
+  const payoutPer = calcPayoutPerTicket(price);
+  const feePerEl = document.getElementById("editFeePerTicket");
+  const payoutPerEl = document.getElementById("editPayoutPerTicket");
+  if (feePerEl) feePerEl.textContent = money2(feePer);
+  if (payoutPerEl) payoutPerEl.textContent = money2(payoutPer);
+  // soft warning
+  showSoftCapWarn(face, price, document.getElementById("editPriceCapWarn"));
+}
 
-      // Ensure logged-in seller matches form email
-      const current = loggedInSellerEmail();
-      if (!current) return alert("Please log in as a seller first.");
-      if ((sellerEmail || "").toLowerCase() !== current) {
-        return alert("Seller email must match your logged-in seller account.");
-      }
+// When seller reduces Qty, warn we will clamp remaining
+function maybeShowQtyClampNote(){
+  const note = document.getElementById("qtyClampNote");
+  const form = document.getElementById("editForm");
+  if (!note || !form) return;
+  const newQty = Number(form.qty.value || 1);
+  const id = form.id.value;
+  const prev = (load() || []).find(x => x.id === id);
+  if (!prev) { note.classList.add("hidden"); return; }
+  const remaining = prev.remaining ?? prev.qty ?? newQty;
+  // Show note if remaining > newQty (will be clamped)
+  note.classList.toggle("hidden", !(remaining > newQty));
+}
 
-      const editToken = token();
-      const manageCode = editToken.slice(0,10).toUpperCase();
-      const sellerAccountId = localStorage.getItem("fep_connect_acct") || "";
+function fillEditForm(it){
+  const f = document.getElementById("editForm");
+  f.id.value = it.id;
+  f.group.value = it.group || "";
+  f.qty.value = it.qty || 1;
+  f.date.value = it.date || "";
+  f.city.value = it.city || "";
+  f.seat.value = it.seat || "";
+  f.face.value = it.face || 0;
+  f.price.value = it.price || 0;
+  f.pay.value = it.pay || "";
+  f.seller.value = it.seller || "Seller";
+  f.sellerPhone.value = it.sellerPhone || "";
+  f.sellerEmail.value = (it.sellerEmail || "").toLowerCase();
+  f.proof.value = ""; // reset file input
+  updateEditFeeUI();
+  maybeShowQtyClampNote();
+}
 
-      const listing = {
-        id: crypto.randomUUID(),
-        group: String(fd.get("group")||"").trim(),
-        date: String(fd.get("date")||"").trim(),
-        city: String(fd.get("city")||"").trim(),
-        seat: String(fd.get("seat")||"").trim(),
-        face, price, qty,
-        remaining: qty,
-        pay: String(fd.get("pay")||"").trim(),
-        seller: String(fd.get("seller")||"Seller").trim(),
-        sellerEmail, sellerPhone,
-        sellerAccountId,
-        editToken, manageCode
-      };
-      await sendProofViaFormspree(listing, proofFile);
-      const list=load(); list.unshift(listing); save(list);
+function openEdit(id){
+  const it = (load() || []).find(x => x.id === id);
+  if(!it) return alert("Listing not found.");
+  fillEditForm(it);
+  openEditModal();
+}
 
-      try{
-        const manageUrl = `${location.origin}${location.pathname}?manage=${editToken}`;
-        await navigator.clipboard.writeText(manageUrl);
-        alert(`Listing created!\n\nSeller manage code: ${manageCode}\n(Manage link copied to clipboard.)`);
-      }catch{
-        alert(`Listing created!\n\nSeller manage code: ${manageCode}`);
-      }
+function deleteListing(id){
+  if(!confirm("Delete this listing? This cannot be undone.")) return;
+  const list = load().filter(x => x.id !== id);
+  save(list);
+  applyFilters();
+  renderMyListings();
+  // (Optional) add a remote delete endpoint later to mirror this server-side
+}
 
-      closeModal(); e.target.reset(); applyFilters(); window.scrollTo({ top:0, behavior:"smooth" });
-      renderMyListings();
-    });
+document.getElementById("editForm").addEventListener("submit", async (e)=>{
+  e.preventDefault();
+  const fd = new FormData(e.target);
+  const id = fd.get("id");
+  let list = load();
+  const idx = list.findIndex(x => x.id === id);
+  if (idx < 0) { alert("Listing not found."); return; }
 
-    /* ===========================
-       EDIT / DELETE (Seller Dashboard)
-       =========================== */
-    function updateEditFeeUI(){
-      const form = document.getElementById("editForm");
-      if (!form) return;
-      const face = Number(form.face.value || 0);
-      const price = Number(form.price.value || 0);
-      const feePer = calcPlatformFee(price);
-      const payoutPer = calcPayoutPerTicket(price);
-      const feePerEl = document.getElementById("editFeePerTicket");
-      const payoutPerEl = document.getElementById("editPayoutPerTicket");
-      if (feePerEl) feePerEl.textContent = money2(feePer);
-      if (payoutPerEl) payoutPerEl.textContent = money2(payoutPer);
-      // soft warning
-      showSoftCapWarn(face, price, document.getElementById("editPriceCapWarn"));
-    }
+  // build updated listing
+  const face  = Number(fd.get("face"));
+  const price = Number(fd.get("price"));
+  const qty   = Math.max(1, Number(fd.get("qty") || 1));
+  if (!withinCap(face,price)) return alert("This price exceeds the +15% cap. Please lower the price.");
 
-    // When seller reduces Qty, warn we will clamp remaining
-    function maybeShowQtyClampNote(){
-      const note = document.getElementById("qtyClampNote");
-      const form = document.getElementById("editForm");
-      if (!note || !form) return;
-      const newQty = Number(form.qty.value || 1);
-      const id = form.id.value;
-      const prev = (load() || []).find(x => x.id === id);
-      if (!prev) { note.classList.add("hidden"); return; }
-      const remaining = prev.remaining ?? prev.qty ?? newQty;
-      // Show note if remaining > newQty (will be clamped)
-      note.classList.toggle("hidden", !(remaining > newQty));
-    }
+  const prev = list[idx];
+  // Clamp remaining to the new qty, but don’t drop below 0
+  const prevRemaining = (prev.remaining ?? prev.qty ?? qty);
+  const remaining = Math.max(0, Math.min(qty, prevRemaining));
 
-    function fillEditForm(it){
-      const f = document.getElementById("editForm");
-      f.id.value = it.id;
-      f.group.value = it.group || "";
-      f.qty.value = it.qty || 1;
-      f.date.value = it.date || "";
-      f.city.value = it.city || "";
-      f.seat.value = it.seat || "";
-      f.face.value = it.face || 0;
-      f.price.value = it.price || 0;
-      f.pay.value = it.pay || "";
-      f.seller.value = it.seller || "Seller";
-      f.sellerPhone.value = it.sellerPhone || "";
-      f.sellerEmail.value = it.sellerEmail || "";
-      f.proof.value = ""; // reset file input
-      updateEditFeeUI();
-      maybeShowQtyClampNote();
-    }
+  const updated = {
+    ...prev,
+    group: String(fd.get("group")||"").trim(),
+    date:  String(fd.get("date") ||"").trim(),
+    city:  String(fd.get("city") ||"").trim(),
+    seat:  String(fd.get("seat") ||"").trim(),
+    face, price, qty, remaining,
+    pay:   String(fd.get("pay")    ||"").trim(),
+    seller:String(fd.get("seller") ||"Seller").trim(),
+    sellerEmail: String(fd.get("sellerEmail")||"").trim().toLowerCase(),
+    sellerPhone: String(fd.get("sellerPhone")||"").trim(),
+    updatedAt: new Date().toISOString()
+  };
 
-    function openEdit(id){
-      const it = (load() || []).find(x => x.id === id);
-      if(!it) return alert("Listing not found.");
-      fillEditForm(it);
-      openEditModal();
-    }
+  // If a new proof is attached, send to admin (non-blocking if it fails)
+  const proofFile = fd.get("proof");
+  if (proofFile && proofFile.size) {
+    try { await sendProofViaFormspree(updated, proofFile); } catch {}
+  }
 
-    function deleteListing(id){
-      if(!confirm("Delete this listing? This cannot be undone.")) return;
-      const list = load().filter(x => x.id !== id);
-      save(list);
-      applyFilters();
-      renderMyListings();
-    }
+  // Local save for snappy UI
+  list[idx] = updated;
+  save(list);
+  closeEditModal();
 
-    document.getElementById("editForm").addEventListener("submit", async (e)=>{
-      e.preventDefault();
-      const fd = new FormData(e.target);
-      const id = fd.get("id");
-      let list = load();
-      const idx = list.findIndex(x => x.id === id);
-      if (idx < 0) { alert("Listing not found."); return; }
+  // Re-render locally
+  applyFilters();
+  renderMyListings();
 
-      // build updated listing
-      const face=Number(fd.get("face"));
-      const price=Number(fd.get("price"));
-      const qty=Math.max(1, Number(fd.get("qty")||1));
-      if(!withinCap(face,price)) return alert("This price exceeds the +15% cap. Please lower the price.");
-
-      const prev = list[idx];
-      // Clamp remaining to the new qty, but don’t drop below 0
-      const prevRemaining = (prev.remaining ?? prev.qty ?? qty);
-      const remaining = Math.max(0, Math.min(qty, prevRemaining));
-
-      const updated = {
-        ...prev,
-        group: String(fd.get("group")||"").trim(),
-        date: String(fd.get("date")||"").trim(),
-        city: String(fd.get("city")||"").trim(),
-        seat: String(fd.get("seat")||"").trim(),
-        face, price, qty,
-        remaining,
-        pay: String(fd.get("pay")||"").trim(),
-        seller: String(fd.get("seller")||"Seller").trim(),
-        sellerEmail: String(fd.get("sellerEmail")||"").trim(),
-        sellerPhone: String(fd.get("sellerPhone")||"").trim()
-      };
-
-      // If a new proof is attached, send to admin
-      const proofFile = fd.get("proof");
-      if (proofFile && proofFile.size) {
-        await sendProofViaFormspree(updated, proofFile);
-      }
-
-      list[idx] = updated;
-      save(list);
-      closeEditModal();
-      applyFilters();
-      renderMyListings();
-      alert("Listing updated.");
+  // Sync to server, then pull canonical copy back
+  try {
+    await upsertListingRemote(updated);
+    await syncFromServerIntoLocal(); // calls save() + applyFilters()
+    alert("Listing updated.");
+  } catch (e) {
+    console.warn("remote upsert failed:", e?.message || e);
+    alert("Listing updated locally. It will sync when the server is reachable.");
+  }
     });
 
     /* ===========================
@@ -1565,11 +1611,12 @@ async function startBuy(listingId, qty = 1){
     /* ===========================
        Init
        =========================== */
-    (function init(){
-      applyFilters();
-      document.getElementById("openSeller")?.classList.remove("hidden");
-      updateSellerFeeUI();
-      toggleSellerUI(); // show/hide Add buttons based on login
+    (async function init(){
+  applyFilters();                             // ✅ draw existing local data instantly
+  document.getElementById("openSeller")?.classList.remove("hidden");
+  updateSellerFeeUI();
+  toggleSellerUI();
+  await syncFromServerIntoLocal();            // ✅ fetch shared listings from server
     })();
 
     /* ============================================
