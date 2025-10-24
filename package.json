@@ -10,7 +10,7 @@
   "engines": { "node": "22.x" },
   "dependencies": {
     "stripe": "^16.6.0",
-    "pg": "^8.11.0",
+    "pg": "^8.11.3",
     "busboy": "^1.6.0",
     "resend": "^3.2.0"
   },
