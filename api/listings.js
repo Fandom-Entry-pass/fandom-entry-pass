@@ -1,9 +1,6 @@
 // api/listings.js
 export const config = { runtime: "nodejs" };
 
-// Prefer IPv4 first (avoid IPv6-only DNS)
-try { require("node:dns").setDefaultResultOrder?.("ipv4first"); } catch {}
-
 let Pool;
 try { ({ Pool } = require("pg")); }
 catch { ({ Pool } = await import("pg")); }
@@ -14,15 +11,15 @@ catch { ({ Pool } = await import("pg")); }
 function cleanDbUrl(input) {
   if (!input) return "";
   let out = String(input)
-    .replace(/^['"]+|['"]+$/g, "")
-    .replace(/\r?\n/g, "")
-    .replace(/\u200B|\u200C|\u200D|\uFEFF/g, "")
+    .replace(/^['"]+|['"]+$/g, "")               // strip quotes
+    .replace(/\r?\n/g, "")                       // remove newlines
+    .replace(/\u200B|\u200C|\u200D|\uFEFF/g, "") // zero-width chars
     .trim()
-    .replace(/^postgres:\/\//i, "postgresql://");
+    .replace(/^postgres:\/\//i, "postgresql://"); // normalize scheme
+  // Supabase needs SSL. Add if missing.
   if (!/\bsslmode=/.test(out)) out += (out.includes("?") ? "&" : "?") + "sslmode=require";
   return out;
 }
-
 const RAW_URL_INPUT = process.env.DATABASE_URL ?? process.env.database_url ?? "";
 const DATABASE_URL  = cleanDbUrl(RAW_URL_INPUT);
 
@@ -30,24 +27,24 @@ let parsedUrl = null;
 try { if (DATABASE_URL) parsedUrl = new URL(DATABASE_URL); } catch {}
 
 /* -----------------------------
-   IPv4 resolver + Pool factory
+   Dual-stack resolver + Pool
 ------------------------------*/
 let _poolPromise = null;
 
-async function resolveIPv4(hostname) {
-  try {
-    const dns = (await import("node:dns")).promises;
-    const { address } = await dns.lookup(hostname, { family: 4 });
-    return address;
-  } catch {
-    try {
-      const dns = (await import("node:dns")).promises;
-      const addrs = await dns.resolve4(hostname);
-      return Array.isArray(addrs) && addrs[0] ? addrs[0] : null;
-    } catch {
-      return null;
-    }
-  }
+async function resolve6(hostname) {
+  try { const dns = (await import("node:dns")).promises; const a = await dns.resolve6(hostname); return a?.[0] || null; }
+  catch { return null; }
+}
+async function resolve4(hostname) {
+  try { const dns = (await import("node:dns")).promises; const a = await dns.resolve4(hostname); return a?.[0] || null; }
+  catch { return null; }
+}
+async function pickAddress(hostname) {
+  const v6 = await resolve6(hostname);
+  if (v6) return { host: v6, family: 6 };
+  const v4 = await resolve4(hostname);
+  if (v4) return { host: v4, family: 4 };
+  return { host: hostname, family: 0 }; // fall back to hostname
 }
 
 async function getPool() {
@@ -59,16 +56,19 @@ async function getPool() {
   const port     = parsedUrl.port ? Number(parsedUrl.port) : 5432;
   const hostname = parsedUrl.hostname;
 
-  // Resolve to IPv4 to dodge ENOTFOUND on AAAA-only/odd resolvers
-  const ipv4 = await resolveIPv4(hostname);
+  const { host: hostOrIp, family } = await pickAddress(hostname);
 
   return new Pool({
-    host: ipv4 || hostname,     // <-- use IPv4 if we got it
+    host: hostOrIp,
     port,
     user,
     password,
     database,
     ssl: { rejectUnauthorized: false },
+    keepAlive: true,
+    connectionTimeoutMillis: 8000,
+    statement_timeout: 10000,
+    application_name: `fep-api (ipFamily=${family})`,
   });
 }
 
@@ -78,7 +78,7 @@ async function ensurePool() {
 }
 
 /* -----------------------------
-   Bootstrap + mapping
+   Bootstrap + mapping helpers
 ------------------------------*/
 async function ensureTable() {
   const pool = await ensurePool();
@@ -148,7 +148,7 @@ export default async function handler(req, res) {
   try {
     const q = req.query || {};
 
-    // ---------- Diagnostics ----------
+    // ---- Diagnostics (keep for easy debugging) ----
     if (q.ping) {
       return res.status(200).json({ ok: true, hasDbUrl: Boolean(DATABASE_URL) });
     }
@@ -160,7 +160,7 @@ export default async function handler(req, res) {
         cleanedPresent: Boolean(DATABASE_URL),
         cleaned: DATABASE_URL || null,
         parsedOk: !!parsedUrl,
-        versionTag: "ipv4-pool+tcp-diag",  // <-- so we know this code is live
+        versionTag: "dualstack-pg",
       };
       if (parsedUrl) {
         info.scheme = parsedUrl.protocol;
@@ -170,13 +170,9 @@ export default async function handler(req, res) {
         info.hasSslmode = /\bsslmode=/.test(parsedUrl.search);
         try {
           const dns = (await import("node:dns")).promises;
-          try { info.lookup4  = await dns.lookup(parsedUrl.hostname, { family: 4 }); } catch (e) { info.lookup4err  = String(e?.message || e); }
-          try { info.lookup6  = await dns.lookup(parsedUrl.hostname, { family: 6 }); } catch (e) { info.lookup6err  = String(e?.message || e); }
-          try { info.resolve4 = await dns.resolve4(parsedUrl.hostname); } catch (e) { info.resolve4err = String(e?.message || e); }
           try { info.resolve6 = await dns.resolve6(parsedUrl.hostname); } catch (e) { info.resolve6err = String(e?.message || e); }
-        } catch (e) {
-          info.dnsError = String(e?.message || e);
-        }
+          try { info.resolve4 = await dns.resolve4(parsedUrl.hostname); } catch (e) { info.resolve4err = String(e?.message || e); }
+        } catch (e) { info.dnsError = String(e?.message || e); }
       } else if (DATABASE_URL) {
         info.parseError = "Invalid URL format";
       } else {
@@ -185,26 +181,29 @@ export default async function handler(req, res) {
       return res.status(200).json(info);
     }
 
-    // 🔧 New: raw TCP test (no PG) — /api/listings?tcp=1
+    // Raw TCP check (tries v6 then v4)
     if (q.tcp) {
       if (!parsedUrl) return res.status(400).json({ ok:false, error:"No DATABASE_URL" });
       const net = await import("node:net");
       const host = parsedUrl.hostname;
       const port = parsedUrl.port ? Number(parsedUrl.port) : 5432;
-      const ipv4 = await resolveIPv4(host);
-      const target = ipv4 || host;
 
-      const attempt = () => new Promise((resolve) => {
-        const s = net.createConnection({ host: target, port, timeout: 4000 }, () => {
-          s.destroy();
-          resolve({ ok:true, reached: target, port });
+      async function tryConnect(target) {
+        return new Promise((resolve) => {
+          const s = net.createConnection({ host: target, port, timeout: 4000 }, () => {
+            s.destroy();
+            resolve({ ok:true, reached: target, port });
+          });
+          s.on("error", (e) => resolve({ ok:false, error:String(e?.code||e), reached: target, port }));
+          s.on("timeout", () => { s.destroy(); resolve({ ok:false, error:"TIMEOUT", reached: target, port }); });
         });
-        s.on("error", (e) => resolve({ ok:false, error:String(e?.code||e), reached: target, port }));
-        s.on("timeout", () => { s.destroy(); resolve({ ok:false, error:"TIMEOUT", reached: target, port }); });
-      });
+      }
 
-      const result = await attempt();
-      return res.status(200).json({ ok:true, targetHost: host, ipv4, tcp: result });
+      const v6 = await resolve6(host);
+      const v4 = await resolve4(host);
+      const r6 = v6 ? await tryConnect(v6) : { ok:false, error:"NO_AAAA" };
+      const r4 = v4 ? await tryConnect(v4) : { ok:false, error:"NO_A" };
+      return res.status(200).json({ ok:true, host, port, v6, v4, tcp6: r6, tcp4: r4 });
     }
 
     if (q.diag) {
