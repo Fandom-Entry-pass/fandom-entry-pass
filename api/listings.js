@@ -1,51 +1,56 @@
 // api/listings.js
-import { Pool } from "pg";
-
 export const config = { runtime: "nodejs" };
 
-// Ensure your Supabase URL includes ?sslmode=require OR force it here:
-const connectionString = process.env.DATABASE_URL;
-
-if (!connectionString) {
-  // Fail fast with a readable error (shows up in Vercel logs)
-  console.error("Missing DATABASE_URL");
+// Use CommonJS require to avoid ESM/CJS mismatches on Vercel
+let Pool;
+try {
+  ({ Pool } = require("pg"));
+} catch {
+  // Fallback for ESM projects
+  // eslint-disable-next-line no-undef
+  ({ Pool } = await import("pg"));
 }
 
-const pool = new Pool({
-  connectionString,
-  ssl: { rejectUnauthorized: false } // works for Supabase
-});
+const connectionString = process.env.DATABASE_URL || "";
+const pool = connectionString
+  ? new Pool({
+      connectionString,
+      // Works with Supabase and most managed Postgres
+      ssl: { rejectUnauthorized: false },
+    })
+  : null;
 
-// One-time ensure the table exists (safe to run each cold start)
-const ensureSQL = `
-CREATE TABLE IF NOT EXISTS listings (
-  id TEXT PRIMARY KEY,
-  group_name TEXT NOT NULL,
-  date_text TEXT,
-  city TEXT,
-  seat TEXT,
-  face NUMERIC,
-  price NUMERIC,
-  qty INTEGER,
-  remaining INTEGER,
-  pay TEXT,
-  seller TEXT,
-  seller_email TEXT,
-  seller_phone TEXT,
-  seller_account_id TEXT,
-  edit_token TEXT,
-  manage_code TEXT,
-  created_at TIMESTAMPTZ DEFAULT now(),
-  updated_at TIMESTAMPTZ DEFAULT now()
-);
--- You can add an index for recent reads:
-CREATE INDEX IF NOT EXISTS idx_listings_updated_at ON listings(updated_at DESC);
-`;
-
+// Create table/index if missing (runs once per cold start)
 async function ensureTable() {
+  if (!pool) return;
   const client = await pool.connect();
   try {
-    await client.query(ensureSQL);
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS listings (
+        id TEXT PRIMARY KEY,
+        group_name TEXT NOT NULL,
+        date_text TEXT,
+        city TEXT,
+        seat TEXT,
+        face NUMERIC,
+        price NUMERIC,
+        qty INTEGER,
+        remaining INTEGER,
+        pay TEXT,
+        seller TEXT,
+        seller_email TEXT,
+        seller_phone TEXT,
+        seller_account_id TEXT,
+        edit_token TEXT,
+        manage_code TEXT,
+        created_at TIMESTAMPTZ DEFAULT now(),
+        updated_at TIMESTAMPTZ DEFAULT now()
+      );
+    `);
+    await client.query(`
+      CREATE INDEX IF NOT EXISTS idx_listings_updated_at
+      ON listings(updated_at DESC);
+    `);
   } finally {
     client.release();
   }
@@ -58,10 +63,15 @@ function mapRow(r) {
     date: r.date_text,
     city: r.city,
     seat: r.seat,
-    face: Number(r.face ?? 0),
-    price: Number(r.price ?? 0),
-    qty: Number(r.qty ?? 0),
-    remaining: r.remaining == null ? Number(r.qty ?? 0) : Number(r.remaining),
+    face: r.face == null ? null : Number(r.face),
+    price: r.price == null ? null : Number(r.price),
+    qty: r.qty == null ? null : Number(r.qty),
+    remaining:
+      r.remaining == null
+        ? r.qty == null
+          ? null
+          : Number(r.qty)
+        : Number(r.remaining),
     pay: r.pay,
     seller: r.seller,
     sellerEmail: r.seller_email,
@@ -70,39 +80,83 @@ function mapRow(r) {
     editToken: r.edit_token,
     manageCode: r.manage_code,
     createdAt: r.created_at?.toISOString?.() || r.created_at,
-    updatedAt: r.updated_at?.toISOString?.() || r.updated_at
+    updatedAt: r.updated_at?.toISOString?.() || r.updated_at,
   };
 }
 
 export default async function handler(req, res) {
-  // no-cache
   res.setHeader("Cache-Control", "no-store");
 
   try {
+    // ---------- Built-in diagnostics (no extra routes needed) ----------
+    // /api/listings?ping=1           -> { ok:true, hasDbUrl:boolean }
+    // /api/listings?diag=1           -> tries simple "select now()"
+    // /api/listings?count=1          -> returns row count (if table exists)
+    const q = req.query || {};
+    if (q.ping) {
+      return res.status(200).json({
+        ok: true,
+        hasDbUrl: Boolean(connectionString),
+      });
+    }
+    if (q.diag) {
+      if (!pool) {
+        return res
+          .status(500)
+          .json({ ok: false, error: "DATABASE_URL not set" });
+      }
+      try {
+        const r = await pool.query("select now() as now");
+        return res.status(200).json({ ok: true, now: r.rows[0].now });
+      } catch (e) {
+        console.error("diag error:", e);
+        return res
+          .status(500)
+          .json({ ok: false, error: e?.message || String(e) });
+      }
+    }
+    if (q.count) {
+      if (!pool) {
+        return res
+          .status(500)
+          .json({ ok: false, error: "DATABASE_URL not set" });
+      }
+      try {
+        await ensureTable();
+        const r = await pool.query("select count(*)::int as c from listings");
+        return res.status(200).json({ ok: true, count: r.rows[0].c });
+      } catch (e) {
+        console.error("count error:", e);
+        return res
+          .status(500)
+          .json({ ok: false, error: e?.message || String(e) });
+      }
+    }
+    // -------------------------------------------------------------------
+
+    if (!pool) {
+      return res
+        .status(500)
+        .json({ ok: false, error: "DATABASE_URL not set" });
+    }
+
     await ensureTable();
 
     if (req.method === "GET") {
       const { rows } = await pool.query(
-        `SELECT * FROM listings ORDER BY updated_at DESC LIMIT 500`
+        "SELECT * FROM listings ORDER BY updated_at DESC LIMIT 500"
       );
       return res.status(200).json({ ok: true, items: rows.map(mapRow) });
     }
 
     if (req.method === "POST") {
-      // Expect JSON from your frontend upsertListingRemote()
       const body = req.body || {};
-      const now = new Date();
 
-      // Basic validation
-      if (!body.id) {
-        return res.status(400).json({ ok: false, error: "Missing id" });
-      }
-      if (!body.group) {
+      if (!body.id) return res.status(400).json({ ok: false, error: "Missing id" });
+      if (!body.group)
         return res.status(400).json({ ok: false, error: "Missing group" });
-      }
 
-      // Upsert
-      const q = `
+      const sql = `
         INSERT INTO listings (
           id, group_name, date_text, city, seat, face, price, qty, remaining, pay,
           seller, seller_email, seller_phone, seller_account_id, edit_token, manage_code,
@@ -149,10 +203,10 @@ export default async function handler(req, res) {
         body.sellerAccountId == null ? null : String(body.sellerAccountId || ""),
         body.editToken == null ? null : String(body.editToken || ""),
         body.manageCode == null ? null : String(body.manageCode || ""),
-        body.createdAt ? new Date(body.createdAt) : now
+        body.createdAt ? new Date(body.createdAt) : null,
       ];
 
-      const { rows } = await pool.query(q, vals);
+      const { rows } = await pool.query(sql, vals);
       return res.status(200).json({ ok: true, item: mapRow(rows[0]) });
     }
 
@@ -160,8 +214,8 @@ export default async function handler(req, res) {
     return res.status(405).json({ ok: false, error: "Method not allowed" });
   } catch (err) {
     console.error("api/listings error:", err);
-    return res.status(500).json({ ok: false, error: "Server error" });
+    return res
+      .status(500)
+      .json({ ok: false, error: err?.message || "Server error" });
   }
 }
-
-
