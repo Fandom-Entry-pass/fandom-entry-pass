@@ -1,10 +1,9 @@
 // api/listings.js
 export const config = { runtime: "nodejs" };
 
-// ✅ Prefer IPv4 first to avoid IPv6-only DNS issues on some serverless hosts
+// Prefer IPv4 first (avoid IPv6-only DNS)
 try { require("node:dns").setDefaultResultOrder?.("ipv4first"); } catch {}
 
-/* pg import (CJS first, ESM fallback) */
 let Pool;
 try { ({ Pool } = require("pg")); }
 catch { ({ Pool } = await import("pg")); }
@@ -15,49 +14,38 @@ catch { ({ Pool } = await import("pg")); }
 function cleanDbUrl(input) {
   if (!input) return "";
   let out = String(input)
-    .replace(/^['"]+|['"]+$/g, "")               // strip quotes
-    .replace(/\r?\n/g, "")                       // remove newlines
-    .replace(/\u200B|\u200C|\u200D|\uFEFF/g, "") // zero-width chars
+    .replace(/^['"]+|['"]+$/g, "")
+    .replace(/\r?\n/g, "")
+    .replace(/\u200B|\u200C|\u200D|\uFEFF/g, "")
     .trim()
-    .replace(/^postgres:\/\//i, "postgresql://"); // normalize scheme
-  // Ensure Supabase SSL requirement
-  if (!/\bsslmode=/.test(out)) {
-    out += (out.includes("?") ? "&" : "?") + "sslmode=require";
-  }
+    .replace(/^postgres:\/\//i, "postgresql://");
+  if (!/\bsslmode=/.test(out)) out += (out.includes("?") ? "&" : "?") + "sslmode=require";
   return out;
 }
 
-// Support both env names (some dashboards use lowercase)
-const RAW_URL_INPUT =
-  process.env.DATABASE_URL ??
-  process.env.database_url ??
-  "";
+const RAW_URL_INPUT = process.env.DATABASE_URL ?? process.env.database_url ?? "";
+const DATABASE_URL  = cleanDbUrl(RAW_URL_INPUT);
 
-const DATABASE_URL = cleanDbUrl(RAW_URL_INPUT);
-
-/* Parse early (for host/port/user/pass) */
 let parsedUrl = null;
 try { if (DATABASE_URL) parsedUrl = new URL(DATABASE_URL); } catch {}
 
 /* -----------------------------
-   IPv4 resolution + Pool factory
+   IPv4 resolver + Pool factory
 ------------------------------*/
 let _poolPromise = null;
 
 async function resolveIPv4(hostname) {
   try {
     const dns = (await import("node:dns")).promises;
-    // Try lookup (system resolver), force IPv4
     const { address } = await dns.lookup(hostname, { family: 4 });
     return address;
   } catch {
     try {
-      // Fallback: resolve A records directly
       const dns = (await import("node:dns")).promises;
       const addrs = await dns.resolve4(hostname);
       return Array.isArray(addrs) && addrs[0] ? addrs[0] : null;
     } catch {
-      return null; // last resort: use hostname
+      return null;
     }
   }
 }
@@ -65,18 +53,17 @@ async function resolveIPv4(hostname) {
 async function getPool() {
   if (!DATABASE_URL || !parsedUrl) return null;
 
-  // Pull fields from URL
-  const user = decodeURIComponent(parsedUrl.username || "");
+  const user     = decodeURIComponent(parsedUrl.username || "");
   const password = decodeURIComponent(parsedUrl.password || "");
   const database = (parsedUrl.pathname || "").replace(/^\//, "") || "postgres";
-  const port = parsedUrl.port ? Number(parsedUrl.port) : 5432;
+  const port     = parsedUrl.port ? Number(parsedUrl.port) : 5432;
   const hostname = parsedUrl.hostname;
 
-  // Resolve to IPv4 to dodge AAAA-only environments
+  // Resolve to IPv4 to dodge ENOTFOUND on AAAA-only/odd resolvers
   const ipv4 = await resolveIPv4(hostname);
 
   return new Pool({
-    host: ipv4 || hostname,
+    host: ipv4 || hostname,     // <-- use IPv4 if we got it
     port,
     user,
     password,
@@ -91,7 +78,7 @@ async function ensurePool() {
 }
 
 /* -----------------------------
-   Table bootstrap + mappers
+   Bootstrap + mapping
 ------------------------------*/
 async function ensureTable() {
   const pool = await ensurePool();
@@ -139,12 +126,7 @@ function mapRow(r) {
     face: r.face == null ? null : Number(r.face),
     price: r.price == null ? null : Number(r.price),
     qty: r.qty == null ? null : Number(r.qty),
-    remaining:
-      r.remaining == null
-        ? r.qty == null
-          ? null
-          : Number(r.qty)
-        : Number(r.remaining),
+    remaining: r.remaining == null ? (r.qty == null ? null : Number(r.qty)) : Number(r.remaining),
     pay: r.pay,
     seller: r.seller,
     sellerEmail: r.seller_email,
@@ -166,7 +148,7 @@ export default async function handler(req, res) {
   try {
     const q = req.query || {};
 
-    // ---------- Built-in diagnostics ----------
+    // ---------- Diagnostics ----------
     if (q.ping) {
       return res.status(200).json({ ok: true, hasDbUrl: Boolean(DATABASE_URL) });
     }
@@ -178,8 +160,8 @@ export default async function handler(req, res) {
         cleanedPresent: Boolean(DATABASE_URL),
         cleaned: DATABASE_URL || null,
         parsedOk: !!parsedUrl,
+        versionTag: "ipv4-pool+tcp-diag",  // <-- so we know this code is live
       };
-
       if (parsedUrl) {
         info.scheme = parsedUrl.protocol;
         info.host = parsedUrl.hostname;
@@ -188,9 +170,10 @@ export default async function handler(req, res) {
         info.hasSslmode = /\bsslmode=/.test(parsedUrl.search);
         try {
           const dns = (await import("node:dns")).promises;
-          // show both A and AAAA attempts
-          try { info.lookup4 = await dns.lookup(parsedUrl.hostname, { family: 4 }); } catch (e) { info.lookup4err = String(e?.message || e); }
-          try { info.lookup6 = await dns.lookup(parsedUrl.hostname, { family: 6 }); } catch (e) { info.lookup6err = String(e?.message || e); }
+          try { info.lookup4  = await dns.lookup(parsedUrl.hostname, { family: 4 }); } catch (e) { info.lookup4err  = String(e?.message || e); }
+          try { info.lookup6  = await dns.lookup(parsedUrl.hostname, { family: 6 }); } catch (e) { info.lookup6err  = String(e?.message || e); }
+          try { info.resolve4 = await dns.resolve4(parsedUrl.hostname); } catch (e) { info.resolve4err = String(e?.message || e); }
+          try { info.resolve6 = await dns.resolve6(parsedUrl.hostname); } catch (e) { info.resolve6err = String(e?.message || e); }
         } catch (e) {
           info.dnsError = String(e?.message || e);
         }
@@ -199,8 +182,29 @@ export default async function handler(req, res) {
       } else {
         info.missing = "No DATABASE_URL/database_url set";
       }
-
       return res.status(200).json(info);
+    }
+
+    // 🔧 New: raw TCP test (no PG) — /api/listings?tcp=1
+    if (q.tcp) {
+      if (!parsedUrl) return res.status(400).json({ ok:false, error:"No DATABASE_URL" });
+      const net = await import("node:net");
+      const host = parsedUrl.hostname;
+      const port = parsedUrl.port ? Number(parsedUrl.port) : 5432;
+      const ipv4 = await resolveIPv4(host);
+      const target = ipv4 || host;
+
+      const attempt = () => new Promise((resolve) => {
+        const s = net.createConnection({ host: target, port, timeout: 4000 }, () => {
+          s.destroy();
+          resolve({ ok:true, reached: target, port });
+        });
+        s.on("error", (e) => resolve({ ok:false, error:String(e?.code||e), reached: target, port }));
+        s.on("timeout", () => { s.destroy(); resolve({ ok:false, error:"TIMEOUT", reached: target, port }); });
+      });
+
+      const result = await attempt();
+      return res.status(200).json({ ok:true, targetHost: host, ipv4, tcp: result });
     }
 
     if (q.diag) {
@@ -227,26 +231,22 @@ export default async function handler(req, res) {
         return res.status(500).json({ ok: false, error: e?.message || String(e) });
       }
     }
-    // ------------------------------------------
+    // --------------------------------
 
     const pool = await ensurePool();
-    if (!pool) {
-      return res.status(500).json({ ok: false, error: "DATABASE_URL not set" });
-    }
+    if (!pool) return res.status(500).json({ ok: false, error: "DATABASE_URL not set" });
 
     await ensureTable();
 
     if (req.method === "GET") {
-      const { rows } = await pool.query(
-        "SELECT * FROM listings ORDER BY updated_at DESC LIMIT 500"
-      );
+      const { rows } = await pool.query("SELECT * FROM listings ORDER BY updated_at DESC LIMIT 500");
       return res.status(200).json({ ok: true, items: rows.map(mapRow) });
     }
 
     if (req.method === "POST") {
-      const body = req.body || {};
-      if (!body.id)   return res.status(400).json({ ok: false, error: "Missing id" });
-      if (!body.group) return res.status(400).json({ ok: false, error: "Missing group" });
+      const b = req.body || {};
+      if (!b.id)    return res.status(400).json({ ok:false, error:"Missing id" });
+      if (!b.group) return res.status(400).json({ ok:false, error:"Missing group" });
 
       const sql = `
         INSERT INTO listings (
@@ -260,52 +260,50 @@ export default async function handler(req, res) {
         )
         ON CONFLICT (id) DO UPDATE SET
           group_name = EXCLUDED.group_name,
-          date_text = EXCLUDED.date_text,
-          city = EXCLUDED.city,
-          seat = EXCLUDED.seat,
-          face = EXCLUDED.face,
-          price = EXCLUDED.price,
-          qty = EXCLUDED.qty,
-          remaining = EXCLUDED.remaining,
-          pay = EXCLUDED.pay,
-          seller = EXCLUDED.seller,
-          seller_email = EXCLUDED.seller_email,
-          seller_phone = EXCLUDED.seller_phone,
-          seller_account_id = EXCLUDED.seller_account_id,
+          date_text  = EXCLUDED.date_text,
+          city       = EXCLUDED.city,
+          seat       = EXCLUDED.seat,
+          face       = EXCLUDED.face,
+          price      = EXCLUDED.price,
+          qty        = EXCLUDED.qty,
+          remaining  = EXCLUDED.remaining,
+          pay        = EXCLUDED.pay,
+          seller     = EXCLUDED.seller,
+          seller_email       = EXCLUDED.seller_email,
+          seller_phone       = EXCLUDED.seller_phone,
+          seller_account_id  = EXCLUDED.seller_account_id,
           edit_token = EXCLUDED.edit_token,
-          manage_code = EXCLUDED.manage_code,
+          manage_code= EXCLUDED.manage_code,
           updated_at = now()
         RETURNING *;
       `;
-
       const vals = [
-        String(body.id),
-        String(body.group || ""),
-        body.date == null ? null : String(body.date),
-        body.city == null ? null : String(body.city),
-        body.seat == null ? null : String(body.seat),
-        body.face == null ? null : Number(body.face),
-        body.price == null ? null : Number(body.price),
-        body.qty == null ? null : Number(body.qty),
-        body.remaining == null ? null : Number(body.remaining),
-        body.pay == null ? null : String(body.pay || ""),
-        body.seller == null ? null : String(body.seller || ""),
-        body.sellerEmail == null ? null : String(body.sellerEmail || ""),
-        body.sellerPhone == null ? null : String(body.sellerPhone || ""),
-        body.sellerAccountId == null ? null : String(body.sellerAccountId || ""),
-        body.editToken == null ? null : String(body.editToken || ""),
-        body.manageCode == null ? null : String(body.manageCode || ""),
-        body.createdAt ? new Date(body.createdAt) : null,
+        String(b.id),
+        String(b.group || ""),
+        b.date == null ? null : String(b.date),
+        b.city == null ? null : String(b.city),
+        b.seat == null ? null : String(b.seat),
+        b.face == null ? null : Number(b.face),
+        b.price == null ? null : Number(b.price),
+        b.qty == null ? null : Number(b.qty),
+        b.remaining == null ? null : Number(b.remaining),
+        b.pay == null ? null : String(b.pay || ""),
+        b.seller == null ? null : String(b.seller || ""),
+        b.sellerEmail == null ? null : String(b.sellerEmail || ""),
+        b.sellerPhone == null ? null : String(b.sellerPhone || ""),
+        b.sellerAccountId == null ? null : String(b.sellerAccountId || ""),
+        b.editToken == null ? null : String(b.editToken || ""),
+        b.manageCode == null ? null : String(b.manageCode || ""),
+        b.createdAt ? new Date(b.createdAt) : null,
       ];
-
       const { rows } = await pool.query(sql, vals);
-      return res.status(200).json({ ok: true, item: mapRow(rows[0]) });
+      return res.status(200).json({ ok:true, item: mapRow(rows[0]) });
     }
 
     res.setHeader("Allow", "GET, POST");
-    return res.status(405).json({ ok: false, error: "Method not allowed" });
+    return res.status(405).json({ ok:false, error:"Method not allowed" });
   } catch (err) {
     console.error("api/listings error:", err);
-    return res.status(500).json({ ok: false, error: err?.message || "Server error" });
+    return res.status(500).json({ ok:false, error: err?.message || "Server error" });
   }
 }
