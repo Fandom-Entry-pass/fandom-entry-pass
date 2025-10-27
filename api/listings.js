@@ -17,12 +17,18 @@ try {
 function cleanDbUrl(input) {
   if (!input) return "";
   let out = String(input)
-    .replace(/^['"]+|['"]+$/g, "")               // strip surrounding quotes
+    .replace(/^['"]+|['"]+$/g, "")               // strip quotes
     .replace(/\r?\n/g, "")                       // remove newlines
     .replace(/\u200B|\u200C|\u200D|\uFEFF/g, "") // zero-width chars
     .trim();
-  // Normalize scheme (Supabase hands out postgresql://, but handle postgres:// too)
+
+  // Normalize scheme
   out = out.replace(/^postgres:\/\//i, "postgresql://");
+
+  // ✅ Ensure Supabase SSL requirement
+  if (!/\bsslmode=/.test(out)) {
+    out += (out.includes("?") ? "&" : "?") + "sslmode=require";
+  }
   return out;
 }
 
