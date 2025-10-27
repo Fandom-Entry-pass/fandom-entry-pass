@@ -1,13 +1,13 @@
 // api/listings.js
 export const config = { runtime: "nodejs" };
 
-// Use CommonJS require to avoid ESM/CJS mismatches on Vercel
+// ✅ Prefer IPv4; avoids ENOTFOUND/IPv6-only resolution on some hosts
+try { require("node:dns").setDefaultResultOrder("ipv4first"); } catch {}
+
 let Pool;
 try {
   ({ Pool } = require("pg"));
 } catch {
-  // Fallback for ESM projects
-  // eslint-disable-next-line no-undef
   ({ Pool } = await import("pg"));
 }
 
