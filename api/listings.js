@@ -1,15 +1,13 @@
 // api/listings.js
 export const config = { runtime: "nodejs" };
 
-// ✅ Prefer IPv4; avoids ENOTFOUND/IPv6-only resolution on some hosts
-try { require("node:dns").setDefaultResultOrder("ipv4first"); } catch {}
+// ✅ Prefer IPv4 first to avoid IPv6-only DNS issues on some serverless hosts
+try { require("node:dns").setDefaultResultOrder?.("ipv4first"); } catch {}
 
+/* pg import (CJS first, ESM fallback) */
 let Pool;
-try {
-  ({ Pool } = require("pg"));
-} catch {
-  ({ Pool } = await import("pg"));
-}
+try { ({ Pool } = require("pg")); }
+catch { ({ Pool } = await import("pg")); }
 
 /* -----------------------------
    Load + sanitize DATABASE_URL
@@ -20,12 +18,9 @@ function cleanDbUrl(input) {
     .replace(/^['"]+|['"]+$/g, "")               // strip quotes
     .replace(/\r?\n/g, "")                       // remove newlines
     .replace(/\u200B|\u200C|\u200D|\uFEFF/g, "") // zero-width chars
-    .trim();
-
-  // Normalize scheme
-  out = out.replace(/^postgres:\/\//i, "postgresql://");
-
-  // ✅ Ensure Supabase SSL requirement
+    .trim()
+    .replace(/^postgres:\/\//i, "postgresql://"); // normalize scheme
+  // Ensure Supabase SSL requirement
   if (!/\bsslmode=/.test(out)) {
     out += (out.includes("?") ? "&" : "?") + "sslmode=require";
   }
@@ -40,23 +35,66 @@ const RAW_URL_INPUT =
 
 const DATABASE_URL = cleanDbUrl(RAW_URL_INPUT);
 
+/* Parse early (for host/port/user/pass) */
 let parsedUrl = null;
-try {
-  if (DATABASE_URL) parsedUrl = new URL(DATABASE_URL);
-} catch {
-  // leave parsedUrl = null; handled later in diag/connection
+try { if (DATABASE_URL) parsedUrl = new URL(DATABASE_URL); } catch {}
+
+/* -----------------------------
+   IPv4 resolution + Pool factory
+------------------------------*/
+let _poolPromise = null;
+
+async function resolveIPv4(hostname) {
+  try {
+    const dns = (await import("node:dns")).promises;
+    // Try lookup (system resolver), force IPv4
+    const { address } = await dns.lookup(hostname, { family: 4 });
+    return address;
+  } catch {
+    try {
+      // Fallback: resolve A records directly
+      const dns = (await import("node:dns")).promises;
+      const addrs = await dns.resolve4(hostname);
+      return Array.isArray(addrs) && addrs[0] ? addrs[0] : null;
+    } catch {
+      return null; // last resort: use hostname
+    }
+  }
 }
 
-const pool = DATABASE_URL
-  ? new Pool({
-      connectionString: DATABASE_URL,
-      // Works with Supabase and most managed Postgres
-      ssl: { rejectUnauthorized: false },
-    })
-  : null;
+async function getPool() {
+  if (!DATABASE_URL || !parsedUrl) return null;
 
-// Create table/index if missing (runs once per cold start)
+  // Pull fields from URL
+  const user = decodeURIComponent(parsedUrl.username || "");
+  const password = decodeURIComponent(parsedUrl.password || "");
+  const database = (parsedUrl.pathname || "").replace(/^\//, "") || "postgres";
+  const port = parsedUrl.port ? Number(parsedUrl.port) : 5432;
+  const hostname = parsedUrl.hostname;
+
+  // Resolve to IPv4 to dodge AAAA-only environments
+  const ipv4 = await resolveIPv4(hostname);
+
+  return new Pool({
+    host: ipv4 || hostname,
+    port,
+    user,
+    password,
+    database,
+    ssl: { rejectUnauthorized: false },
+  });
+}
+
+async function ensurePool() {
+  if (!_poolPromise) _poolPromise = getPool();
+  return _poolPromise;
+}
+
+/* -----------------------------
+   Table bootstrap + mappers
+------------------------------*/
 async function ensureTable() {
+  const pool = await ensurePool();
   if (!pool) return;
   const client = await pool.connect();
   try {
@@ -119,21 +157,18 @@ function mapRow(r) {
   };
 }
 
+/* -----------------------------
+   Handler
+------------------------------*/
 export default async function handler(req, res) {
   res.setHeader("Cache-Control", "no-store");
 
   try {
-    // ---------- Built-in diagnostics ----------
-    // /api/listings?ping=1  -> { ok:true, hasDbUrl:boolean }
-    // /api/listings?diag=1  -> simple "select now()"
-    // /api/listings?diag=2  -> sanitized details + DNS lookup of host
-    // /api/listings?count=1 -> count rows
     const q = req.query || {};
+
+    // ---------- Built-in diagnostics ----------
     if (q.ping) {
-      return res.status(200).json({
-        ok: true,
-        hasDbUrl: Boolean(DATABASE_URL),
-      });
+      return res.status(200).json({ ok: true, hasDbUrl: Boolean(DATABASE_URL) });
     }
 
     if (q.diag === "2") {
@@ -153,7 +188,9 @@ export default async function handler(req, res) {
         info.hasSslmode = /\bsslmode=/.test(parsedUrl.search);
         try {
           const dns = (await import("node:dns")).promises;
-          info.dnsLookup = await dns.lookup(parsedUrl.hostname);
+          // show both A and AAAA attempts
+          try { info.lookup4 = await dns.lookup(parsedUrl.hostname, { family: 4 }); } catch (e) { info.lookup4err = String(e?.message || e); }
+          try { info.lookup6 = await dns.lookup(parsedUrl.hostname, { family: 6 }); } catch (e) { info.lookup6err = String(e?.message || e); }
         } catch (e) {
           info.dnsError = String(e?.message || e);
         }
@@ -167,45 +204,34 @@ export default async function handler(req, res) {
     }
 
     if (q.diag) {
-      if (!pool) {
-        return res
-          .status(500)
-          .json({ ok: false, error: "DATABASE_URL not set" });
-      }
+      const pool = await ensurePool();
+      if (!pool) return res.status(500).json({ ok: false, error: "DATABASE_URL not set" });
       try {
         const r = await pool.query("select now() as now");
         return res.status(200).json({ ok: true, now: r.rows[0].now });
       } catch (e) {
         console.error("diag error:", e);
-        return res
-          .status(500)
-          .json({ ok: false, error: e?.message || String(e) });
+        return res.status(500).json({ ok: false, error: e?.message || String(e) });
       }
     }
 
     if (q.count) {
-      if (!pool) {
-        return res
-          .status(500)
-          .json({ ok: false, error: "DATABASE_URL not set" });
-      }
+      const pool = await ensurePool();
+      if (!pool) return res.status(500).json({ ok: false, error: "DATABASE_URL not set" });
       try {
         await ensureTable();
         const r = await pool.query("select count(*)::int as c from listings");
         return res.status(200).json({ ok: true, count: r.rows[0].c });
       } catch (e) {
         console.error("count error:", e);
-        return res
-          .status(500)
-          .json({ ok: false, error: e?.message || String(e) });
+        return res.status(500).json({ ok: false, error: e?.message || String(e) });
       }
     }
     // ------------------------------------------
 
+    const pool = await ensurePool();
     if (!pool) {
-      return res
-        .status(500)
-        .json({ ok: false, error: "DATABASE_URL not set" });
+      return res.status(500).json({ ok: false, error: "DATABASE_URL not set" });
     }
 
     await ensureTable();
@@ -219,7 +245,6 @@ export default async function handler(req, res) {
 
     if (req.method === "POST") {
       const body = req.body || {};
-
       if (!body.id)   return res.status(400).json({ ok: false, error: "Missing id" });
       if (!body.group) return res.status(400).json({ ok: false, error: "Missing group" });
 
@@ -281,8 +306,6 @@ export default async function handler(req, res) {
     return res.status(405).json({ ok: false, error: "Method not allowed" });
   } catch (err) {
     console.error("api/listings error:", err);
-    return res
-      .status(500)
-      .json({ ok: false, error: err?.message || "Server error" });
+    return res.status(500).json({ ok: false, error: err?.message || "Server error" });
   }
 }
