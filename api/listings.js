@@ -11,10 +11,39 @@ try {
   ({ Pool } = await import("pg"));
 }
 
-const connectionString = process.env.DATABASE_URL || "";
-const pool = connectionString
+/* -----------------------------
+   Load + sanitize DATABASE_URL
+------------------------------*/
+function cleanDbUrl(input) {
+  if (!input) return "";
+  let out = String(input)
+    .replace(/^['"]+|['"]+$/g, "")               // strip surrounding quotes
+    .replace(/\r?\n/g, "")                       // remove newlines
+    .replace(/\u200B|\u200C|\u200D|\uFEFF/g, "") // zero-width chars
+    .trim();
+  // Normalize scheme (Supabase hands out postgresql://, but handle postgres:// too)
+  out = out.replace(/^postgres:\/\//i, "postgresql://");
+  return out;
+}
+
+// Support both env names (some dashboards use lowercase)
+const RAW_URL_INPUT =
+  process.env.DATABASE_URL ??
+  process.env.database_url ??
+  "";
+
+const DATABASE_URL = cleanDbUrl(RAW_URL_INPUT);
+
+let parsedUrl = null;
+try {
+  if (DATABASE_URL) parsedUrl = new URL(DATABASE_URL);
+} catch {
+  // leave parsedUrl = null; handled later in diag/connection
+}
+
+const pool = DATABASE_URL
   ? new Pool({
-      connectionString,
+      connectionString: DATABASE_URL,
       // Works with Supabase and most managed Postgres
       ssl: { rejectUnauthorized: false },
     })
@@ -88,17 +117,49 @@ export default async function handler(req, res) {
   res.setHeader("Cache-Control", "no-store");
 
   try {
-    // ---------- Built-in diagnostics (no extra routes needed) ----------
-    // /api/listings?ping=1           -> { ok:true, hasDbUrl:boolean }
-    // /api/listings?diag=1           -> tries simple "select now()"
-    // /api/listings?count=1          -> returns row count (if table exists)
+    // ---------- Built-in diagnostics ----------
+    // /api/listings?ping=1  -> { ok:true, hasDbUrl:boolean }
+    // /api/listings?diag=1  -> simple "select now()"
+    // /api/listings?diag=2  -> sanitized details + DNS lookup of host
+    // /api/listings?count=1 -> count rows
     const q = req.query || {};
     if (q.ping) {
       return res.status(200).json({
         ok: true,
-        hasDbUrl: Boolean(connectionString),
+        hasDbUrl: Boolean(DATABASE_URL),
       });
     }
+
+    if (q.diag === "2") {
+      const info = {
+        ok: true,
+        rawInputLength: String(RAW_URL_INPUT || "").length,
+        cleanedPresent: Boolean(DATABASE_URL),
+        cleaned: DATABASE_URL || null,
+        parsedOk: !!parsedUrl,
+      };
+
+      if (parsedUrl) {
+        info.scheme = parsedUrl.protocol;
+        info.host = parsedUrl.hostname;
+        info.port = parsedUrl.port || "(default)";
+        info.pathname = parsedUrl.pathname;
+        info.hasSslmode = /\bsslmode=/.test(parsedUrl.search);
+        try {
+          const dns = (await import("node:dns")).promises;
+          info.dnsLookup = await dns.lookup(parsedUrl.hostname);
+        } catch (e) {
+          info.dnsError = String(e?.message || e);
+        }
+      } else if (DATABASE_URL) {
+        info.parseError = "Invalid URL format";
+      } else {
+        info.missing = "No DATABASE_URL/database_url set";
+      }
+
+      return res.status(200).json(info);
+    }
+
     if (q.diag) {
       if (!pool) {
         return res
@@ -115,6 +176,7 @@ export default async function handler(req, res) {
           .json({ ok: false, error: e?.message || String(e) });
       }
     }
+
     if (q.count) {
       if (!pool) {
         return res
@@ -132,7 +194,7 @@ export default async function handler(req, res) {
           .json({ ok: false, error: e?.message || String(e) });
       }
     }
-    // -------------------------------------------------------------------
+    // ------------------------------------------
 
     if (!pool) {
       return res
@@ -152,9 +214,8 @@ export default async function handler(req, res) {
     if (req.method === "POST") {
       const body = req.body || {};
 
-      if (!body.id) return res.status(400).json({ ok: false, error: "Missing id" });
-      if (!body.group)
-        return res.status(400).json({ ok: false, error: "Missing group" });
+      if (!body.id)   return res.status(400).json({ ok: false, error: "Missing id" });
+      if (!body.group) return res.status(400).json({ ok: false, error: "Missing group" });
 
       const sql = `
         INSERT INTO listings (
