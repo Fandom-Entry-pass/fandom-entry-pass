@@ -274,7 +274,7 @@
               </div>
 
               <div class="sm:col-span-3 flex items-center justify-end gap-3 pt-2">
-                <button type="button" id="cancelEdit" class="px-4 py-2 rounded-xl bg-gray-100 hover:bg-gray-200">Cancel</button>
+                <button class="px-4 py-2 rounded-xl bg-gray-100 hover:bg-gray-200" type="button" id="cancelEdit">Cancel</button>
                 <button class="px-5 py-2 rounded-xl text-white gradient-brand hover:opacity-90">Save Changes</button>
               </div>
             </form>
@@ -441,10 +441,26 @@
       const KEY = "fep_listings_v1";
       function load(){ try{ return JSON.parse(localStorage.getItem(KEY) || "[]") }catch{ return [] } }
       function save(list){ localStorage.setItem(KEY, JSON.stringify(list)) }
-      const money = n => "$"+Number(n).toFixed(0);
-      const money2 = n => "$"+(isFinite(n)? Number(n).toFixed(2) : "0.00");
-      const capFor = face => Math.round(Number(face)*1.15);
-      const withinCap = (face, price) => Number(price) <= capFor(face) + 0.0001;
+
+      /* PATCH (1): Harden money/cap helpers */
+      const money = (n) => {
+        const v = Number(n);
+        return Number.isFinite(v) ? "$" + v.toFixed(0) : "$—";
+      };
+      const money2 = (n) => {
+        const v = Number(n);
+        return Number.isFinite(v) ? "$" + v.toFixed(2) : "$0.00";
+      };
+      const capFor = (face) => {
+        const f = Number(face);
+        return Number.isFinite(f) && f > 0 ? Math.round(f * 1.15) : null; // null = unknown
+      };
+      function withinCap(face, price) {
+        const f = Number(face), p = Number(price);
+        if (!Number.isFinite(f) || f <= 0) return true; // don't flag when face unknown
+        return p <= Math.round(f * 1.15) + 0.0001;
+      }
+
       const hoursMs = h => h*60*60*1000;
       const token = () => Math.random().toString(36).slice(2)+Math.random().toString(36).slice(2);
       const esc = s => String(s ?? "").replace(/[&<>"'`=\/]/g, c => ({'&':'&amp;','<':'&lt;','>':'&#x3E;','"':'&quot;',"'":'&#39;','/':'&#x2F;','`':'&#x60;','=':'&#x3D;'}[c]));
@@ -472,8 +488,9 @@
       const calcPayoutPerTicket = (price)=> Math.max(0, (Number(price)||0) - calcPlatformFee(price));
 
       /* ===========================
-         🔁 Listings: Remote Sync + Upsert (REPLACED)
+         🔁 Listings: Remote Sync + Upsert
          =========================== */
+      /* PATCH (2): Merge-preserving server sync (does NOT wipe rich local fields) */
       async function syncFromServerIntoLocal() {
         try {
           const r = await fetch(`${ORIGIN}/api/listings`, { headers:{ "Cache-Control":"no-store" } });
@@ -484,10 +501,50 @@
             (Array.isArray(d?.items) ? d.items :
              Array.isArray(d?.data)  ? d.data  : []);
 
-          if (rows.length) {
-            save(rows);
-            applyFilters();
+          if (!rows.length) { applyFilters(); renderMyListings(); return; }
+
+          const local = load();
+          const byId = new Map(local.map(x => [String(x.id), x]));
+
+          function normalizeServerRow(s) {
+            const id = String(s.id ?? s.uuid ?? s._id ?? "");
+            if (!id) return null;
+
+            const patch = { id };
+
+            if (s.price != null)       patch.price = Number(s.price);
+            if (s.qty != null)         patch.qty = Math.max(1, Number(s.qty));
+            if (s.remaining != null)   patch.remaining = Math.max(0, Number(s.remaining));
+
+            const serverEmail = s.sellerEmail ?? s.seller_email ?? s.seller;
+            if (serverEmail) patch.sellerEmail = String(serverEmail).toLowerCase();
+
+            const title = s.title ?? s.name ?? "";
+            if (title && !byId.get(id)?.group) patch.group = String(title);
+
+            if (s.face != null) patch.face = Number(s.face);
+
+            ["group","date","city","seat","pay"].forEach(k=>{
+              if (s[k] != null && !byId.get(id)?.[k]) patch[k] = String(s[k]);
+            });
+
+            return patch;
           }
+
+          const patches = rows.map(normalizeServerRow).filter(Boolean);
+
+          const merged = local.map(loc => {
+            const p = patches.find(x => x.id === String(loc.id));
+            return p ? { ...loc, ...p } : loc;
+          });
+
+          for (const p of patches) {
+            if (!byId.has(p.id)) merged.unshift(p);
+          }
+
+          save(merged);
+          applyFilters();
+          renderMyListings();
         } catch (e) {
           console.warn("sync failed:", e?.message || e);
         }
@@ -620,21 +677,24 @@
         elEmpty?.classList.add("hidden");
 
         for (const it of list) {
+          const capVal = capFor(it.face);
+          const showCap = Number.isFinite(Number(it.face)) && Number(it.face) > 0;
           const ok = withinCap(it.face, it.price);
-          const cap = capFor(it.face);
           const remaining = (it.remaining ?? it.qty);
+          const titleSafe = it.group || it.title || "Untitled Listing";
+
           const card = document.createElement("article");
           card.className = "rounded-3xl border border-gray-200 p-4 bg-white shadow-sm hover:shadow-md transition-shadow";
 
           card.innerHTML = `
             <div class="flex items-start justify-between gap-3">
               <div>
-                <h3 class="font-poppins text-lg">${esc(it.group)}</h3>
+                <h3 class="font-poppins text-lg">${esc(titleSafe)}</h3>
                 <p class="text-xs text-gray-500 mt-0.5">${esc(it.city ? `${it.date} • ${it.city}` : it.date)}</p>
                 <p class="text-xs text-gray-600 mt-1">${esc(it.seat||"")}</p>
                 <div class="mt-2 flex items-center gap-2">
                   <span class="chip inline-flex items-center gap-1 bg-gray-100 px-2 py-1 rounded-full">Face: ${money(it.face)}</span>
-                  <span class="chip inline-flex items-center gap-1 bg-gray-100 px-2 py-1 rounded-full">Cap: ${money(cap)}</span>
+                  ${ showCap ? `<span class="chip inline-flex items-center gap-1 bg-gray-100 px-2 py-1 rounded-full">Cap: ${money(capVal)}</span>` : `` }
                   <span class="chip inline-flex items-center gap-1 ${remaining>0?"bg-emerald-100":"bg-gray-200"} px-2 py-1 rounded-full">Available: ${remaining}/${it.qty}</span>
                 </div>
               </div>
@@ -642,7 +702,7 @@
 
             <div class="flex items-center justify-between mt-3">
               <div>
-                <div class="text-xl font-poppins ${ok?"text-gray-900":"text-rose-600"}">${money(it.price)}</div>
+                <div class="text-xl font-poppins ${(showCap && !ok) ? "text-rose-600" : "text-gray-900"}">${money(it.price)}</div>
                 <div class="mt-1 flex items-center gap-2">
                   <label class="text-xs text-gray-600">Qty</label>
                   <input
@@ -663,7 +723,7 @@
               </button>
             </div>
 
-            ${ ok ? "" : `<div class="mt-3 text-[11px] text-rose-600">⚠️ Price exceeds +15% cap.</div>` }
+            ${ (showCap && !ok) ? `<div class="mt-3 text-[11px] text-rose-600">⚠️ Price exceeds +15% cap.</div>` : `` }
             <div class="mt-2 text-[11px] text-gray-500">Funds held until transfer confirmed. Report issues to <a class="underline" href="mailto:support@fandomentrypass.com">support</a>.</div>
           `;
           elListings.appendChild(card);
@@ -815,7 +875,7 @@
          =========================== */
       function showSoftCapWarn(faceVal, priceVal, warnEl){
         const cap = capFor(faceVal || 0);
-        const over = Number(priceVal||0) > cap + 0.0001;
+        const over = (cap !== null) && Number(priceVal||0) > cap + 0.0001;
         if (warnEl) warnEl.classList.toggle("hidden", !over);
       }
 
@@ -823,7 +883,7 @@
         const face = Number(document.getElementById("faceInput")?.value || 0);
         const price = Number(document.getElementById("priceInput")?.value || 0);
         const feePer = calcPlatformFee(price);
-        thePayout = calcPayoutPerTicket(price);
+        const thePayout = calcPayoutPerTicket(price);
         const feePerEl = document.getElementById("feePerTicket");
         const payoutPerEl = document.getElementById("payoutPerTicket");
         if (feePerEl) feePerEl.textContent = money2(feePer);
@@ -902,6 +962,9 @@
         window.scrollTo({ top: 0, behavior: "smooth" });
         renderMyListings();
       });
+
+      /* PATCH (4): Ensure soft-cap UI initializes immediately after handler is wired */
+      updateSellerFeeUI();
 
       /* ===========================
          EDIT / DELETE (Seller Dashboard)
@@ -1364,7 +1427,7 @@
           const div = document.createElement("div");
           div.className = "rounded-2xl border border-gray-200 p-3";
           div.innerHTML = `
-            <div class="font-semibold">${esc(it.group)}</div>
+            <div class="font-semibold">${esc(it.group || it.title || "Untitled Listing")}</div>
             <div class="text-xs text-gray-500">${esc(it.date)}${it.city?(" • "+esc(it.city)):""}</div>
             <div class="text-xs text-gray-500 mt-1">${esc(it.seat||"")}</div>
             <div class="mt-2 text-sm">Price: ${money(it.price)} • Qty: ${it.qty} • Avail: ${(it.remaining ?? it.qty)}</div>
@@ -1606,7 +1669,8 @@
         document.getElementById("openSeller")?.classList.remove("hidden");
         updateSellerFeeUI();
         toggleSellerUI();
-        await syncFromServerIntoLocal();
+        await syncFromServerIntoLocal();   // calls renderMyListings() internally
+        renderMyListings();                // safe extra repaint
       })();
 
       /* ============================================
@@ -1759,3 +1823,4 @@
   </div>
 </body>
 </html>
+
