@@ -380,7 +380,7 @@
         <div class="md:col-span-3 rounded-2xl border border-gray-200 p-4">
           <div class="flex items-center justify-between">
             <h4 class="font-poppins text-lg">Orders (this device)</h4>
-            <button id="refreshOrders" class="rounded-xl bg-gray-100 px-3 py-2 hover:bg-gray-200">Refresh</button>
+            <button id="refreshOrders" class="rounded-XL bg-gray-100 px-3 py-2 hover:bg-gray-200">Refresh</button>
           </div>
           <p class="text-xs text-gray-500 mt-1">These Checkout Sessions were saved on this device after a successful redirect.</p>
           <div id="myOrders" class="mt-3 grid sm:grid-cols-2 lg:grid-cols-3 gap-4"></div>
@@ -484,27 +484,66 @@
     const calcPlatformFee = (price)=> Math.max(0, (Number(price)||0)*SELLER_FEE_PCT + SELLER_FEE_FLAT);
     const calcPayoutPerTicket = (price)=> Math.max(0, (Number(price)||0) - calcPlatformFee(price));
 
-    // === minimal remote sync ===
-async function syncFromServerIntoLocal() {
-  try {
-    const r = await fetch(`${ORIGIN}/api/listings`, { headers:{ "Cache-Control":"no-store" } });
-    const d = await r.json();
-    if (d?.ok && Array.isArray(d.items)) {
-      save(d.items);            // reuse your local save()
-      applyFilters();           // reuse your render/filter
-    }
-  } catch (e) { console.warn("sync failed:", e?.message || e); }
-}
+    /* ===========================
+       🔁 Listings: Remote Sync + Upsert (REPLACED)
+       =========================== */
 
-async function upsertListingRemote(listing) {
-  const r = await fetch(`${ORIGIN}/api/listings`, {
-    method: "POST",
-    headers: { "Content-Type":"application/json" },
-    body: JSON.stringify(listing)
-  });
-  const d = await r.json();
-  if (!r.ok || !d?.ok) throw new Error(d?.error || "Remote upsert failed");
-}
+    // === minimal remote sync (robust to different API shapes) ===
+    async function syncFromServerIntoLocal() {
+      try {
+        const r = await fetch(`${ORIGIN}/api/listings`, { headers:{ "Cache-Control":"no-store" } });
+        const d = await r.json();
+
+        // Accept common shapes: array | {items:[...]} | {data:[...]}
+        const rows =
+          Array.isArray(d) ? d :
+          (Array.isArray(d?.items) ? d.items :
+           Array.isArray(d?.data)  ? d.data  : []);
+
+        if (rows.length) {
+          save(rows);                // reuse your local cache helper
+          applyFilters();            // reuse your existing render/filter
+        }
+      } catch (e) {
+        console.warn("sync failed:", e?.message || e);
+      }
+    }
+
+    // Try posting full listing first; if server expects minimal fields, fall back.
+    async function upsertListingRemote(listing) {
+      const url = `${ORIGIN}/api/listings`;
+
+      // Attempt 1: send full object (some backends accept/ignore extra fields)
+      let res = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type":"application/json" },
+        body: JSON.stringify(listing)
+      });
+
+      // If that fails, Attempt 2: send minimal fields expected by a simple REST proxy
+      if (!res.ok) {
+        const minimal = {
+          title: listing.title || `${listing.group || "Listing"}${listing.date ? ` – ${listing.date}` : ""}`,
+          price: Number(listing.price),
+          qty:   Number(listing.qty),
+          seller_email: (listing.sellerEmail || listing.seller_email || "").toLowerCase()
+        };
+        res = await fetch(url, {
+          method: "POST",
+          headers: { "Content-Type":"application/json" },
+          body: JSON.stringify(minimal)
+        });
+      }
+
+      // Parse but don’t enforce a specific shape
+      let data = null;
+      try { data = await res.json(); } catch {}
+      if (!res.ok) {
+        throw new Error((data && (data.error || JSON.stringify(data))) || `Remote upsert failed (${res.status})`);
+      }
+      return data;
+    }
+
     /* ===========================
        Formspree (attachment) with Resend fallback
        =========================== */
@@ -1376,11 +1415,11 @@ document.getElementById("editForm").addEventListener("submit", async (e)=>{
           <div class="text-xs text-gray-500">${esc(it.date)}${it.city?(" • "+esc(it.city)):""}</div>
           <div class="text-xs text-gray-500 mt-1">${esc(it.seat||"")}</div>
           <div class="mt-2 text-sm">Price: ${money(it.price)} • Qty: ${it.qty} • Avail: ${(it.remaining ?? it.qty)}</div>
+          <div class="text-[11px] text-gray-500">If all sell: ${money2(totalIfAllSell)} (excludes Stripe processing)</div>
           <div class="mt-1 text-xs text-gray-700">
             Platform fee: <span class="font-medium">${money2(feePer)}</span> / ticket •
             Est. payout: <span class="font-medium">${money2(payoutPer)}</span> / ticket
           </div>
-          <div class="text-[11px] text-gray-500">If all sell: ${money2(totalIfAllSell)} (excludes Stripe processing)</div>
           <div class="mt-3 flex gap-2">
             <button class="rounded-xl px-3 py-2 bg-gray-900 text-white" data-edit="${esc(it.id)}">Edit</button>
             <button class="rounded-xl px-3 py-2 bg-white ring-1 ring-rose-200 text-rose-700 hover:bg-rose-50" data-del="${esc(it.id)}">Delete</button>
