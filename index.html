@@ -20,7 +20,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;700&family=Nunito:wght@400;600;700&family=Poppins:wght@600;700&display=swap" rel="stylesheet">
 
   <!-- Tailwind -->
-<link rel="stylesheet" href="/output.css">
+  <link rel="stylesheet" href="/output.css">
 
   <!-- ✅ Config must load before app scripts -->
   <script src="config.js"></script>
@@ -35,6 +35,7 @@
     .glass { backdrop-filter: blur(10px); background: rgba(255,255,255,.70); }
     .badge-step, .chip { font-size: 11px; }
     .ios-safe { padding-bottom: constant(safe-area-inset-bottom); padding-bottom: env(safe-area-inset-bottom); }
+    .font-poppins { font-family: Poppins, ui-sans-serif, system-ui; }
   </style>
 </head>
 <body class="min-h-screen ios-safe">
@@ -114,1712 +115,1647 @@
 
     <!-- Add Listing Modal -->
     <section id="modal" class="fixed inset-0 z-50 hidden">
-  <!-- replace the whole inner card div with this -->
-  <div class="absolute inset-0 bg-black/40"></div>
-  <div class="absolute inset-0 flex items-end sm:items-center justify-center p-3">
-    <div class="w-full sm:w-[860px] bg-white rounded-3xl shadow-2xl flex flex-col max-h-[85dvh]">
-      <!-- Fixed header -->
-      <div class="gradient-brand p-5 text-white">
-        <h3 class="font-poppins text-xl">Add a Listing</h3>
-        <p class="text-white/90 text-sm">Blur barcodes on proof images. Above +15% is blocked. Seller email and phone are required for notifications.</p>
-      </div>
-
-      <!-- Scrollable body -->
-      <div class="flex-1 overflow-y-auto p-5">
-        <form id="addForm" class="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <div class="sm:col-span-2">
-            <label class="text-sm text-gray-600">Group / Show <span class="text-rose-500">*</span></label>
-            <input name="group" required placeholder="ATEEZ – Atlanta Day 1" class="w-full mt-1 rounded-2xl bg-white px-4 py-3 ring-1 ring-gray-200 focus:ring-sky-300 outline-none" />
-          </div>
-          <div>
-            <label class="text-sm text-gray-600">Quantity <span class="text-rose-500">*</span></label>
-            <input name="qty" type="number" min="1" step="1" required placeholder="1" class="w-full mt-1 rounded-2xl bg-white px-4 py-3 ring-1 ring-gray-200 focus:ring-sky-300 outline-none" />
-          </div>
-          <div>
-            <label class="text-sm text-gray-600">Date & Venue <span class="text-rose-500">*</span></label>
-            <input name="date" required placeholder="Nov 12, 2025 • Gas South Arena" class="w-full mt-1 rounded-2xl bg-white px-4 py-3 ring-1 ring-gray-200 focus:ring-sky-300 outline-none" />
-          </div>
-          <div>
-            <label class="text-sm text-gray-600">City</label>
-            <input name="city" placeholder="Atlanta" class="w-full mt-1 rounded-2xl bg-white px-4 py-3 ring-1 ring-gray-200 focus:ring-sky-300 outline-none" />
-          </div>
-          <div class="sm:col-span-2">
-            <label class="text-sm text-gray-600">Section / Row / Seat</label>
-            <input name="seat" placeholder="Sec 104 • Row F • Seat 12" class="w-full mt-1 rounded-2xl bg-white px-4 py-3 ring-1 ring-gray-200 focus:ring-sky-300 outline-none" />
-          </div>
-          <div>
-            <label class="text-sm text-gray-600">Face Value (USD) <span class="text-rose-500">*</span></label>
-            <input id="faceInput" name="face" type="number" min="1" step="1" required placeholder="100" class="w-full mt-1 rounded-2xl bg-white px-4 py-3 ring-1 ring-gray-200 focus:ring-sky-300 outline-none" />
-          </div>
-          <div>
-            <label class="text-sm text-gray-600">Your Price (USD) <span class="text-rose-500">*</span></label>
-            <input id="priceInput" name="price" type="number" min="1" step="1" required placeholder="110" class="w-full mt-1 rounded-2xl bg-white px-4 py-3 ring-1 ring-gray-200 focus:ring-sky-300 outline-none" />
-            <p class="text-xs text-gray-500 mt-1">We auto-check the +15% cap. Above-cap listings are blocked.</p>
-            <p id="priceCapWarn" class="hidden text-xs mt-1 text-rose-600">⚠️ This exceeds the +15% cap. You can continue, but saving will be blocked until you lower the price.</p>
+      <div class="absolute inset-0 bg-black/40"></div>
+      <div class="absolute inset-0 flex items-end sm:items-center justify-center p-3">
+        <div class="w-full sm:w-[860px] bg-white rounded-3xl shadow-2xl flex flex-col max-h-[85dvh]">
+          <div class="gradient-brand p-5 text-white">
+            <h3 class="font-poppins text-xl">Add a Listing</h3>
+            <p class="text-white/90 text-sm">Blur barcodes on proof images. Above +15% is blocked. Seller email and phone are required for notifications.</p>
           </div>
 
-          <div class="sm:col-span-3">
-            <div id="sellerFeeBox" class="mt-1 rounded-2xl border border-amber-200 bg-amber-50 p-3 text-sm">
-              <div class="flex flex-wrap items-center gap-x-4 gap-y-1">
-                <div>Platform fee (you pay): <span id="feePerTicket" class="font-semibold">$0.00</span> / ticket</div>
-                <div>Estimated payout: <span id="payoutPerTicket" class="font-semibold">$0.00</span> / ticket</div>
-                <div class="text-xs text-gray-600">Includes Stripe processing fees.</div>
+          <div class="flex-1 overflow-y-auto p-5">
+            <form id="addForm" class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div class="sm:col-span-2">
+                <label class="text-sm text-gray-600">Group / Show <span class="text-rose-500">*</span></label>
+                <input name="group" required placeholder="ATEEZ – Atlanta Day 1" class="w-full mt-1 rounded-2xl bg-white px-4 py-3 ring-1 ring-gray-200 focus:ring-sky-300 outline-none" />
               </div>
-            </div>
-          </div>
+              <div>
+                <label class="text-sm text-gray-600">Quantity <span class="text-rose-500">*</span></label>
+                <input name="qty" type="number" min="1" step="1" required placeholder="1" class="w-full mt-1 rounded-2xl bg-white px-4 py-3 ring-1 ring-gray-200 focus:ring-sky-300 outline-none" />
+              </div>
+              <div>
+                <label class="text-sm text-gray-600">Date & Venue <span class="text-rose-500">*</span></label>
+                <input name="date" required placeholder="Nov 12, 2025 • Gas South Arena" class="w-full mt-1 rounded-2xl bg-white px-4 py-3 ring-1 ring-gray-200 focus:ring-sky-300 outline-none" />
+              </div>
+              <div>
+                <label class="text-sm text-gray-600">City</label>
+                <input name="city" placeholder="Atlanta" class="w-full mt-1 rounded-2xl bg-white px-4 py-3 ring-1 ring-gray-200 focus:ring-sky-300 outline-none" />
+              </div>
+              <div class="sm:col-span-2">
+                <label class="text-sm text-gray-600">Section / Row / Seat</label>
+                <input name="seat" placeholder="Sec 104 • Row F • Seat 12" class="w-full mt-1 rounded-2xl bg-white px-4 py-3 ring-1 ring-gray-200 focus:ring-sky-300 outline-none" />
+              </div>
+              <div>
+                <label class="text-sm text-gray-600">Face Value (USD) <span class="text-rose-500">*</span></label>
+                <input id="faceInput" name="face" type="number" min="1" step="1" required placeholder="100" class="w-full mt-1 rounded-2xl bg-white px-4 py-3 ring-1 ring-gray-200 focus:ring-sky-300 outline-none" />
+              </div>
+              <div>
+                <label class="text-sm text-gray-600">Your Price (USD) <span class="text-rose-500">*</span></label>
+                <input id="priceInput" name="price" type="number" min="1" step="1" required placeholder="110" class="w-full mt-1 rounded-2xl bg-white px-4 py-3 ring-1 ring-gray-200 focus:ring-sky-300 outline-none" />
+                <p class="text-xs text-gray-500 mt-1">We auto-check the +15% cap. Above-cap listings are blocked.</p>
+                <p id="priceCapWarn" class="hidden text-xs mt-1 text-rose-600">⚠️ This exceeds the +15% cap. You can continue, but saving will be blocked until you lower the price.</p>
+              </div>
 
-          <div class="sm:col-span-3">
-            <label class="text-sm text-gray-600">Proof of Ticket (image) <span class="text-rose-500">*</span></label>
-            <input name="proof" type="file" accept="image/*" required class="w-full mt-1 rounded-2xl bg-white px-4 py-3 ring-1 ring-gray-200" />
-            <p class="text-xs text-gray-500 mt-1">Proof is required and will be emailed to admin (not stored on the site).</p>
+              <div class="sm:col-span-3">
+                <div id="sellerFeeBox" class="mt-1 rounded-2xl border border-amber-200 bg-amber-50 p-3 text-sm">
+                  <div class="flex flex-wrap items-center gap-x-4 gap-y-1">
+                    <div>Platform fee (you pay): <span id="feePerTicket" class="font-semibold">$0.00</span> / ticket</div>
+                    <div>Estimated payout: <span id="payoutPerTicket" class="font-semibold">$0.00</span> / ticket</div>
+                    <div class="text-xs text-gray-600">Includes Stripe processing fees.</div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="sm:col-span-3">
+                <label class="text-sm text-gray-600">Proof of Ticket (image) <span class="text-rose-500">*</span></label>
+                <input name="proof" type="file" accept="image/*" required class="w-full mt-1 rounded-2xl bg-white px-4 py-3 ring-1 ring-gray-200" />
+                <p class="text-xs text-gray-500 mt-1">Proof is required and will be emailed to admin (not stored on the site).</p>
+              </div>
+              <div class="sm:col-span-2">
+                <label class="text-sm text-gray-600">Seller Name</label>
+                <input name="seller" placeholder="Mina" class="w-full mt-1 rounded-2xl bg-white px-4 py-3 ring-1 ring-gray-200 focus:ring-sky-300 outline-none" />
+              </div>
+              <div class="sm:col-span-3">
+                <label class="text-sm text-gray-600">Seller Phone (required)</label>
+                <input name="sellerPhone" type="tel" required placeholder="555-123-4567" class="w-full mt-1 rounded-2xl bg-white px-4 py-3 ring-1 ring-gray-200 outline-none" />
+              </div>
+              <div class="sm:col-span-3">
+                <label class="text-sm text-gray-600">Seller Email (required)</label>
+                <input name="sellerEmail" type="email" required placeholder="you@example.com" class="w-full mt-1 rounded-2xl bg-white px-4 py-3 ring-1 ring-gray-200 outline-none" />
+              </div>
+              <div class="sm:col-span-3 flex items-center gap-2 mt-2">
+                <input id="agree" type="checkbox" required class="w-4 h-4" />
+                <label for="agree" class="text-sm text-gray-700">I agree to fair-pricing rules (+15% cap) and safe transfer.</label>
+              </div>
+              <div class="sm:col-span-3 flex items-center justify-end gap-3 pt-2">
+                <button type="button" id="cancelAdd" class="px-4 py-2 rounded-xl bg-gray-100 hover:bg-gray-200">Cancel</button>
+                <button class="px-5 py-2 rounded-xl text-white gradient-brand hover:opacity-90">Add Listing</button>
+              </div>
+            </form>
           </div>
-          <div class="sm:col-span-2">
-            <label class="text-sm text-gray-600">Seller Name</label>
-            <input name="seller" placeholder="Mina" class="w-full mt-1 rounded-2xl bg-white px-4 py-3 ring-1 ring-gray-200 focus:ring-sky-300 outline-none" />
-          </div>
-          <div class="sm:col-span-3">
-            <label class="text-sm text-gray-600">Seller Phone (required)</label>
-            <input name="sellerPhone" type="tel" required placeholder="555-123-4567" class="w-full mt-1 rounded-2xl bg-white px-4 py-3 ring-1 ring-gray-200 outline-none" />
-          </div>
-          <div class="sm:col-span-3">
-            <label class="text-sm text-gray-600">Seller Email (required)</label>
-            <input name="sellerEmail" type="email" required placeholder="you@example.com" class="w-full mt-1 rounded-2xl bg-white px-4 py-3 ring-1 ring-gray-200 outline-none" />
-          </div>
-          <div class="sm:col-span-3 flex items-center gap-2 mt-2">
-            <input id="agree" type="checkbox" required class="w-4 h-4" />
-            <label for="agree" class="text-sm text-gray-700">I agree to fair-pricing rules (+15% cap) and safe transfer.</label>
-          </div>
-          <div class="sm:col-span-3 flex items-center justify-end gap-3 pt-2">
-            <button type="button" id="cancelAdd" class="px-4 py-2 rounded-xl bg-gray-100 hover:bg-gray-200">Cancel</button>
-            <button class="px-5 py-2 rounded-xl text-white gradient-brand hover:opacity-90">Add Listing</button>
-          </div>
-        </form>
+        </div>
       </div>
-    </div>
-  </div>
-</section>
+    </section>
 
     <!-- EDIT Listing Modal -->
-<section id="editModal" class="fixed inset-0 z-50 hidden">
-  <div class="absolute inset-0 bg-black/40"></div>
-  <div class="absolute inset-0 flex items-end sm:items-center justify-center p-3">
-    <div class="w-full sm:w-[860px] bg-white rounded-3xl shadow-2xl flex flex-col max-h-[85dvh]">
-      <!-- Fixed header -->
-      <div class="gradient-brand p-5 text-white">
-        <h3 class="font-poppins text-xl">Edit Listing</h3>
-        <p class="text-white/90 text-sm">Update your listing details. New proof will be emailed to admin.</p>
-      </div>
-
-      <!-- Scrollable body -->
-      <div class="flex-1 overflow-y-auto p-5">
-        <form id="editForm" class="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <input type="hidden" name="id" />
-          <div class="sm:col-span-2">
-            <label class="text-sm text-gray-600">Group / Show <span class="text-rose-500">*</span></label>
-            <input name="group" required class="w-full mt-1 rounded-2xl bg-white px-4 py-3 ring-1 ring-gray-200 outline-none" />
-          </div>
-          <div>
-            <label class="text-sm text-gray-600">Quantity <span class="text-rose-500">*</span></label>
-            <input id="editQtyInput" name="qty" type="number" min="1" step="1" required class="w-full mt-1 rounded-2xl bg-white px-4 py-3 ring-1 ring-gray-200 outline-none" />
-            <p id="qtyClampNote" class="hidden text-xs text-amber-600 mt-1">Reducing quantity will clamp your available tickets to the new amount.</p>
-          </div>
-          <div>
-            <label class="text-sm text-gray-600">Date & Venue <span class="text-rose-500">*</span></label>
-            <input name="date" required class="w-full mt-1 rounded-2xl bg-white px-4 py-3 ring-1 ring-gray-200 outline-none" />
-          </div>
-          <div>
-            <label class="text-sm text-gray-600">City</label>
-            <input name="city" class="w-full mt-1 rounded-2xl bg-white px-4 py-3 ring-1 ring-gray-200 outline-none" />
-          </div>
-          <div class="sm:col-span-2">
-            <label class="text-sm text-gray-600">Section / Row / Seat</label>
-            <input name="seat" class="w-full mt-1 rounded-2xl bg-white px-4 py-3 ring-1 ring-gray-200 outline-none" />
-          </div>
-          <div>
-            <label class="text-sm text-gray-600">Face Value (USD) <span class="text-rose-500">*</span></label>
-            <input id="editFaceInput" name="face" type="number" min="1" step="1" required class="w-full mt-1 rounded-2xl bg-white px-4 py-3 ring-1 ring-gray-200 outline-none" />
-          </div>
-          <div>
-            <label class="text-sm text-gray-600">Your Price (USD) <span class="text-rose-500">*</span></label>
-            <input id="editPriceInput" name="price" type="number" min="1" step="1" required class="w-full mt-1 rounded-2xl bg-white px-4 py-3 ring-1 ring-gray-200 outline-none" />
-            <p class="text-xs text-gray-500 mt-1">We auto-check the +15% cap. Above-cap listings are blocked.</p>
-            <p id="editPriceCapWarn" class="hidden text-xs mt-1 text-rose-600">⚠️ This exceeds the +15% cap. You can continue, but saving will be blocked until you lower the price.</p>
+    <section id="editModal" class="fixed inset-0 z-50 hidden">
+      <div class="absolute inset-0 bg-black/40"></div>
+      <div class="absolute inset-0 flex items-end sm:items-center justify-center p-3">
+        <div class="w-full sm:w-[860px] bg-white rounded-3xl shadow-2xl flex flex-col max-h-[85dvh]">
+          <div class="gradient-brand p-5 text-white">
+            <h3 class="font-poppins text-xl">Edit Listing</h3>
+            <p class="text-white/90 text-sm">Update your listing details. New proof will be emailed to admin.</p>
           </div>
 
-          <div class="sm:col-span-3">
-            <div class="mt-1 rounded-2xl border border-amber-200 bg-amber-50 p-3 text-sm">
-              <div class="flex flex-wrap items-center gap-x-4 gap-y-1">
-                <div>Platform fee: <span id="editFeePerTicket" class="font-semibold">$0.00</span> / ticket</div>
-                <div>Est. payout: <span id="editPayoutPerTicket" class="font-semibold">$0.00</span> / ticket</div>
+          <div class="flex-1 overflow-y-auto p-5">
+            <form id="editForm" class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <input type="hidden" name="id" />
+              <div class="sm:col-span-2">
+                <label class="text-sm text-gray-600">Group / Show <span class="text-rose-500">*</span></label>
+                <input name="group" required class="w-full mt-1 rounded-2xl bg-white px-4 py-3 ring-1 ring-gray-200 outline-none" />
               </div>
-            </div>
-          </div>
+              <div>
+                <label class="text-sm text-gray-600">Quantity <span class="text-rose-500">*</span></label>
+                <input id="editQtyInput" name="qty" type="number" min="1" step="1" required class="w-full mt-1 rounded-2xl bg-white px-4 py-3 ring-1 ring-gray-200 outline-none" />
+                <p id="qtyClampNote" class="hidden text-xs text-amber-600 mt-1">Reducing quantity will clamp your available tickets to the new amount.</p>
+              </div>
+              <div>
+                <label class="text-sm text-gray-600">Date & Venue <span class="text-rose-500">*</span></label>
+                <input name="date" required class="w-full mt-1 rounded-2xl bg-white px-4 py-3 ring-1 ring-gray-200 outline-none" />
+              </div>
+              <div>
+                <label class="text-sm text-gray-600">City</label>
+                <input name="city" class="w-full mt-1 rounded-2xl bg-white px-4 py-3 ring-1 ring-gray-200 outline-none" />
+              </div>
+              <div class="sm:col-span-2">
+                <label class="text-sm text-gray-600">Section / Row / Seat</label>
+                <input name="seat" class="w-full mt-1 rounded-2xl bg-white px-4 py-3 ring-1 ring-gray-200 outline-none" />
+              </div>
+              <div>
+                <label class="text-sm text-gray-600">Face Value (USD) <span class="text-rose-500">*</span></label>
+                <input id="editFaceInput" name="face" type="number" min="1" step="1" required class="w-full mt-1 rounded-2xl bg-white px-4 py-3 ring-1 ring-gray-200 outline-none" />
+              </div>
+              <div>
+                <label class="text-sm text-gray-600">Your Price (USD) <span class="text-rose-500">*</span></label>
+                <input id="editPriceInput" name="price" type="number" min="1" step="1" required class="w-full mt-1 rounded-2xl bg-white px-4 py-3 ring-1 ring-gray-200 outline-none" />
+                <p class="text-xs text-gray-500 mt-1">We auto-check the +15% cap. Above-cap listings are blocked.</p>
+                <p id="editPriceCapWarn" class="hidden text-xs mt-1 text-rose-600">⚠️ This exceeds the +15% cap. You can continue, but saving will be blocked until you lower the price.</p>
+              </div>
 
-          <div class="sm:col-span-3">
-            <label class="text-sm text-gray-600">New Proof </label>
-            <input name="proof" type="file" accept="image/*" class="w-full mt-1 rounded-2xl bg-white px-4 py-3 ring-1 ring-gray-200" />
-            <p class="text-xs text-gray-500 mt-1">Attach only if the ticket image changed.</p>
-          </div>
-          <div class="sm:col-span-2">
-            <label class="text-sm text-gray-600">Payment Link</label>
-            <input name="pay" class="w-full mt-1 rounded-2xl bg-white px-4 py-3 ring-1 ring-gray-200 outline-none" />
-          </div>
-          <div>
-            <label class="text-sm text-gray-600">Seller Name</label>
-            <input name="seller" class="w-full mt-1 rounded-2xl bg-white px-4 py-3 ring-1 ring-gray-200 outline-none" />
-          </div>
-          <div class="sm:col-span-3">
-            <label class="text-sm text-gray-600">Seller Phone</label>
-            <input name="sellerPhone" type="tel" class="w-full mt-1 rounded-2xl bg-white px-4 py-3 ring-1 ring-gray-200 outline-none" />
-          </div>
-          <div class="sm:col-span-3">
-            <label class="text-sm text-gray-600">Seller Email</label>
-            <input name="sellerEmail" type="email" class="w-full mt-1 rounded-2xl bg-white px-4 py-3 ring-1 ring-gray-200 outline-none" />
-          </div>
+              <div class="sm:col-span-3">
+                <div class="mt-1 rounded-2xl border border-amber-200 bg-amber-50 p-3 text-sm">
+                  <div class="flex flex-wrap items-center gap-x-4 gap-y-1">
+                    <div>Platform fee: <span id="editFeePerTicket" class="font-semibold">$0.00</span> / ticket</div>
+                    <div>Est. payout: <span id="editPayoutPerTicket" class="font-semibold">$0.00</span> / ticket</div>
+                  </div>
+                </div>
+              </div>
 
-          <div class="sm:col-span-3 flex items-center justify-end gap-3 pt-2">
-            <button type="button" id="cancelEdit" class="px-4 py-2 rounded-xl bg-gray-100 hover:bg-gray-200">Cancel</button>
-            <button class="px-5 py-2 rounded-xl text-white gradient-brand hover:opacity-90">Save Changes</button>
+              <div class="sm:col-span-3">
+                <label class="text-sm text-gray-600">New Proof </label>
+                <input name="proof" type="file" accept="image/*" class="w-full mt-1 rounded-2xl bg-white px-4 py-3 ring-1 ring-gray-200" />
+                <p class="text-xs text-gray-500 mt-1">Attach only if the ticket image changed.</p>
+              </div>
+              <div class="sm:col-span-2">
+                <label class="text-sm text-gray-600">Payment Link</label>
+                <input name="pay" class="w-full mt-1 rounded-2xl bg-white px-4 py-3 ring-1 ring-gray-200 outline-none" />
+              </div>
+              <div>
+                <label class="text-sm text-gray-600">Seller Name</label>
+                <input name="seller" class="w-full mt-1 rounded-2xl bg-white px-4 py-3 ring-1 ring-gray-200 outline-none" />
+              </div>
+              <div class="sm:col-span-3">
+                <label class="text-sm text-gray-600">Seller Phone</label>
+                <input name="sellerPhone" type="tel" class="w-full mt-1 rounded-2xl bg-white px-4 py-3 ring-1 ring-gray-200 outline-none" />
+              </div>
+              <div class="sm:col-span-3">
+                <label class="text-sm text-gray-600">Seller Email</label>
+                <input name="sellerEmail" type="email" class="w-full mt-1 rounded-2xl bg-white px-4 py-3 ring-1 ring-gray-200 outline-none" />
+              </div>
+
+              <div class="sm:col-span-3 flex items-center justify-end gap-3 pt-2">
+                <button type="button" id="cancelEdit" class="px-4 py-2 rounded-xl bg-gray-100 hover:bg-gray-200">Cancel</button>
+                <button class="px-5 py-2 rounded-xl text-white gradient-brand hover:opacity-90">Save Changes</button>
+              </div>
+            </form>
           </div>
-        </form>
+        </div>
       </div>
-    </div>
-  </div>
-</section>
+    </section>
 
     <!-- SELLER LOGIN (email code) -->
-<section id="sellerLoginModal" class="fixed inset-0 z-50 hidden">
-  <div class="absolute inset-0 bg-black/40"></div>
-  <div class="absolute inset-0 flex items-end sm:items-center justify-center p-3">
-    <div class="w-full sm:w-[480px] bg-white rounded-3xl shadow-2xl flex flex-col max-h-[85dvh]">
-      <!-- Fixed header -->
-      <div class="gradient-brand p-5 text-white">
-        <h3 class="font-poppins text-xl">Seller Login</h3>
-        <p class="text-white/90 text-sm">We’ll email you a 6-digit code to confirm it’s you.</p>
+    <section id="sellerLoginModal" class="fixed inset-0 z-50 hidden">
+      <div class="absolute inset-0 bg-black/40"></div>
+      <div class="absolute inset-0 flex items-end sm:items-center justify-center p-3">
+        <div class="w-full sm:w-[480px] bg-white rounded-3xl shadow-2xl flex flex-col max-h-[85dvh]">
+          <div class="gradient-brand p-5 text-white">
+            <h3 class="font-poppins text-xl">Seller Login</h3>
+            <p class="text-white/90 text-sm">We’ll email you a 6-digit code to confirm it’s you.</p>
+          </div>
+
+          <div class="flex-1 overflow-y-auto p-5 space-y-4">
+            <div id="sellerStepEmail">
+              <label class="text-sm text-gray-600">Email</label>
+              <input id="sellerLoginEmail" type="email" placeholder="you@example.com" class="w-full mt-1 rounded-2xl bg-white px-4 py-3 ring-1 ring-gray-200 focus:ring-sky-300 outline-none" />
+              <button id="sendLoginCodeBtn" class="mt-3 w-full rounded-2xl bg-gray-900 text-white px-4 py-3 hover:bg-gray-800">Send code</button>
+            </div>
+
+            <div id="sellerStepCode" class="hidden">
+              <label class="text-sm text-gray-600">Enter 6-digit code</label>
+              <input id="sellerLoginCode" inputmode="numeric" maxlength="6" placeholder="123456" class="w-full mt-1 rounded-2xl bg-white px-4 py-3 ring-1 ring-gray-200 focus:ring-sky-300 outline-none" />
+              <button id="verifyLoginCodeBtn" class="mt-3 w-full rounded-2xl bg-gray-900 text-white px-4 py-3 hover:bg-gray-800">Verify & Sign in</button>
+            </div>
+
+            <div class="flex items-center justify-end gap-3 pt-2">
+              <button id="closeSellerLogin" class="px-4 py-2 rounded-xl bg-gray-100 hover:bg-gray-200">Close</button>
+            </div>
+          </div>
+        </div>
       </div>
-
-      <!-- Scrollable body -->
-      <div class="flex-1 overflow-y-auto p-5 space-y-4">
-        <div id="sellerStepEmail">
-          <label class="text-sm text-gray-600">Email</label>
-          <input id="sellerLoginEmail" type="email" placeholder="you@example.com" class="w-full mt-1 rounded-2xl bg-white px-4 py-3 ring-1 ring-gray-200 focus:ring-sky-300 outline-none" />
-          <button id="sendLoginCodeBtn" class="mt-3 w-full rounded-2xl bg-gray-900 text-white px-4 py-3 hover:bg-gray-800">Send code</button>
-        </div>
-
-        <div id="sellerStepCode" class="hidden">
-          <label class="text-sm text-gray-600">Enter 6-digit code</label>
-          <input id="sellerLoginCode" inputmode="numeric" maxlength="6" placeholder="123456" class="w-full mt-1 rounded-2xl bg-white px-4 py-3 ring-1 ring-gray-200 focus:ring-sky-300 outline-none" />
-          <button id="verifyLoginCodeBtn" class="mt-3 w-full rounded-2xl bg-gray-900 text-white px-4 py-3 hover:bg-gray-800">Verify & Sign in</button>
-        </div>
-
-        <div class="flex items-center justify-end gap-3 pt-2">
-          <button id="closeSellerLogin" class="px-4 py-2 rounded-xl bg-gray-100 hover:bg-gray-200">Close</button>
-        </div>
-      </div>
-    </div>
-  </div>
-</section>
-
+    </section>
 
     <!-- SELLER: Dashboard -->
-<section id="sellerDash" class="fixed inset-0 z-50 hidden">
-  <div class="absolute inset-0 bg-black/40"></div>
-  <div class="absolute inset-0 flex items-end sm:items-center justify-center p-3">
-    <div class="w-full sm:w-[920px] bg-white rounded-3xl shadow-2xl flex flex-col max-h-[85dvh]">
-      <!-- Fixed header -->
-      <div class="gradient-brand p-5 text-white flex items-center justify-between">
-        <div>
-          <h3 class="font-poppins text-xl">Seller Dashboard</h3>
-          <p class="text-white/90 text-sm">Manage your Stripe connection and listings.</p>
-        </div>
-        <button id="openAddFromDash" class="rounded-xl bg-white/20 text-white font-semibold px-4 py-2 hover:bg-white/30">+ Add Listing</button>
-      </div>
-
-      <!-- Scrollable body -->
-      <div class="flex-1 overflow-y-auto p-5 grid grid-cols-1 md:grid-cols-3 gap-4">
-        <!-- keep your dashboard sections exactly as-is here -->
-        <!-- Seller Identity, Stripe card, My Listings, Orders, Escrow tool, Close btn -->
-        <!-- BEGIN your existing blocks -->
-        <!-- Seller Identity -->
-        <div class="md:col-span-3 rounded-2xl border border-gray-200 p-4">
-          <label class="text-sm text-gray-600">Seller Email (for your listings)</label>
-          <div class="mt-1 flex gap-2">
-            <input id="sellerEmailInput" placeholder="you@example.com"
-                   class="flex-1 rounded-xl bg-white px-4 py-3 ring-1 ring-gray-200 focus:ring-sky-300 outline-none" />
-            <button id="saveSellerEmail" class="rounded-xl bg-gray-900 text-white px-4">Save</button>
-          </div>
-          <p class="text-xs text-gray-500 mt-1">We match your listings by this email (no buyer account required).</p>
-        </div>
-
-        <!-- Stripe Connect Card -->
-        <div class="md:col-span-3 rounded-2xl border border-gray-200 p-4">
-          <div class="flex items-center justify-between">
+    <section id="sellerDash" class="fixed inset-0 z-50 hidden">
+      <div class="absolute inset-0 bg-black/40"></div>
+      <div class="absolute inset-0 flex items-end sm:items-center justify-center p-3">
+        <div class="w-full sm:w-[920px] bg-white rounded-3xl shadow-2xl flex flex-col max-h-[85dvh]">
+          <div class="gradient-brand p-5 text-white flex items-center justify-between">
             <div>
-              <div class="text-sm text-gray-600">Stripe Status</div>
-              <div id="stripeStatus" class="text-base font-semibold">Not connected</div>
-              <div id="stripeAcct" class="text-xs text-gray-500"></div>
+              <h3 class="font-poppins text-xl">Seller Dashboard</h3>
+              <p class="text-white/90 text-sm">Manage your Stripe connection and listings.</p>
             </div>
-            <div class="flex gap-2">
-              <button id="connectStripe" class="rounded-xl bg-indigo-600 text-white px-4 py-2">Connect Stripe</button>
-              <button id="reconnectStripe" class="rounded-xl bg-indigo-50 text-indigo-700 px-4 py-2 ring-1 ring-indigo-200 hidden">Reconnect</button>
+            <button id="openAddFromDash" class="rounded-xl bg-white/20 text-white font-semibold px-4 py-2 hover:bg-white/30">+ Add Listing</button>
+          </div>
+
+          <div class="flex-1 overflow-y-auto p-5 grid grid-cols-1 md:grid-cols-3 gap-4">
+            <!-- Seller Identity -->
+            <div class="md:col-span-3 rounded-2xl border border-gray-200 p-4">
+              <label class="text-sm text-gray-600">Seller Email (for your listings)</label>
+              <div class="mt-1 flex gap-2">
+                <input id="sellerEmailInput" placeholder="you@example.com"
+                       class="flex-1 rounded-xl bg-white px-4 py-3 ring-1 ring-gray-200 focus:ring-sky-300 outline-none" />
+                <button id="saveSellerEmail" class="rounded-xl bg-gray-900 text-white px-4">Save</button>
+              </div>
+              <p class="text-xs text-gray-500 mt-1">We match your listings by this email (no buyer account required).</p>
             </div>
-          </div>
-        </div>
 
-        <!-- My Listings -->
-        <div class="md:col-span-3 rounded-2xl border border-gray-200 p-4">
-          <div class="flex items-center justify-between">
-            <h4 class="font-poppins text-lg">My Listings</h4>
-            <button id="refreshListings" class="rounded-xl bg-gray-100 px-3 py-2 hover:bg-gray-200">Refresh</button>
-          </div>
-          <div id="myListings" class="mt-3 grid sm:grid-cols-2 lg:grid-cols-3 gap-4"></div>
-          <div id="noListings" class="hidden text-sm text-gray-500 mt-2">No listings found for this email.</div>
-        </div>
-
-        <!-- Orders (this device) -->
-        <div class="md:col-span-3 rounded-2xl border border-gray-200 p-4">
-          <div class="flex items-center justify-between">
-            <h4 class="font-poppins text-lg">Orders (this device)</h4>
-            <button id="refreshOrders" class="rounded-XL bg-gray-100 px-3 py-2 hover:bg-gray-200">Refresh</button>
-          </div>
-          <p class="text-xs text-gray-500 mt-1">These Checkout Sessions were saved on this device after a successful redirect.</p>
-          <div id="myOrders" class="mt-3 grid sm:grid-cols-2 lg:grid-cols-3 gap-4"></div>
-          <div id="noOrders" class="hidden text-sm text-gray-500 mt-2">No orders saved yet.</div>
-        </div>
-
-        <!-- Escrow status tool -->
-        <div class="md:col-span-3 rounded-2xl border border-gray-200 p-4">
-          <h4 class="font-poppins text-lg">Check an Order (optional)</h4>
-          <p class="text-xs text-gray-500">Paste a Stripe Checkout Session ID to see escrow status.</p>
-          <div class="mt-2 flex gap-2">
-            <input id="sidInput" placeholder="cs_live_..." class="flex-1 rounded-xl bg-white px-4 py-3 ring-1 ring-gray-200 focus:ring-sky-300 outline-none" />
-            <button id="checkSid" class="rounded-xl bg-gray-900 text-white px-4">Check</button>
-            <button id="copySid" class="rounded-xl bg-white ring-1 ring-gray-200 px-3 py-2 disabled:opacity-50" disabled>Copy SID</button>
-            <button id="markSentBtn" class="rounded-xl bg-emerald-600 text-white px-4 py-2 disabled:opacity-50" disabled>Mark Ticket as Sent</button>
-          </div>
-          <pre id="sidResult" class="mt-2 text-xs bg-gray-50 p-2 rounded-xl overflow-auto"></pre>
-        </div>
-
-        <div class="md:col-span-3 flex justify-end gap-2">
-          <button id="closeSeller" class="px-4 py-2 rounded-xl bg-gray-100 hover:bg-gray-200">Close</button>
-        </div>
-        <!-- END your existing blocks -->
-      </div>
-    </div>
-  </div>
-</section>
-
-  <!-- ===== Single, clean app script ===== -->
-  <script>
-    /* ===========================
-       CONFIG (frontend) + globals
-       =========================== */
-    const {
-      STRIPE_PK,
-      FORMSPREE = "https://formspree.io/f/mvgqedqo",
-      EMAILJS_PUBLIC = "",
-      EMAILJS_SERVICE = "",
-      EMAILJS_TPL_BUYER = "",
-      EMAILJS_TPL_SELLER = "",
-      EMAILJS_TPL_LOGIN = "",
-      ESCROW_HOURS = 72
-    } = (window.APP_CONFIG || {});
-
-    const ORIGIN = (window.APP_CONFIG?.API_BASE || window.location.origin).replace(/\/+$/, "");
-    if (!STRIPE_PK) console.warn("⚠️ Missing STRIPE_PK in config.js (Production must use pk_live_...)");
-    let stripe = Stripe(STRIPE_PK);
-
-    /* ===========================
-       PWA install + Service Worker
-       =========================== */
-    if ("serviceWorker" in navigator) {
-      window.addEventListener("load", () => {
-        navigator.serviceWorker.register("./service-worker.js").catch(()=>{});
-      });
-    }
-    let deferredPrompt=null;
-    window.addEventListener("beforeinstallprompt",(e)=>{
-      e.preventDefault(); deferredPrompt=e;
-      const btn = document.getElementById("installBtn"); if(btn) btn.classList.remove("hidden");
-    });
-    document.getElementById("installBtn")?.addEventListener("click", async ()=>{
-      if(!deferredPrompt) return; deferredPrompt.prompt();
-      await deferredPrompt.userChoice; deferredPrompt=null;
-      const btn = document.getElementById("installBtn"); if(btn) btn.classList.add("hidden");
-    });
-
-    /* ===========================
-       Storage + Helpers
-       =========================== */
-    const KEY = "fep_listings_v1";
-    function load(){ try{ return JSON.parse(localStorage.getItem(KEY) || "[]") }catch{ return [] } }
-    function save(list){ localStorage.setItem(KEY, JSON.stringify(list)) }
-    const money = n => "$"+Number(n).toFixed(0);
-    const money2 = n => "$"+(isFinite(n)? Number(n).toFixed(2) : "0.00");
-    const capFor = face => Math.round(Number(face)*1.15);
-    const withinCap = (face, price) => Number(price) <= capFor(face) + 0.0001;
-    const hoursMs = h => h*60*60*1000;
-    const token = () => Math.random().toString(36).slice(2)+Math.random().toString(36).slice(2);
-    const esc = s => String(s ?? "").replace(/[&<>"'`=\/]/g, c => ({'&':'&amp;','<':'&lt;','>':'&#x3E;','"':'&quot;',"'":'&#39;','/':'&#x2F;','`':'&#x60;','=':'&#x3D;'}[c]));
-
-    /* ✅ Added helpers */
-    function loggedInSellerEmail() {
-      return (localStorage.getItem("fep_seller_email") || "").toLowerCase();
-    }
-    function openEditListing(id){
-      const list = load();
-      const it = list.find(x => x.id === id);
-      if (!it) return alert("Listing not found.");
-      if ((it.sellerEmail || "").toLowerCase() !== loggedInSellerEmail()) {
-        return alert("You can only edit your own listings.");
-      }
-      fillEditForm(it);
-      openEditModal();
-    }
-
-    /* Fees */
-    const BUYER_SERVICE_FEE = 3.50;
-    const SELLER_FEE_PCT    = 0.05;
-    const SELLER_FEE_FLAT   = 0.75;
-    const calcPlatformFee = (price)=> Math.max(0, (Number(price)||0)*SELLER_FEE_PCT + SELLER_FEE_FLAT);
-    const calcPayoutPerTicket = (price)=> Math.max(0, (Number(price)||0) - calcPlatformFee(price));
-
-    /* ===========================
-       🔁 Listings: Remote Sync + Upsert (REPLACED)
-       =========================== */
-
-    // === minimal remote sync (robust to different API shapes) ===
-    async function syncFromServerIntoLocal() {
-      try {
-        const r = await fetch(`${ORIGIN}/api/listings`, { headers:{ "Cache-Control":"no-store" } });
-        const d = await r.json();
-
-        // Accept common shapes: array | {items:[...]} | {data:[...]}
-        const rows =
-          Array.isArray(d) ? d :
-          (Array.isArray(d?.items) ? d.items :
-           Array.isArray(d?.data)  ? d.data  : []);
-
-        if (rows.length) {
-          save(rows);                // reuse your local cache helper
-          applyFilters();            // reuse your existing render/filter
-        }
-      } catch (e) {
-        console.warn("sync failed:", e?.message || e);
-      }
-    }
-
-    // Try posting full listing first; if server expects minimal fields, fall back.
-    async function upsertListingRemote(listing) {
-      const url = `${ORIGIN}/api/listings`;
-
-      // Attempt 1: send full object (some backends accept/ignore extra fields)
-      let res = await fetch(url, {
-        method: "POST",
-        headers: { "Content-Type":"application/json" },
-        body: JSON.stringify(listing)
-      });
-
-      // If that fails, Attempt 2: send minimal fields expected by a simple REST proxy
-      if (!res.ok) {
-        const minimal = {
-          title: listing.title || `${listing.group || "Listing"}${listing.date ? ` – ${listing.date}` : ""}`,
-          price: Number(listing.price),
-          qty:   Number(listing.qty),
-          seller_email: (listing.sellerEmail || listing.seller_email || "").toLowerCase()
-        };
-        res = await fetch(url, {
-          method: "POST",
-          headers: { "Content-Type":"application/json" },
-          body: JSON.stringify(minimal)
-        });
-      }
-
-      // Parse but don’t enforce a specific shape
-      let data = null;
-      try { data = await res.json(); } catch {}
-      if (!res.ok) {
-        throw new Error((data && (data.error || JSON.stringify(data))) || `Remote upsert failed (${res.status})`);
-      }
-      return data;
-    }
-
-    /* ===========================
-       Formspree (attachment) with Resend fallback
-       =========================== */
-    async function sendProofViaFormspree(listing, proofFile){
-      const fd = new FormData();
-      fd.append("_subject", "FEP: Listing Proof (update)");
-      fd.append("message",
-        `Listing updated with proof:\n\n`+
-        `Group: ${listing.group}\n`+
-        `Date & Venue: ${listing.date}\n`+
-        `City: ${listing.city}\n`+
-        `Seat: ${listing.seat}\n`+
-        `Face: $${listing.face}\n`+
-        `Price: $${listing.price}\n`+
-        `Qty: ${listing.qty}\n`+
-        `Seller: ${listing.seller} <${listing.sellerEmail}> (${listing.sellerPhone})`
-      );
-      if (listing.sellerEmail) fd.append("_replyto", listing.sellerEmail);
-      if (proofFile) fd.append("attachment", proofFile);
-
-      // structured fields
-      fd.append("listingId", listing.id || "");
-      fd.append("group", listing.group || "");
-      fd.append("date", listing.date || "");
-      fd.append("city", listing.city || "");
-      fd.append("seat", listing.seat || "");
-      fd.append("face", String(listing.face ?? ""));
-      fd.append("price", String(listing.price ?? ""));
-      fd.append("qty", String(listing.qty ?? ""));
-      fd.append("seller", listing.seller || "");
-      fd.append("sellerEmail", listing.sellerEmail || "");
-      fd.append("sellerPhone", listing.sellerPhone || "");
-
-      try {
-        const res = await fetch(FORMSPREE, { method: "POST", headers: { "Accept":"application/json" }, body: fd });
-        const data = await res.json().catch(() => ({}));
-        if (res.ok && !data?.error && !((data?.errors || []).length)) return true;
-        throw new Error(data?.error || (data?.errors||[]).map(e=>e.message).join(", ") || res.statusText);
-      } catch (e) {
-        console.warn("Formspree failed, using fallback:", e.message);
-        const ORIGIN2 = (window.APP_CONFIG?.API_BASE || window.location.origin).replace(/\/+$/,'');
-        try {
-          const r = await fetch(`${ORIGIN2}/api/proof-fallback`, { method: "POST", body: fd });
-          if (!r.ok) throw new Error(await r.text().catch(()=> "") || r.statusText);
-          return true;
-        } catch (e2) {
-          console.error("Fallback also failed:", e2);
-          alert("Could not send proof update. Please email support with your screenshot.");
-          return false;
-        }
-      }
-    }
-
-    /* ===========================
-   Email notifications / Login code (robust loader)
-   =========================== */
-let _emailjsReady = null;
-
-function whenEmailJSReady(timeoutMs = 8000) {
-  if (_emailjsReady) return _emailjsReady;
-  _emailjsReady = new Promise((resolve, reject) => {
-    const t0 = Date.now();
-    (function poll() {
-      if (window.emailjs && EMAILJS_PUBLIC) {
-        try {
-          if (!window.__fep_emailjs_inited) {
-            emailjs.init(EMAILJS_PUBLIC);
-            window.__fep_emailjs_inited = true;
-          }
-          return resolve(true);
-        } catch (e) { return reject(e); }
-      }
-      if (Date.now() - t0 > timeoutMs) {
-        return reject(new Error("EmailJS SDK not loaded (timeout)"));
-      }
-      setTimeout(poll, 50);
-    })();
-  });
-  return _emailjsReady;
-}
-
-// Send the 6-digit login code using your LOGIN template
-async function sendLoginCodeEmail(email, code) {
-  if (!EMAILJS_SERVICE) throw new Error("EMAILJS_SERVICE not set");
-  if (!EMAILJS_TPL_LOGIN) throw new Error("EMAILJS_TPL_LOGIN not set");
-  await whenEmailJSReady();
-
-  // These MUST match your EmailJS template variables exactly (e.g., {{to_email}} and {{code}})
-  const params = {
-    to_email: email,
-    code
-  };
-  return emailjs.send(EMAILJS_SERVICE, EMAILJS_TPL_LOGIN, params);
-}
-
-   /* ===========================
-   Render Listings (escaped)
-=========================== */
-const elListings = document.getElementById("listings"), elEmpty = document.getElementById("emptyState");
-function render(list = load()){
-  elListings.textContent = "";
-  if (!list.length) { elEmpty?.classList.remove("hidden"); return; }
-  elEmpty?.classList.add("hidden");
-
-  for (const it of list) {
-    const ok = withinCap(it.face, it.price);
-    const cap = capFor(it.face);
-    const remaining = (it.remaining ?? it.qty);
-    const card = document.createElement("article");
-    card.className = "rounded-3xl border border-gray-200 p-4 bg-white shadow-sm hover:shadow-md transition-shadow";
-
-    card.innerHTML = `
-      <div class="flex items-start justify-between gap-3">
-        <div>
-          <h3 class="font-poppins text-lg">${esc(it.group)}</h3>
-          <p class="text-xs text-gray-500 mt-0.5">${esc(it.city ? `${it.date} • ${it.city}` : it.date)}</p>
-          <p class="text-xs text-gray-600 mt-1">${esc(it.seat||"")}</p>
-          <div class="mt-2 flex items-center gap-2">
-            <span class="chip inline-flex items-center gap-1 bg-gray-100 px-2 py-1 rounded-full">Face: ${money(it.face)}</span>
-            <span class="chip inline-flex items-center gap-1 bg-gray-100 px-2 py-1 rounded-full">Cap: ${money(cap)}</span>
-            <span class="chip inline-flex items-center gap-1 ${remaining>0?"bg-emerald-100":"bg-gray-200"} px-2 py-1 rounded-full">Available: ${remaining}/${it.qty}</span>
-          </div>
-        </div>
-      </div>
-
-      <div class="flex items-center justify-between mt-3">
-        <div>
-          <div class="text-xl font-poppins ${ok?"text-gray-900":"text-rose-600"}">${money(it.price)}</div>
-          <!-- Qty selector -->
-          <div class="mt-1 flex items-center gap-2">
-            <label class="text-xs text-gray-600">Qty</label>
-            <input
-              type="number"
-              step="1"
-              min="1"
-              max="${remaining}"
-              value="1"
-              data-qty="${esc(it.id)}"
-              class="w-16 rounded-lg ring-1 ring-gray-200 px-2 py-1"
-              ${ remaining > 0 ? "" : "disabled" }
-            />
-          </div>
-        </div>
-        <button data-buy="${esc(it.id)}" ${ remaining > 0 ? "" : "disabled" }
-          class="rounded-xl px-4 py-2 text-white ${ remaining > 0 ? "gradient-brand hover:opacity-90" : "bg-gray-400" }">
-          ${ remaining > 0 ? "Buy Safely" : "Sold Out" }
-        </button>
-      </div>
-
-      ${ ok ? "" : `<div class="mt-3 text-[11px] text-rose-600">⚠️ Price exceeds +15% cap.</div>` }
-      <div class="mt-2 text-[11px] text-gray-500">Funds held until transfer confirmed. Report issues to <a class="underline" href="mailto:support@fandomentrypass.com">support</a>.</div>
-    `;
-    elListings.appendChild(card);
-  }
-
-// Attach click handlers AFTER cards are in the DOM
-document.querySelectorAll("[data-buy]").forEach(btn=>{
-  btn.addEventListener("click", ()=>{
-    const id = btn.getAttribute("data-buy");
-    const card = btn.closest("article");
-    const qtyInput = card?.querySelector(`input[data-qty="${id}"]`);
-    const max = Number(qtyInput?.max || 1);
-
-    // Strict integer parsing (no blanks/NaN/decimals)
-    let qty = Number(qtyInput?.valueAsNumber);
-    if (!Number.isFinite(qty)) {
-      const raw = String(qtyInput?.value ?? "1").trim();
-      qty = /^\d+$/.test(raw) ? parseInt(raw, 10) : 1;
-    }
-    if (qty < 1) qty = 1;
-    if (qty > max) qty = max;
-
-    startBuy(id, qty);
-    });
-  });
-}
-async function startBuy(listingId, qty = 1){
-  const list = load();
-  const it = list.find(x => x.id === listingId);
-  if (!it) return;
-
-  const remaining = (it.remaining ?? it.qty);
-  if (remaining <= 0) { alert("Sorry, this listing is sold out."); return; }
-
-  // Clamp qty against available
-  qty = Math.max(1, Math.min(qty, remaining));
-  console.log("[FEP] startBuy selected qty =", qty);
-
-  const buyerEmail = prompt("Enter your email for updates (optional):") || "";
-  const sellerAccountId = it.sellerAccountId || localStorage.getItem("fep_connect_acct") || "";
-
-  if (!stripe || typeof stripe.redirectToCheckout !== "function") {
-    alert("Payments aren’t ready yet. Please try again later.");
-    return;
-  }
-// -------------------------------------------
-  // New debug + payload visibility section
-  // -------------------------------------------
-
-  // Build payload as numbers
-  const payload = {
-    listingId: it.id,
-    group: it.group, date: it.date, city: it.city, seat: it.seat,
-    face: it.face, price: it.price,
-    qty: Number(qty),  // ensure numeric (BUYER-SELECTED)
-    sellerEmail: it.sellerEmail, buyerEmail,
-    sellerAccountId
-  };
-
-  const url = `${ORIGIN}/api/create-checkout-session`;
-
-  try {
-    const res = await fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "Cache-Control": "no-store" },
-      cache: "no-store",
-      body: JSON.stringify(payload)
-    });
-    const data = await res.json().catch(()=> ({}));
-
-    if (!res.ok) {
-      alert(`Checkout error: ${data?.error || res.status}`);
-      return;
-    }
-
-    // Prefer server-provided URL; fallback to sessionId if needed
-    if (data?.url) {
-      window.location.href = data.url;
-      return;
-    }
-
-    // 🔔 Show exactly what we sent and what server used
-    alert(
-      `Creating session…\n\n` +
-      `Client sent qty: ${payload.qty}\n` +
-      `Server used qtyEcho: ${data?.qtyEcho}\n` +
-      `Line items: ${JSON.stringify(data?.lineItemsEcho || [], null, 2)}\n\n` +
-      `Next: Stripe Checkout`
-    );
-
-    if (data?.sessionId) {
-      await stripe.redirectToCheckout({ sessionId: data.sessionId });
-      return;
-    } else {
-      alert("No sessionId returned from server.");
-    }
-  } catch (e) {
-    alert(`Failed to create session.\n${e?.message || e}`);
-  }
-  // Fallback (demo auth) — deduct the correct amount locally
-  it.remaining = Math.max(0, (it.remaining ?? it.qty ?? 1) - qty);
-  it.orders = it.orders || [];
-  it.orders.push({
-    id: crypto.randomUUID(),
-    status: "authorized",
-    authorizedAt: Date.now(),
-    buyerEmail,
-    token: token(),
-    tokenExpiresAt: Date.now() + hoursMs(ESCROW_HOURS),
-    qty
-  });
-  save(list); render(list);
-  alert(`Payment authorized (demo). Reserved ${qty} ticket${qty>1?"s":""}. Funds auto-release in 72h unless buyer confirms received earlier.`);
-}
-    /* ===========================
-       Filters
-       =========================== */
-    function applyFilters(evt){
-      if(evt) evt.preventDefault();
-      const q = document.getElementById("q").value.trim().toLowerCase();
-      const city = document.getElementById("city").value.trim().toLowerCase();
-      const maxPrice = Number(document.getElementById("maxPrice").value || Infinity);
-      const list = load().filter(it=>{
-        const hay=(String(it.group)+" "+String(it.date)+" "+String(it.city||"")).toLowerCase();
-        const matchQ=!q || hay.includes(q);
-        const matchCity=!city || String(it.city||"").toLowerCase().includes(city);
-        const matchPrice=!isFinite(maxPrice) || Number(it.price) <= maxPrice;
-        return matchQ && matchCity && matchPrice;
-      });
-      render(list);
-    }
-    document.getElementById("filters")?.addEventListener("submit", applyFilters);
-    document.getElementById("clearFilters")?.addEventListener("click", ()=>{
-      document.getElementById("q").value=""; document.getElementById("city").value=""; document.getElementById("maxPrice").value="";
-      applyFilters();
-    });
-
-    /* ===========================
-       Modals & UI gating for sellers
-       =========================== */
-    const modal = document.getElementById("modal");
-    const openModal = ()=> modal?.classList.remove("hidden");
-    const closeModal = ()=> modal?.classList.add("hidden");
-    document.getElementById("openAdd")?.addEventListener("click", openModal);
-    document.getElementById("openAddFab")?.addEventListener("click", openModal);
-    document.getElementById("openAddFromDash")?.addEventListener("click", openModal);
-    document.getElementById("cancelAdd")?.addEventListener("click", closeModal);
-
-    const editModal = document.getElementById("editModal");
-    const openEditModal = ()=> editModal?.classList.remove("hidden");
-    const closeEditModal = ()=> editModal?.classList.add("hidden");
-    document.getElementById("cancelEdit")?.addEventListener("click", closeEditModal);
-
-    /* ===========================
-       Add Listing
-       =========================== */
-   function showSoftCapWarn(faceVal, priceVal, warnEl){
-  const cap = capFor(faceVal || 0);
-  const over = Number(priceVal||0) > cap + 0.0001;
-  if (warnEl) warnEl.classList.toggle("hidden", !over);
-}
-
-function updateSellerFeeUI(){
-  const face = Number(document.getElementById("faceInput")?.value || 0);
-  const price = Number(document.getElementById("priceInput")?.value || 0);
-  const feePer = calcPlatformFee(price);
-  const payoutPer = calcPayoutPerTicket(price);
-  const feePerEl = document.getElementById("feePerTicket");
-  const payoutPerEl = document.getElementById("payoutPerTicket");
-  if (feePerEl) feePerEl.textContent = money2(feePer);
-  if (payoutPerEl) payoutPerEl.textContent = money2(payoutPer);
-  // soft warning
-  showSoftCapWarn(face, price, document.getElementById("priceCapWarn"));
-}
-
-document.addEventListener("input", (e)=>{
-  if (e.target && (e.target.id==="priceInput" || e.target.id==="faceInput" || e.target.name==="qty")) updateSellerFeeUI();
-  if (e.target && (e.target.id==="editPriceInput" || e.target.id==="editFaceInput" || (e.target.form && e.target.form.id==="editForm" && e.target.name==="qty"))) {
-    updateEditFeeUI();
-    if (e.target.id === "editQtyInput") maybeShowQtyClampNote();
-  }
-});
-
-document.getElementById("addForm").addEventListener("submit", async (e)=>{
-  e.preventDefault();
-  const fd = new FormData(e.target);
-
-  const face = Number(fd.get("face"));
-  const price = Number(fd.get("price"));
-  const qty = Math.max(1, Number(fd.get("qty") || 1));
-  if (!withinCap(face, price)) return alert("This price exceeds the +15% cap. Please lower the price.");
-
-  const proofFile = fd.get("proof");
-  if (!proofFile || !proofFile.size) return alert("Proof of ticket is required. Please upload your proof image.");
-
-  const sellerEmailRaw = String(fd.get("sellerEmail") || "").trim();
-  const sellerPhone = String(fd.get("sellerPhone") || "").trim();
-  if (!sellerEmailRaw || !sellerPhone) return alert("Seller email and phone are required for notifications.");
-
-  const current = loggedInSellerEmail();
-  if (!current) return alert("Please log in as a seller first.");
-  if (sellerEmailRaw.toLowerCase() !== current) {
-    return alert("Seller email must match your logged-in seller account.");
-  }
-
-  const editToken = token();
-  const manageCode = editToken.slice(0,10).toUpperCase();
-  const sellerAccountId = localStorage.getItem("fep_connect_acct") || "";
-
-  const nowIso = new Date().toISOString();
-  const listing = {
-    id: crypto.randomUUID(),
-    group: String(fd.get("group") || "").trim(),
-    date: String(fd.get("date") || "").trim(),
-    city: String(fd.get("city") || "").trim(),
-    seat: String(fd.get("seat") || "").trim(),
-    face, price, qty,
-    remaining: qty,
-    pay: String(fd.get("pay") || "").trim(),
-    seller: String(fd.get("seller") || "Seller").trim(),
-    sellerEmail: sellerEmailRaw.toLowerCase(),
-    sellerPhone,
-    sellerAccountId,
-    editToken, manageCode,
-    createdAt: nowIso,
-    updatedAt: nowIso
-  };
-
-  // send proof (non-blocking failure is OK)
-  await sendProofViaFormspree(listing, proofFile).catch(()=>{});
-
-  // local save first (snappy UI)
-  const list = load(); list.unshift(listing); save(list);
-  applyFilters();            // ✅ show immediately on current device
-
-  try {
-    // write to server, then pull canonical copy back
-    await upsertListingRemote(listing);
-    await syncFromServerIntoLocal(); // ✅ keeps cross-device sync
-  } catch (e) {
-    console.warn("remote upsert failed:", e?.message || e);
-  }
-
-  closeModal();
-  e.target.reset();
-  window.scrollTo({ top: 0, behavior: "smooth" });
-  renderMyListings();
-    });
-
- /* ===========================
-   EDIT / DELETE (Seller Dashboard)
-   =========================== */
-function updateEditFeeUI(){
-  const form = document.getElementById("editForm");
-  if (!form) return;
-  const face = Number(form.face.value || 0);
-  const price = Number(form.price.value || 0);
-  const feePer = calcPlatformFee(price);
-  const payoutPer = calcPayoutPerTicket(price);
-  const feePerEl = document.getElementById("editFeePerTicket");
-  const payoutPerEl = document.getElementById("editPayoutPerTicket");
-  if (feePerEl) feePerEl.textContent = money2(feePer);
-  if (payoutPerEl) payoutPerEl.textContent = money2(payoutPer);
-  // soft warning
-  showSoftCapWarn(face, price, document.getElementById("editPriceCapWarn"));
-}
-
-// When seller reduces Qty, warn we will clamp remaining
-function maybeShowQtyClampNote(){
-  const note = document.getElementById("qtyClampNote");
-  const form = document.getElementById("editForm");
-  if (!note || !form) return;
-  const newQty = Number(form.qty.value || 1);
-  const id = form.id.value;
-  const prev = (load() || []).find(x => x.id === id);
-  if (!prev) { note.classList.add("hidden"); return; }
-  const remaining = prev.remaining ?? prev.qty ?? newQty;
-  // Show note if remaining > newQty (will be clamped)
-  note.classList.toggle("hidden", !(remaining > newQty));
-}
-
-function fillEditForm(it){
-  const f = document.getElementById("editForm");
-  f.id.value = it.id;
-  f.group.value = it.group || "";
-  f.qty.value = it.qty || 1;
-  f.date.value = it.date || "";
-  f.city.value = it.city || "";
-  f.seat.value = it.seat || "";
-  f.face.value = it.face || 0;
-  f.price.value = it.price || 0;
-  f.pay.value = it.pay || "";
-  f.seller.value = it.seller || "Seller";
-  f.sellerPhone.value = it.sellerPhone || "";
-  f.sellerEmail.value = (it.sellerEmail || "").toLowerCase();
-  f.proof.value = ""; // reset file input
-  updateEditFeeUI();
-  maybeShowQtyClampNote();
-}
-
-function openEdit(id){
-  const it = (load() || []).find(x => x.id === id);
-  if(!it) return alert("Listing not found.");
-  fillEditForm(it);
-  openEditModal();
-}
-
-function deleteListing(id){
-  if(!confirm("Delete this listing? This cannot be undone.")) return;
-  const list = load().filter(x => x.id !== id);
-  save(list);
-  applyFilters();
-  renderMyListings();
-  // (Optional) add a remote delete endpoint later to mirror this server-side
-}
-
-document.getElementById("editForm").addEventListener("submit", async (e)=>{
-  e.preventDefault();
-  const fd = new FormData(e.target);
-  const id = fd.get("id");
-  let list = load();
-  const idx = list.findIndex(x => x.id === id);
-  if (idx < 0) { alert("Listing not found."); return; }
-
-  // build updated listing
-  const face  = Number(fd.get("face"));
-  const price = Number(fd.get("price"));
-  const qty   = Math.max(1, Number(fd.get("qty") || 1));
-  if (!withinCap(face,price)) return alert("This price exceeds the +15% cap. Please lower the price.");
-
-  const prev = list[idx];
-  // Clamp remaining to the new qty, but don’t drop below 0
-  const prevRemaining = (prev.remaining ?? prev.qty ?? qty);
-  const remaining = Math.max(0, Math.min(qty, prevRemaining));
-
-  const updated = {
-    ...prev,
-    group: String(fd.get("group")||"").trim(),
-    date:  String(fd.get("date") ||"").trim(),
-    city:  String(fd.get("city") ||"").trim(),
-    seat:  String(fd.get("seat") ||"").trim(),
-    face, price, qty, remaining,
-    pay:   String(fd.get("pay")    ||"").trim(),
-    seller:String(fd.get("seller") ||"Seller").trim(),
-    sellerEmail: String(fd.get("sellerEmail")||"").trim().toLowerCase(),
-    sellerPhone: String(fd.get("sellerPhone")||"").trim(),
-    updatedAt: new Date().toISOString()
-  };
-
-  // If a new proof is attached, send to admin (non-blocking if it fails)
-  const proofFile = fd.get("proof");
-  if (proofFile && proofFile.size) {
-    try { await sendProofViaFormspree(updated, proofFile); } catch {}
-  }
-
-  // Local save for snappy UI
-  list[idx] = updated;
-  save(list);
-  closeEditModal();
-
-  // Re-render locally
-  applyFilters();
-  renderMyListings();
-
-  // Sync to server, then pull canonical copy back
-  try {
-    await upsertListingRemote(updated);
-    await syncFromServerIntoLocal(); // calls save() + applyFilters()
-    alert("Listing updated.");
-  } catch (e) {
-    console.warn("remote upsert failed:", e?.message || e);
-    alert("Listing updated locally. It will sync when the server is reachable.");
-  }
-    });
-
-    /* ===========================
-       Buy → Backend (Stripe Checkout) with fallback sim
-       =========================== */
-    /*  (intentionally removed duplicate startBuy that forced qty:1)  */
-
-    /* ===========================
-       Auto-release + Privacy purge (demo)
-       =========================== */
-    const RETENTION_MS = 7*24*3600*1000;
-    function tick(){
-      const list=load(); let changed=false; const now=Date.now();
-      for(const it of list){
-        for(const o of (it.orders||[])){
-          if(o.status==="authorized" && o.tokenExpiresAt && now>o.tokenExpiresAt){
-            o.status="released"; o.releasedAt=Date.now(); changed=true;
-          }
-          if(o.releasedAt && now-o.releasedAt>RETENTION_MS && !o.purged){
-            delete o.buyerEmail; o.purged=true; changed=true;
-          }
-        }
-      }
-      if(changed) save(list);
-    }
-    setInterval(tick, 30000);
-    
-    /* ===========================
-       BUYER ESCROW BANNER
-       =========================== */
-    (async function escrowBanner() {
-      const params = new URLSearchParams(location.search);
-      const sid = params.get("sid");
-      const success = params.get("success");
-      if (!success || !sid) return;
-
-      try {
-        const resp = await fetch(`${ORIGIN}/api/session-status?sid=${encodeURIComponent(sid)}`, {
-          headers: { "Cache-Control": "no-store" }
-        });
-        const data = await resp.json();
-        if (!data?.ok) return;
-
-        // Save this SID locally for the dashboard Orders panel
-        addOrderSid(sid);
-
-        // Banner shell
-        const container = document.createElement("div");
-        container.className = "fixed bottom-0 inset-x-0 z-50 bg-emerald-50 border-t border-emerald-200 p-4";
-        container.innerHTML = `
-          <div class="max-w-4xl mx-auto flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-            <div>
-              <div class="font-semibold text-emerald-800">Payment authorized. Funds are in escrow.</div>
-              <div class="text-sm text-emerald-700">
-                Please confirm after you receive your ticket. Auto-capture in <span id="fepCountdown" class="font-semibold"></span>.
+            <!-- Stripe Connect Card -->
+            <div class="md:col-span-3 rounded-2xl border border-gray-200 p-4">
+              <div class="flex items-center justify-between">
+                <div>
+                  <div class="text-sm text-gray-600">Stripe Status</div>
+                  <div id="stripeStatus" class="text-base font-semibold">Not connected</div>
+                  <div id="stripeAcct" class="text-xs text-gray-500"></div>
+                </div>
+                <div class="flex gap-2">
+                  <button id="connectStripe" class="rounded-xl bg-indigo-600 text-white px-4 py-2">Connect Stripe</button>
+                  <button id="reconnectStripe" class="rounded-xl bg-indigo-50 text-indigo-700 px-4 py-2 ring-1 ring-indigo-200 hidden">Reconnect</button>
+                </div>
               </div>
             </div>
-            <div class="flex gap-2">
-              <button id="fepConfirm" class="px-4 py-2 rounded-xl bg-emerald-600 text-white">Confirm received</button>
-              <button id="fepIssue"   class="px-4 py-2 rounded-xl bg-rose-600 text-white">Cancel order</button>
+
+            <!-- My Listings -->
+            <div class="md:col-span-3 rounded-2xl border border-gray-200 p-4">
+              <div class="flex items-center justify-between">
+                <h4 class="font-poppins text-lg">My Listings</h4>
+                <button id="refreshListings" class="rounded-xl bg-gray-100 px-3 py-2 hover:bg-gray-200">Refresh</button>
+              </div>
+              <div id="myListings" class="mt-3 grid sm:grid-cols-2 lg:grid-cols-3 gap-4"></div>
+              <div id="noListings" class="hidden text-sm text-gray-500 mt-2">No listings found for this email.</div>
+            </div>
+
+            <!-- Orders (this device) -->
+            <div class="md:col-span-3 rounded-2xl border border-gray-200 p-4">
+              <div class="flex items-center justify-between">
+                <h4 class="font-poppins text-lg">Orders (this device)</h4>
+                <button id="refreshOrders" class="rounded-XL bg-gray-100 px-3 py-2 hover:bg-gray-200">Refresh</button>
+              </div>
+              <p class="text-xs text-gray-500 mt-1">These Checkout Sessions were saved on this device after a successful redirect.</p>
+              <div id="myOrders" class="mt-3 grid sm:grid-cols-2 lg:grid-cols-3 gap-4"></div>
+              <div id="noOrders" class="hidden text-sm text-gray-500 mt-2">No orders saved yet.</div>
+            </div>
+
+            <!-- Escrow status tool -->
+            <div class="md:col-span-3 rounded-2xl border border-gray-200 p-4">
+              <h4 class="font-poppins text-lg">Check an Order (optional)</h4>
+              <p class="text-xs text-gray-500">Paste a Stripe Checkout Session ID to see escrow status.</p>
+              <div class="mt-2 flex gap-2">
+                <input id="sidInput" placeholder="cs_live_..." class="flex-1 rounded-xl bg-white px-4 py-3 ring-1 ring-gray-200 focus:ring-sky-300 outline-none" />
+                <button id="checkSid" class="rounded-xl bg-gray-900 text-white px-4">Check</button>
+                <button id="copySid" class="rounded-xl bg-white ring-1 ring-gray-200 px-3 py-2 disabled:opacity-50" disabled>Copy SID</button>
+                <button id="markSentBtn" class="rounded-xl bg-emerald-600 text-white px-4 py-2 disabled:opacity-50" disabled>Mark Ticket as Sent</button>
+              </div>
+              <pre id="sidResult" class="mt-2 text-xs bg-gray-50 p-2 rounded-xl overflow-auto"></pre>
+            </div>
+
+            <div class="md:col-span-3 flex justify-end gap-2">
+              <button id="closeSeller" class="px-4 py-2 rounded-xl bg-gray-100 hover:bg-gray-200">Close</button>
             </div>
           </div>
-        `;
-        document.body.appendChild(container);
+        </div>
+      </div>
+    </section>
 
-        // Countdown
-        const elCountdown = container.querySelector("#fepCountdown");
-        function tickDown() {
-          const now = Math.floor(Date.now() / 1000);
-          const remain = Math.max(0, (data.deadline || 0) - now);
-          const h = Math.floor(remain / 3600);
-          const m = Math.floor((remain % 3600) / 60);
-          const s = remain % 60;
-          elCountdown.textContent = `${h.toString().padStart(2,"0")}:${m.toString().padStart(2,"0")}:${s.toString().padStart(2,"0")}`;
-        }
-        tickDown();
-        const t = setInterval(tickDown, 1000);
+    <!-- ===== Single, clean app script ===== -->
+    <script>
+      /* ===========================
+         CONFIG (frontend) + globals
+         =========================== */
+      const {
+        STRIPE_PK,
+        FORMSPREE = "https://formspree.io/f/mvgqedqo",
+        EMAILJS_PUBLIC = "",
+        EMAILJS_SERVICE = "",
+        EMAILJS_TPL_BUYER = "",
+        EMAILJS_TPL_SELLER = "",
+        EMAILJS_TPL_LOGIN = "",
+        ESCROW_HOURS = 72
+      } = (window.APP_CONFIG || {});
 
-        // Confirm received → capture
-        container.querySelector("#fepConfirm").onclick = async () => {
-          try {
-            const r = await fetch(`${ORIGIN}/api/confirm-received`, {
-              method: "POST",
-              headers: { "Content-Type":"application/json" },
-              body: JSON.stringify({ sessionId: sid })
-            });
-            if (!r.ok) throw new Error(await r.text().catch(()=> r.statusText));
-            alert("Thanks! Payment captured.");
-            location.href = "/";
-          } catch (e) {
-            alert(`Capture failed. Please contact support.\n${e?.message || e}`);
-          }
-        };
+      const ORIGIN = (window.APP_CONFIG?.API_BASE || window.location.origin).replace(/\/+$/, "");
+      if (!STRIPE_PK) console.warn("⚠️ Missing STRIPE_PK in config.js (Production must use pk_live_...)");
+      let stripe = Stripe(STRIPE_PK);
 
-        // Cancel order → void authorization
-        container.querySelector("#fepIssue").onclick = async () => {
-          try {
-            const r = await fetch(`${ORIGIN}/api/cancel-order`, {
-              method: "POST",
-              headers: { "Content-Type":"application/json" },
-              body: JSON.stringify({ sessionId: sid })
-            });
-            if (!r.ok) throw new Error(await r.text().catch(()=> r.statusText));
-            alert("Order canceled. Authorization voided.");
-            location.href = "/";
-          } catch (e) {
-            alert(`Could not cancel. Please contact support.\n${e?.message || e}`);
-          }
-        };
-      } catch (e) {
-        console.warn("Escrow banner failed:", e);
+      /* ===========================
+         PWA install + Service Worker
+         =========================== */
+      if ("serviceWorker" in navigator) {
+        window.addEventListener("load", () => {
+          navigator.serviceWorker.register("./service-worker.js").catch(()=>{});
+        });
       }
-    })();
-
-    /* ========= SELLER LOGIN (email code) ========= */
-    const SELLER_PROFILE_KEY = "fep_seller_profile";   // { email, connectAccountId? }
-    const CODE_KEY = "fep_seller_code";
-    const CODE_EMAIL_KEY = "fep_seller_code_email";
-    const CODE_EXPIRES_KEY = "fep_seller_code_expires";
-
-    function getSellerProfile(){
-      try { return JSON.parse(localStorage.getItem(SELLER_PROFILE_KEY) || "null"); } catch { return null; }
-    }
-    function setSellerProfile(p){ localStorage.setItem(SELLER_PROFILE_KEY, JSON.stringify(p || null)); }
-
-    function genCode(){ return String(Math.floor(100000 + Math.random()*900000)); }
-    function storeCode(email, code){
-      sessionStorage.setItem(CODE_KEY, code);
-      sessionStorage.setItem(CODE_EMAIL_KEY, email);
-      sessionStorage.setItem(CODE_EXPIRES_KEY, String(Date.now()+10*60*1000)); // 10 min
-    }
-    function readCodeState(){
-      const code = sessionStorage.getItem(CODE_KEY);
-      const email = sessionStorage.getItem(CODE_EMAIL_KEY);
-      const exp = Number(sessionStorage.getItem(CODE_EXPIRES_KEY) || 0);
-      return { code, email, exp };
-    }
-
-    const sellerLoginModal = document.getElementById("sellerLoginModal");
-    const openSellerBtn = document.getElementById("openSeller");
-    const closeSellerLogin = document.getElementById("closeSellerLogin");
-    const sellerStepEmail = document.getElementById("sellerStepEmail");
-    const sellerStepCode = document.getElementById("sellerStepCode");
-    const sellerLoginEmail = document.getElementById("sellerLoginEmail");
-    const sendLoginCodeBtn = document.getElementById("sendLoginCodeBtn");
-    const sellerLoginCode = document.getElementById("sellerLoginCode");
-    const verifyLoginCodeBtn = document.getElementById("verifyLoginCodeBtn");
-
-    function openSellerLogin(){ sellerLoginModal?.classList.remove("hidden"); showLoginStep("email"); }
-    function closeSellerLoginModal(){ sellerLoginModal?.classList.add("hidden"); }
-    function showLoginStep(step){
-      sellerStepEmail.classList.toggle("hidden", step!=="email");
-      sellerStepCode.classList.toggle("hidden", step!=="code");
-    }
-
-    closeSellerLogin?.addEventListener("click", closeSellerLoginModal);
-
-    // Send code button
-    sendLoginCodeBtn?.addEventListener("click", async ()=>{
-      const email = (sellerLoginEmail?.value || "").trim();
-      if (!email) return alert("Enter your email");
-      const code = genCode();
-      storeCode(email, code);
-
-      const prev = sendLoginCodeBtn.textContent;
-      sendLoginCodeBtn.disabled = true;
-      sendLoginCodeBtn.textContent = "Sending…";
-
-      try {
-        await sendLoginCodeEmail(email, code);
-        sendLoginCodeBtn.textContent = "Sent!";
-        showLoginStep("code");
-        sellerLoginCode?.focus();
-      } catch (e) {
-        console.error("EmailJS send failed:", e);
-        const msg = String(e?.message || "");
-        if (msg.includes("SDK not loaded")) alert("Email service is still loading. Wait a moment and try again.");
-        else if (msg.includes("EMAILJS_SERVICE")) alert("Email service not configured (EMAILJS_SERVICE). Set it in config/env.");
-        else alert("Could not send code. Check EmailJS keys, template IDs, and allowed origins.");
-        sendLoginCodeBtn.textContent = prev;
-      } finally {
-        sendLoginCodeBtn.disabled = false;
-      }
-    });
-
-    verifyLoginCodeBtn?.addEventListener("click", ()=>{
-      const entered = (sellerLoginCode?.value || "").trim();
-      const { code, email, exp } = readCodeState();
-      if (!code || !email || !exp || Date.now() > exp) return alert("Code expired. Please request a new one.");
-      if (entered !== code) return alert("Incorrect code.");
-      const existing = getSellerProfile() || {};
-      const acct = localStorage.getItem("fep_connect_acct") || existing.connectAccountId || "";
-      /* 🔧 PATCH: mark as verified */
-      setSellerProfile({ email, connectAccountId: acct, isVerified: true });
-      localStorage.setItem("fep_seller_email", email);
-      sessionStorage.removeItem(CODE_KEY);
-      sessionStorage.removeItem(CODE_EMAIL_KEY);
-      sessionStorage.removeItem(CODE_EXPIRES_KEY);
-      closeSellerLoginModal();
-      openSellerDash();
-      toggleSellerUI();
-    });
-
-    /* ========= SELLER DASHBOARD LOGIC ========= */
-    const FEP_ACCT_KEY = "fep_connect_acct";
-    const FEP_SELLER_EMAIL_KEY = "fep_seller_email";
-
-    /* 🔧 PATCH: require verified login */
-    function isSellerLoggedIn(){
-      const p = getSellerProfile();
-      return !!(p && p.isVerified === true && p.email && p.email.includes("@"));
-    }
-
-    function toggleSellerUI(){
-      const loggedIn = isSellerLoggedIn();
-      ["openAdd","openAddFab"].forEach(id=>{
-        const el=document.getElementById(id);
-        if(el) el.classList.toggle("hidden", !loggedIn);
+      let deferredPrompt=null;
+      window.addEventListener("beforeinstallprompt",(e)=>{
+        e.preventDefault(); deferredPrompt=e;
+        const btn = document.getElementById("installBtn"); if(btn) btn.classList.remove("hidden");
       });
-    }
+      document.getElementById("installBtn")?.addEventListener("click", async ()=>{
+        if(!deferredPrompt) return; deferredPrompt.prompt();
+        await deferredPrompt.userChoice; deferredPrompt=null;
+        const btn = document.getElementById("installBtn"); if(btn) btn.classList.add("hidden");
+      });
 
-    function openSellerDash(){ document.getElementById("sellerDash").classList.remove("hidden"); loadSellerPanel(); }
-    function closeSellerDash(){ document.getElementById("sellerDash").classList.add("hidden"); }
+      /* ===========================
+         Storage + Helpers
+         =========================== */
+      const KEY = "fep_listings_v1";
+      function load(){ try{ return JSON.parse(localStorage.getItem(KEY) || "[]") }catch{ return [] } }
+      function save(list){ localStorage.setItem(KEY, JSON.stringify(list)) }
+      const money = n => "$"+Number(n).toFixed(0);
+      const money2 = n => "$"+(isFinite(n)? Number(n).toFixed(2) : "0.00");
+      const capFor = face => Math.round(Number(face)*1.15);
+      const withinCap = (face, price) => Number(price) <= capFor(face) + 0.0001;
+      const hoursMs = h => h*60*60*1000;
+      const token = () => Math.random().toString(36).slice(2)+Math.random().toString(36).slice(2);
+      const esc = s => String(s ?? "").replace(/[&<>"'`=\/]/g, c => ({'&':'&amp;','<':'&lt;','>':'&#x3E;','"':'&quot;',"'":'&#39;','/':'&#x2F;','`':'&#x60;','=':'&#x3D;'}[c]));
 
-    openSellerBtn?.addEventListener("click", ()=>{
-      if (!isSellerLoggedIn()) openSellerLogin(); else openSellerDash();
-    });
-    document.getElementById("closeSeller")?.addEventListener("click", closeSellerDash);
-
-    document.getElementById("saveSellerEmail")?.addEventListener("click", ()=>{
-      const email = document.getElementById("sellerEmailInput").value.trim();
-      if(!email) return alert("Enter a seller email.");
-      localStorage.setItem(FEP_SELLER_EMAIL_KEY, email);
-      const prof = getSellerProfile() || {};
-      /* 🔧 PATCH: preserve verification flag */
-      setSellerProfile({ email, connectAccountId: prof.connectAccountId || localStorage.getItem(FEP_ACCT_KEY) || "", isVerified: prof.isVerified === true });
-      renderMyListings();
-      toggleSellerUI();
-      alert("Saved.");
-    });
-
-    async function connectOrReconnectStripe(){
-      // Pull a valid seller email first
-      const prof = (function(){ try { return JSON.parse(localStorage.getItem("fep_seller_profile") || "null"); } catch { return null; } })();
-      const inputEmail = (document.getElementById("sellerEmailInput")?.value || "").trim();
-      const sellerEmail = (localStorage.getItem("fep_seller_email") || prof?.email || inputEmail || "").trim();
-      if (!sellerEmail || !sellerEmail.includes("@")) {
-        alert("Save your seller email first (in Seller Dashboard) and try again.");
-        return;
+      /* ✅ Added helpers */
+      function loggedInSellerEmail() {
+        return (localStorage.getItem("fep_seller_email") || "").toLowerCase();
+      }
+      function openEditListing(id){
+        const list = load();
+        const it = list.find(x => x.id === id);
+        if (!it) return alert("Listing not found.");
+        if ((it.sellerEmail || "").toLowerCase() !== loggedInSellerEmail()) {
+          return alert("You can only edit your own listings.");
+        }
+        fillEditForm(it);
+        openEditModal();
       }
 
-      const accountId = localStorage.getItem("fep_connect_acct") || prof?.connectAccountId || "";
-      const sellerName = "";
+      /* Fees */
+      const BUYER_SERVICE_FEE = 3.50;
+      const SELLER_FEE_PCT    = 0.05;
+      const SELLER_FEE_FLAT   = 0.75;
+      const calcPlatformFee = (price)=> Math.max(0, (Number(price)||0)*SELLER_FEE_PCT + SELLER_FEE_FLAT);
+      const calcPayoutPerTicket = (price)=> Math.max(0, (Number(price)||0) - calcPlatformFee(price));
 
-      const btn = document.getElementById("connectStripe") || document.getElementById("reconnectStripe");
-      const prevText = btn ? btn.textContent : "";
-      if (btn) { btn.disabled = true; btn.textContent = "Connecting…"; }
+      /* ===========================
+         🔁 Listings: Remote Sync + Upsert (REPLACED)
+         =========================== */
+      async function syncFromServerIntoLocal() {
+        try {
+          const r = await fetch(`${ORIGIN}/api/listings`, { headers:{ "Cache-Control":"no-store" } });
+          const d = await r.json();
 
-      // Build endpoints
-      const postUrl = `${ORIGIN}/api/connect/create-link`;
-      // IMPORTANT: backend expects ?account= (not accountId)
-      const qs = new URLSearchParams({
-        sellerEmail,
-        sellerName,
-        account: accountId || ""
-      }).toString();
-      const getUrl  = `${ORIGIN}/api/connect/create-link?${qs}`;
+          const rows =
+            Array.isArray(d) ? d :
+            (Array.isArray(d?.items) ? d.items :
+             Array.isArray(d?.data)  ? d.data  : []);
 
-      async function handleResponse(res, method, url){
-        const text = await res.text();
-        let data = {};
-        try { data = text ? JSON.parse(text) : {}; } catch {}
+          if (rows.length) {
+            save(rows);
+            applyFilters();
+          }
+        } catch (e) {
+          console.warn("sync failed:", e?.message || e);
+        }
+      }
+
+      async function upsertListingRemote(listing) {
+        const url = `${ORIGIN}/api/listings`;
+
+        let res = await fetch(url, {
+          method: "POST",
+          headers: { "Content-Type":"application/json" },
+          body: JSON.stringify(listing)
+        });
 
         if (!res.ok) {
-          // Retry GET if POST not allowed / missing
-          if (method === "POST" && (res.status === 405 || res.status === 404)) {
-            const res2 = await fetch(getUrl, { method: "GET" });
-            return handleResponse(res2, "GET", getUrl);
-          }
-          alert(
-            `Could not start Stripe onboarding.\n\n` +
-            `Status: ${res.status}\nMethod: ${method}\nURL: ${url}\n\n` +
-            (data?.error || text || "No message returned.") +
-            (method === "GET" && !accountId
-              ? `\n\nNote: Your server’s GET route requires an ?account=... param. ` +
-                `There is no saved account yet on this device. Connect once to store it, or update the backend to create an account when missing.`
-              : "")
-          );
-          return;
+          const minimal = {
+            title: listing.title || `${listing.group || "Listing"}${listing.date ? ` – ${listing.date}` : ""}`,
+            price: Number(listing.price),
+            qty:   Number(listing.qty),
+            seller_email: (listing.sellerEmail || listing.seller_email || "").toLowerCase()
+          };
+          res = await fetch(url, {
+            method: "POST",
+            headers: { "Content-Type":"application/json" },
+            body: JSON.stringify(minimal)
+          });
         }
 
-        if (data.accountId) {
-          localStorage.setItem("fep_connect_acct", data.accountId);
-          localStorage.setItem("fep_seller_profile", JSON.stringify({
-            email: sellerEmail,
-            connectAccountId: data.accountId
-          }));
+        let data = null;
+        try { data = await res.json(); } catch {}
+        if (!res.ok) {
+          throw new Error((data && (data.error || JSON.stringify(data))) || `Remote upsert failed (${res.status})`);
         }
-
-        const urlOut = data.url || data.onboardingLink || data.loginLink;
-        if (!urlOut) {
-          alert(`Server responded but did not include an onboarding URL.\nMethod: ${method}\nURL: ${url}`);
-          return;
-        }
-        location.href = urlOut;
+        return data;
       }
 
-      try {
-        // Primary attempt: POST (lets servers that create accounts on-demand work)
-        const res = await fetch(postUrl, {
-          method: "POST",
-          headers: { "Content-Type":"application/json" },
-          // include both keys for maximum compatibility
-          body: JSON.stringify({ sellerEmail, sellerName, accountId, account: accountId })
-        });
-        await handleResponse(res, "POST", postUrl);
-      } catch (e) {
-        alert(`Could not start Stripe onboarding.\n\n${e?.message || e}`);
-      } finally {
-        if (btn) { btn.disabled = false; btn.textContent = prevText; }
-      }
-    }
+      /* ===========================
+         Formspree (attachment) with Resend fallback
+         =========================== */
+      async function sendProofViaFormspree(listing, proofFile){
+        const fd = new FormData();
+        fd.append("_subject", "FEP: Listing Proof (update)");
+        fd.append("message",
+          `Listing updated with proof:\n\n`+
+          `Group: ${listing.group}\n`+
+          `Date & Venue: ${listing.date}\n`+
+          `City: ${listing.city}\n`+
+          `Seat: ${listing.seat}\n`+
+          `Face: $${listing.face}\n`+
+          `Price: $${listing.price}\n`+
+          `Qty: ${listing.qty}\n`+
+          `Seller: ${listing.seller} <${listing.sellerEmail}> (${listing.sellerPhone})`
+        );
+        if (listing.sellerEmail) fd.append("_replyto", listing.sellerEmail);
+        if (proofFile) fd.append("attachment", proofFile);
 
-    document.getElementById("connectStripe")?.addEventListener("click", connectOrReconnectStripe);
-    document.getElementById("reconnectStripe")?.addEventListener("click", connectOrReconnectStripe);
-    document.getElementById("refreshListings")?.addEventListener("click", renderMyListings);
+        fd.append("listingId", listing.id || "");
+        fd.append("group", listing.group || "");
+        fd.append("date", listing.date || "");
+        fd.append("city", listing.city || "");
+        fd.append("seat", listing.seat || "");
+        fd.append("face", String(listing.face ?? ""));
+        fd.append("price", String(listing.price ?? ""));
+        fd.append("qty", String(listing.qty ?? ""));
+        fd.append("seller", listing.seller || "");
+        fd.append("sellerEmail", listing.sellerEmail || "");
+        fd.append("sellerPhone", listing.sellerPhone || "");
 
-    function renderMyListings(){
-      const email = (localStorage.getItem("fep_seller_email") || "").toLowerCase();
-      document.getElementById("sellerEmailInput").value = email;
-      const my = (load() || []).filter(x => (x.sellerEmail||"").toLowerCase() === email);
-      const wrap = document.getElementById("myListings");
-      const empty = document.getElementById("noListings");
-      wrap.textContent = "";
-      if(!my.length){ empty.classList.remove("hidden"); return; }
-      empty.classList.add("hidden");
-      for(const it of my){
-        const feePer = calcPlatformFee(it.price);
-        const payoutPer = calcPayoutPerTicket(it.price);
-        const totalIfAllSell = payoutPer * (it.qty || 0);
-
-        const div = document.createElement("div");
-        div.className = "rounded-2xl border border-gray-200 p-3";
-        div.innerHTML = `
-          <div class="font-semibold">${esc(it.group)}</div>
-          <div class="text-xs text-gray-500">${esc(it.date)}${it.city?(" • "+esc(it.city)):""}</div>
-          <div class="text-xs text-gray-500 mt-1">${esc(it.seat||"")}</div>
-          <div class="mt-2 text-sm">Price: ${money(it.price)} • Qty: ${it.qty} • Avail: ${(it.remaining ?? it.qty)}</div>
-          <div class="text-[11px] text-gray-500">If all sell: ${money2(totalIfAllSell)} (excludes Stripe processing)</div>
-          <div class="mt-1 text-xs text-gray-700">
-            Platform fee: <span class="font-medium">${money2(feePer)}</span> / ticket •
-            Est. payout: <span class="font-medium">${money2(payoutPer)}</span> / ticket
-          </div>
-          <div class="mt-3 flex gap-2">
-            <button class="rounded-xl px-3 py-2 bg-gray-900 text-white" data-edit="${esc(it.id)}">Edit</button>
-            <button class="rounded-xl px-3 py-2 bg-white ring-1 ring-rose-200 text-rose-700 hover:bg-rose-50" data-del="${esc(it.id)}">Delete</button>
-          </div>
-        `;
-        wrap.appendChild(div);
-      }
-
-      // Hook up buttons
-      wrap.querySelectorAll("[data-edit]").forEach(btn=>{
-        btn.addEventListener("click", ()=> openEdit(btn.getAttribute("data-edit")));
-      });
-      wrap.querySelectorAll("[data-del]").forEach(btn=>{
-        btn.addEventListener("click", ()=> deleteListing(btn.getAttribute("data-del")));
-      });
-    }
-
-    async function loadStripeStatus(){
-      const acct = localStorage.getItem("fep_connect_acct") || "";
-      const elStatus = document.getElementById("stripeStatus");
-      const elAcct = document.getElementById("stripeAcct");
-      const btnReconnect = document.getElementById("reconnectStripe");
-      if(!acct){
-        elStatus.textContent = "Not connected";
-        elAcct.textContent = "";
-        btnReconnect.classList.add("hidden");
-        return;
-      }
-      const r = await fetch(`${ORIGIN}/api/connect/account-status?account=${encodeURIComponent(acct)}`);
-      const d = await r.json().catch(()=> ({}));
-      if(!r.ok || !d?.ok){
-        elStatus.textContent = "Unknown";
-        elAcct.textContent = `Account: ${acct}`;
-        btnReconnect.classList.remove("hidden");
-        return;
-      }
-      const ok = d.charges_enabled && d.payouts_enabled;
-      elStatus.textContent = ok ? "Connected" : "Needs info";
-      elAcct.textContent = `Account: ${d.account}`;
-      if (ok) btnReconnect.classList.add("hidden"); else btnReconnect.classList.remove("hidden");
-    }
-
-    async function checkSid(){
-      const sid = document.getElementById("sidInput").value.trim();
-      if(!sid) return;
-      const r = await fetch(`${ORIGIN}/api/session-status?sid=${encodeURIComponent(sid)}`);
-      const d = await r.json().catch(()=> ({}));
-      const out = document.getElementById("sidResult");
-      out.textContent = JSON.stringify(d, null, 2);
-
-      const copyBtn = document.getElementById("copySid");
-      if (copyBtn) {
-        copyBtn.disabled = !sid;
-        copyBtn.dataset.sid = sid || "";
-      }
-    }
-    document.getElementById("checkSid")?.addEventListener("click", checkSid);
-    document.getElementById("copySid")?.addEventListener("click", async (e)=>{
-      const sid = e.currentTarget?.dataset?.sid || document.getElementById("sidInput")?.value || "";
-      if (!sid) return;
-      try {
-        await navigator.clipboard.writeText(sid);
-        const btn = e.currentTarget;
-        const prev = btn.textContent;
-        btn.textContent = "Copied!";
-        setTimeout(()=> btn.textContent = prev, 1100);
-      } catch {
-        alert("Could not copy SID. Please copy manually.");
-      }
-    });
-
-    /* ✅ NEW: Enable/handle Mark Sent + Copy based on SID input */
-    (function wireSidInputEnablers() {
-      const sidInput = document.getElementById("sidInput");
-      const copyBtn = document.getElementById("copySid");
-      const markBtn = document.getElementById("markSentBtn");
-      if (!sidInput) return;
-      const sync = () => {
-        const sid = sidInput.value.trim();
-        const hasSid = !!sid;
-        if (copyBtn) { copyBtn.disabled = !hasSid; copyBtn.dataset.sid = hasSid ? sid : ""; }
-        if (markBtn) { markBtn.disabled = !hasSid; }
-      };
-      sidInput.addEventListener("input", sync);
-      sync();
-    })();
-
-    document.getElementById("markSentBtn")?.addEventListener("click", async () => {
-      const sid = document.getElementById("sidInput")?.value.trim();
-      if (!sid) return alert("Enter a Checkout Session ID first.");
-      try {
-        const r = await fetch(`${ORIGIN}/api/mark-sent`, {
-          method: "POST",
-          headers: { "Content-Type":"application/json" },
-          body: JSON.stringify({ sessionId: sid })
-        });
-        const d = await r.json().catch(()=> ({}));
-        if (!r.ok || !d?.ok) {
-          alert(d?.error || `Failed to mark as sent (HTTP ${r.status}).`);
-          return;
-        }
-        alert("✅ Ticket marked as sent. Buyer can no longer cancel.");
-        try { await checkSid(); } catch {}
-      } catch (e) {
-        alert(`Failed to mark as sent.\n${e?.message || e}`);
-      }
-    });
-
-    /* Local saved orders utilities */
-    const FEP_ORDERS_KEY = "fep_orders_v1"; // [{ sid, savedAt }]
-    function getOrders() { try { return JSON.parse(localStorage.getItem(FEP_ORDERS_KEY) || "[]"); } catch { return []; } }
-    function saveOrders(list) { localStorage.setItem(FEP_ORDERS_KEY, JSON.stringify(list || [])); }
-    function addOrderSid(sid) {
-      if (!sid) return;
-      const list = getOrders();
-      if (!list.find(o => o.sid === sid)) {
-        list.unshift({ sid, savedAt: Date.now() });
-        saveOrders(list);
-      }
-    }
-    async function fetchOrderStatus(sid) {
-      const r = await fetch(`${ORIGIN}/api/session-status?sid=${encodeURIComponent(sid)}`);
-      if (!r.ok) throw new Error(await r.text().catch(()=> "") || r.statusText);
-      return r.json();
-    }
-    function fmtDeadline(deadlineEpochSec, nowEpochSec) {
-      const remain = Math.max(0, deadlineEpochSec - nowEpochSec);
-      const h = Math.floor(remain / 3600);
-      const m = Math.floor((remain % 3600) / 60);
-      const s = remain % 60;
-      return `${h.toString().padStart(2,"0")}:${m.toString().padStart(2,"0")}:${s.toString().padStart(2,"0")}`;
-    }
-
-    async function renderOrders() {
-      const wrap = document.getElementById("myOrders");
-      const empty = document.getElementById("noOrders");
-      if (!wrap) return;
-      wrap.textContent = "";
-      const list = getOrders();
-      if (!list.length) { empty?.classList.remove("hidden"); return; }
-      empty.classList.add("hidden");
-
-      for (const o of list) {
-        const div = document.createElement("div");
-        div.className = "rounded-2xl border border-gray-200 p-3 text-sm";
-        div.innerHTML = `
-          <div class="font-semibold break-all">SID: ${esc(o.sid)}</div>
-          <div class="text-xs text-gray-500 mt-0.5">Saved ${new Date(o.savedAt).toLocaleString()}</div>
-          <div class="mt-2" data-status>Loading…</div>
-          <div class="mt-2 flex gap-2">
-            <button class="rounded-xl bg-gray-900 text-white px-3 py-1" data-refresh>Refresh</button>
-            <button class="rounded-xl bg-white ring-1 ring-gray-200 px-3 py-1" data-copy>Copy SID</button>
-            <button class="rounded-xl bg-white ring-1 ring-gray-200 px-3 py-1" data-remove>Remove</button>
-          </div>
-        `;
-        wrap.appendChild(div);
-
-        const statusEl = div.querySelector("[data-status]");
-        const refreshBtn = div.querySelector("[data-refresh]");
-        const removeBtn = div.querySelector("[data-remove]");
-        const copyBtn = div.querySelector("[data-copy]");
-        let timer = null;
-
-        async function refreshOne() {
-          statusEl.textContent = "Loading…";
-          try {
-            const d = await fetchOrderStatus(o.sid);
-            if (timer) { clearInterval(timer); timer = null; }
-            if (!d?.ok) { statusEl.textContent = "Unknown session"; return; }
-
-            if (d.requires_capture) {
-              statusEl.innerHTML = `Status: ${esc(d.status)}<br>Escrow: requires_capture<br>`;
-              if (d.deadline && d.now) {
-                const span = document.createElement("span");
-                span.className = "font-semibold";
-                span.textContent = fmtDeadline(d.deadline, d.now);
-                const line = document.createElement("div");
-                line.innerHTML = "Auto-capture in ";
-                line.appendChild(span);
-                statusEl.appendChild(line);
-                timer = setInterval(() => {
-                  span.textContent = fmtDeadline(d.deadline, Math.floor(Date.now()/1000));
-                }, 1000);
-              }
-            } else {
-              statusEl.innerHTML = `Status: ${esc(d.status)}`;
-            }
-          } catch (e) { statusEl.textContent = "Failed to load"; }
-        }
-
-        refreshBtn.addEventListener("click", refreshOne);
-        copyBtn.addEventListener("click", async ()=>{
-          try {
-            await navigator.clipboard.writeText(o.sid);
-            const prev = copyBtn.textContent;
-            copyBtn.textContent = "Copied!";
-            setTimeout(()=> copyBtn.textContent = prev, 1100);
-          } catch {
-            alert("Could not copy SID. Please copy manually.");
-          }
-        });
-        removeBtn.addEventListener("click", () => {
-          saveOrders(getOrders().filter(x => x.sid !== o.sid));
-          renderOrders();
-        });
-        refreshOne();
-      }
-    }
-    document.getElementById("refreshOrders")?.addEventListener("click", renderOrders);
-
-    function loadSellerPanel(){
-      const p = new URLSearchParams(location.search);
-      const acct = p.get("account");
-      if (acct) {
-        localStorage.setItem("fep_connect_acct", acct);
-        const prof = getSellerProfile() || {};
-        /* 🔧 PATCH: preserve verification flag */
-        setSellerProfile({
-          email: prof.email || localStorage.getItem("fep_seller_email") || "",
-          connectAccountId: acct,
-          isVerified: prof.isVerified === true
-        });
-        history.replaceState({}, "", location.pathname);
-      }
-
-      loadStripeStatus();
-      renderMyListings();
-      renderOrders();
-    }
-
-    /* ===========================
-       Init
-       =========================== */
-    (async function init(){
-  applyFilters();                             // ✅ draw existing local data instantly
-  document.getElementById("openSeller")?.classList.remove("hidden");
-  updateSellerFeeUI();
-  toggleSellerUI();
-  await syncFromServerIntoLocal();            // ✅ fetch shared listings from server
-    })();
-
-    /* ============================================
-       AUTO SYNC INVENTORY AFTER CHECKOUT (HOLD/CAPTURE/CANCEL)
-       - Decrement remaining on authorization (requires_capture)
-       - Put it back on cancel
-       - Keep it decremented on capture (succeeded)
-       - Idempotent per SID on this device
-       ============================================ */
-    (function autoInventorySyncAfterCheckout(){
-      const params = new URLSearchParams(location.search);
-      const sid = params.get("sid");
-      if (!sid) return; // only runs on the success redirect that includes ?sid=
-
-      const HELD_KEY = "fep_held_v1"; // [{ sid, listingId, qty }]
-
-      function loadListings(){ try{ return JSON.parse(localStorage.getItem("fep_listings_v1") || "[]"); }catch{ return []; } }
-      function saveListings(list){ localStorage.setItem("fep_listings_v1", JSON.stringify(list || [])); }
-      function renderIfPresent(){ try { if (typeof render === "function") render(); } catch {} }
-
-      function getHolds(){ try{ return JSON.parse(localStorage.getItem(HELD_KEY) || "[]"); }catch{ return []; } }
-      function saveHolds(list){ localStorage.setItem(HELD_KEY, JSON.stringify(list || [])); }
-
-      function adjustRemaining(listingId, qty, mode){
-        if (!listingId || !Number.isFinite(qty) || qty <= 0) return false;
-        const list = loadListings();
-        const i = list.findIndex(x => String(x.id) === String(listingId));
-        if (i === -1) return false;
-
-        const L = { ...list[i] };
-        const baseRemaining = Number.isFinite(L.remaining) ? Number(L.remaining) : Number(L.qty || 0) || 0;
-
-        if (mode === "dec") {
-          L.remaining = Math.max(0, baseRemaining - qty);
-        } else if (mode === "inc") {
-          const total = Number(L.qty || 0) || 0;
-          L.remaining = Math.min(total, baseRemaining + qty);
-        } else {
-          return false;
-        }
-
-        list[i] = L;
-        saveListings(list);
-        renderIfPresent();
-        return true;
-      }
-
-      async function run(){
         try {
-          const r = await fetch(`${(window.APP_CONFIG?.API_BASE || window.location.origin).replace(/\/+$/,"")}/api/session-status?sid=${encodeURIComponent(sid)}`, {
+          const res = await fetch(FORMSPREE, { method: "POST", headers: { "Accept":"application/json" }, body: fd });
+          const data = await res.json().catch(() => ({}));
+          if (res.ok && !data?.error && !((data?.errors || []).length)) return true;
+          throw new Error(data?.error || (data?.errors||[]).map(e=>e.message).join(", ") || res.statusText);
+        } catch (e) {
+          console.warn("Formspree failed, using fallback:", e.message);
+          const ORIGIN2 = (window.APP_CONFIG?.API_BASE || window.location.origin).replace(/\/+$/,'');
+          try {
+            const r = await fetch(`${ORIGIN2}/api/proof-fallback`, { method: "POST", body: fd });
+            if (!r.ok) throw new Error(await r.text().catch(()=> "") || r.statusText);
+            return true;
+          } catch (e2) {
+            console.error("Fallback also failed:", e2);
+            alert("Could not send proof update. Please email support with your screenshot.");
+            return false;
+          }
+        }
+      }
+
+      /* ===========================
+         Email notifications / Login code
+         =========================== */
+      let _emailjsReady = null;
+      function whenEmailJSReady(timeoutMs = 8000) {
+        if (_emailjsReady) return _emailjsReady;
+        _emailjsReady = new Promise((resolve, reject) => {
+          const t0 = Date.now();
+          (function poll() {
+            if (window.emailjs && EMAILJS_PUBLIC) {
+              try {
+                if (!window.__fep_emailjs_inited) {
+                  emailjs.init(EMAILJS_PUBLIC);
+                  window.__fep_emailjs_inited = true;
+                }
+                return resolve(true);
+              } catch (e) { return reject(e); }
+            }
+            if (Date.now() - t0 > timeoutMs) {
+              return reject(new Error("EmailJS SDK not loaded (timeout)"));
+            }
+            setTimeout(poll, 50);
+          })();
+        });
+        return _emailjsReady;
+      }
+      async function sendLoginCodeEmail(email, code) {
+        if (!EMAILJS_SERVICE) throw new Error("EMAILJS_SERVICE not set");
+        if (!EMAILJS_TPL_LOGIN) throw new Error("EMAILJS_TPL_LOGIN not set");
+        await whenEmailJSReady();
+        const params = { to_email: email, code };
+        return emailjs.send(EMAILJS_SERVICE, EMAILJS_TPL_LOGIN, params);
+      }
+
+      /* ===========================
+         Render Listings (escaped)
+         =========================== */
+      const elListings = document.getElementById("listings"), elEmpty = document.getElementById("emptyState");
+      function render(list = load()){
+        elListings.textContent = "";
+        if (!list.length) { elEmpty?.classList.remove("hidden"); return; }
+        elEmpty?.classList.add("hidden");
+
+        for (const it of list) {
+          const ok = withinCap(it.face, it.price);
+          const cap = capFor(it.face);
+          const remaining = (it.remaining ?? it.qty);
+          const card = document.createElement("article");
+          card.className = "rounded-3xl border border-gray-200 p-4 bg-white shadow-sm hover:shadow-md transition-shadow";
+
+          card.innerHTML = `
+            <div class="flex items-start justify-between gap-3">
+              <div>
+                <h3 class="font-poppins text-lg">${esc(it.group)}</h3>
+                <p class="text-xs text-gray-500 mt-0.5">${esc(it.city ? `${it.date} • ${it.city}` : it.date)}</p>
+                <p class="text-xs text-gray-600 mt-1">${esc(it.seat||"")}</p>
+                <div class="mt-2 flex items-center gap-2">
+                  <span class="chip inline-flex items-center gap-1 bg-gray-100 px-2 py-1 rounded-full">Face: ${money(it.face)}</span>
+                  <span class="chip inline-flex items-center gap-1 bg-gray-100 px-2 py-1 rounded-full">Cap: ${money(cap)}</span>
+                  <span class="chip inline-flex items-center gap-1 ${remaining>0?"bg-emerald-100":"bg-gray-200"} px-2 py-1 rounded-full">Available: ${remaining}/${it.qty}</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="flex items-center justify-between mt-3">
+              <div>
+                <div class="text-xl font-poppins ${ok?"text-gray-900":"text-rose-600"}">${money(it.price)}</div>
+                <div class="mt-1 flex items-center gap-2">
+                  <label class="text-xs text-gray-600">Qty</label>
+                  <input
+                    type="number"
+                    step="1"
+                    min="1"
+                    max="${remaining}"
+                    value="1"
+                    data-qty="${esc(it.id)}"
+                    class="w-16 rounded-lg ring-1 ring-gray-200 px-2 py-1"
+                    ${ remaining > 0 ? "" : "disabled" }
+                  />
+                </div>
+              </div>
+              <button data-buy="${esc(it.id)}" ${ remaining > 0 ? "" : "disabled" }
+                class="rounded-xl px-4 py-2 text-white ${ remaining > 0 ? "gradient-brand hover:opacity-90" : "bg-gray-400" }">
+                ${ remaining > 0 ? "Buy Safely" : "Sold Out" }
+              </button>
+            </div>
+
+            ${ ok ? "" : `<div class="mt-3 text-[11px] text-rose-600">⚠️ Price exceeds +15% cap.</div>` }
+            <div class="mt-2 text-[11px] text-gray-500">Funds held until transfer confirmed. Report issues to <a class="underline" href="mailto:support@fandomentrypass.com">support</a>.</div>
+          `;
+          elListings.appendChild(card);
+        }
+
+        document.querySelectorAll("[data-buy]").forEach(btn=>{
+          btn.addEventListener("click", ()=>{
+            const id = btn.getAttribute("data-buy");
+            const card = btn.closest("article");
+            const qtyInput = card?.querySelector(`input[data-qty="${id}"]`);
+            const max = Number(qtyInput?.max || 1);
+
+            let qty = Number(qtyInput?.valueAsNumber);
+            if (!Number.isFinite(qty)) {
+              const raw = String(qtyInput?.value ?? "1").trim();
+              qty = /^\d+$/.test(raw) ? parseInt(raw, 10) : 1;
+            }
+            if (qty < 1) qty = 1;
+            if (qty > max) qty = max;
+
+            startBuy(id, qty);
+          });
+        });
+      }
+
+      async function startBuy(listingId, qty = 1){
+        const list = load();
+        const it = list.find(x => x.id === listingId);
+        if (!it) return;
+
+        const remaining = (it.remaining ?? it.qty);
+        if (remaining <= 0) { alert("Sorry, this listing is sold out."); return; }
+
+        qty = Math.max(1, Math.min(qty, remaining));
+        console.log("[FEP] startBuy selected qty =", qty);
+
+        const buyerEmail = prompt("Enter your email for updates (optional):") || "";
+        const sellerAccountId = it.sellerAccountId || localStorage.getItem("fep_connect_acct") || "";
+
+        if (!stripe || typeof stripe.redirectToCheckout !== "function") {
+          alert("Payments aren’t ready yet. Please try again later.");
+          return;
+        }
+
+        const payload = {
+          listingId: it.id,
+          group: it.group, date: it.date, city: it.city, seat: it.seat,
+          face: it.face, price: it.price,
+          qty: Number(qty),
+          sellerEmail: it.sellerEmail, buyerEmail,
+          sellerAccountId
+        };
+
+        const url = `${ORIGIN}/api/create-checkout-session`;
+
+        try {
+          const res = await fetch(url, {
+            method: "POST",
+            headers: { "Content-Type": "application/json", "Cache-Control": "no-store" },
+            cache: "no-store",
+            body: JSON.stringify(payload)
+          });
+          const data = await res.json().catch(()=> ({}));
+
+          if (!res.ok) {
+            alert(`Checkout error: ${data?.error || res.status}`);
+            return;
+          }
+
+          if (data?.url) {
+            window.location.href = data.url;
+            return;
+          }
+
+          alert(
+            `Creating session…\n\n` +
+            `Client sent qty: ${payload.qty}\n` +
+            `Server used qtyEcho: ${data?.qtyEcho}\n` +
+            `Line items: ${JSON.stringify(data?.lineItemsEcho || [], null, 2)}\n\n` +
+            `Next: Stripe Checkout`
+          );
+
+          if (data?.sessionId) {
+            await stripe.redirectToCheckout({ sessionId: data.sessionId });
+            return;
+          } else {
+            alert("No sessionId returned from server.");
+          }
+        } catch (e) {
+          alert(`Failed to create session.\n${e?.message || e}`);
+        }
+
+        it.remaining = Math.max(0, (it.remaining ?? it.qty ?? 1) - qty);
+        it.orders = it.orders || [];
+        it.orders.push({
+          id: crypto.randomUUID(),
+          status: "authorized",
+          authorizedAt: Date.now(),
+          buyerEmail,
+          token: token(),
+          tokenExpiresAt: Date.now() + hoursMs(ESCROW_HOURS),
+          qty
+        });
+        save(list); render(list);
+        alert(`Payment authorized (demo). Reserved ${qty} ticket${qty>1?"s":""}. Funds auto-release in 72h unless buyer confirms received earlier.`);
+      }
+
+      /* ===========================
+         Filters
+         =========================== */
+      function applyFilters(evt){
+        if(evt) evt.preventDefault();
+        const q = document.getElementById("q").value.trim().toLowerCase();
+        const city = document.getElementById("city").value.trim().toLowerCase();
+        const maxPrice = Number(document.getElementById("maxPrice").value || Infinity);
+        const list = load().filter(it=>{
+          const hay=(String(it.group)+" "+String(it.date)+" "+String(it.city||"")).toLowerCase();
+          const matchQ=!q || hay.includes(q);
+          const matchCity=!city || String(it.city||"").toLowerCase().includes(city);
+          const matchPrice=!isFinite(maxPrice) || Number(it.price) <= maxPrice;
+          return matchQ && matchCity && matchPrice;
+        });
+        render(list);
+      }
+      document.getElementById("filters")?.addEventListener("submit", applyFilters);
+      document.getElementById("clearFilters")?.addEventListener("click", ()=>{
+        document.getElementById("q").value=""; document.getElementById("city").value=""; document.getElementById("maxPrice").value="";
+        applyFilters();
+      });
+
+      /* ===========================
+         Modals & UI gating for sellers
+         =========================== */
+      const modal = document.getElementById("modal");
+      const openModal = ()=> modal?.classList.remove("hidden");
+      const closeModal = ()=> modal?.classList.add("hidden");
+      document.getElementById("openAdd")?.addEventListener("click", openModal);
+      document.getElementById("openAddFab")?.addEventListener("click", openModal);
+      document.getElementById("openAddFromDash")?.addEventListener("click", openModal);
+      document.getElementById("cancelAdd")?.addEventListener("click", closeModal);
+
+      const editModal = document.getElementById("editModal");
+      const openEditModal = ()=> editModal?.classList.remove("hidden");
+      const closeEditModal = ()=> editModal?.classList.add("hidden");
+      document.getElementById("cancelEdit")?.addEventListener("click", closeEditModal);
+
+      /* ===========================
+         Add Listing
+         =========================== */
+      function showSoftCapWarn(faceVal, priceVal, warnEl){
+        const cap = capFor(faceVal || 0);
+        const over = Number(priceVal||0) > cap + 0.0001;
+        if (warnEl) warnEl.classList.toggle("hidden", !over);
+      }
+
+      function updateSellerFeeUI(){
+        const face = Number(document.getElementById("faceInput")?.value || 0);
+        const price = Number(document.getElementById("priceInput")?.value || 0);
+        const feePer = calcPlatformFee(price);
+        thePayout = calcPayoutPerTicket(price);
+        const feePerEl = document.getElementById("feePerTicket");
+        const payoutPerEl = document.getElementById("payoutPerTicket");
+        if (feePerEl) feePerEl.textContent = money2(feePer);
+        if (payoutPerEl) payoutPerEl.textContent = money2(thePayout);
+        showSoftCapWarn(face, price, document.getElementById("priceCapWarn"));
+      }
+
+      document.addEventListener("input", (e)=>{
+        if (e.target && (e.target.id==="priceInput" || e.target.id==="faceInput" || e.target.name==="qty")) updateSellerFeeUI();
+        if (e.target && (e.target.id==="editPriceInput" || e.target.id==="editFaceInput" || (e.target.form && e.target.form.id==="editForm" && e.target.name==="qty"))) {
+          updateEditFeeUI();
+          if (e.target.id === "editQtyInput") maybeShowQtyClampNote();
+        }
+      });
+
+      document.getElementById("addForm").addEventListener("submit", async (e)=>{
+        e.preventDefault();
+        const fd = new FormData(e.target);
+
+        const face = Number(fd.get("face"));
+        const price = Number(fd.get("price"));
+        const qty = Math.max(1, Number(fd.get("qty") || 1));
+        if (!withinCap(face, price)) return alert("This price exceeds the +15% cap. Please lower the price.");
+
+        const proofFile = fd.get("proof");
+        if (!proofFile || !proofFile.size) return alert("Proof of ticket is required. Please upload your proof image.");
+
+        const sellerEmailRaw = String(fd.get("sellerEmail") || "").trim();
+        const sellerPhone = String(fd.get("sellerPhone") || "").trim();
+        if (!sellerEmailRaw || !sellerPhone) return alert("Seller email and phone are required for notifications.");
+
+        const current = loggedInSellerEmail();
+        if (!current) return alert("Please log in as a seller first.");
+        if (sellerEmailRaw.toLowerCase() !== current) {
+          return alert("Seller email must match your logged-in seller account.");
+        }
+
+        const editToken = token();
+        const manageCode = editToken.slice(0,10).toUpperCase();
+        const sellerAccountId = localStorage.getItem("fep_connect_acct") || "";
+
+        const nowIso = new Date().toISOString();
+        const listing = {
+          id: crypto.randomUUID(),
+          group: String(fd.get("group") || "").trim(),
+          date: String(fd.get("date") || "").trim(),
+          city: String(fd.get("city") || "").trim(),
+          seat: String(fd.get("seat") || "").trim(),
+          face, price, qty,
+          remaining: qty,
+          pay: String(fd.get("pay") || "").trim(),
+          seller: String(fd.get("seller") || "Seller").trim(),
+          sellerEmail: sellerEmailRaw.toLowerCase(),
+          sellerPhone,
+          sellerAccountId,
+          editToken, manageCode,
+          createdAt: nowIso,
+          updatedAt: nowIso
+        };
+
+        await sendProofViaFormspree(listing, proofFile).catch(()=>{});
+
+        const list = load(); list.unshift(listing); save(list);
+        applyFilters();
+
+        try {
+          await upsertListingRemote(listing);
+          await syncFromServerIntoLocal();   // ✅ pull canonical copy
+          renderMyListings();                // ✅ repaint dashboard immediately after sync
+        } catch (e) {
+          console.warn("remote upsert failed:", e?.message || e);
+        }
+
+        closeModal();
+        e.target.reset();
+        window.scrollTo({ top: 0, behavior: "smooth" });
+        renderMyListings();
+      });
+
+      /* ===========================
+         EDIT / DELETE (Seller Dashboard)
+         =========================== */
+      function updateEditFeeUI(){
+        const form = document.getElementById("editForm");
+        if (!form) return;
+        const face = Number(form.face.value || 0);
+        const price = Number(form.price.value || 0);
+        const feePer = calcPlatformFee(price);
+        const payoutPer = calcPayoutPerTicket(price);
+        const feePerEl = document.getElementById("editFeePerTicket");
+        const payoutPerEl = document.getElementById("editPayoutPerTicket");
+        if (feePerEl) feePerEl.textContent = money2(feePer);
+        if (payoutPerEl) payoutPerEl.textContent = money2(payoutPer);
+        showSoftCapWarn(face, price, document.getElementById("editPriceCapWarn"));
+      }
+
+      function maybeShowQtyClampNote(){
+        const note = document.getElementById("qtyClampNote");
+        const form = document.getElementById("editForm");
+        if (!note || !form) return;
+        const newQty = Number(form.qty.value || 1);
+        const id = form.id.value;
+        const prev = (load() || []).find(x => x.id === id);
+        if (!prev) { note.classList.add("hidden"); return; }
+        const remaining = prev.remaining ?? prev.qty ?? newQty;
+        note.classList.toggle("hidden", !(remaining > newQty));
+      }
+
+      function fillEditForm(it){
+        const f = document.getElementById("editForm");
+        f.id.value = it.id;
+        f.group.value = it.group || "";
+        f.qty.value = it.qty || 1;
+        f.date.value = it.date || "";
+        f.city.value = it.city || "";
+        f.seat.value = it.seat || "";
+        f.face.value = it.face || 0;
+        f.price.value = it.price || 0;
+        f.pay.value = it.pay || "";
+        f.seller.value = it.seller || "Seller";
+        f.sellerPhone.value = it.sellerPhone || "";
+        f.sellerEmail.value = (it.sellerEmail || "").toLowerCase();
+        f.proof.value = "";
+        updateEditFeeUI();
+        maybeShowQtyClampNote();
+      }
+
+      function openEdit(id){
+        const it = (load() || []).find(x => x.id === id);
+        if(!it) return alert("Listing not found.");
+        fillEditForm(it);
+        openEditModal();
+      }
+
+      function deleteListing(id){
+        if(!confirm("Delete this listing? This cannot be undone.")) return;
+        const list = load().filter(x => x.id !== id);
+        save(list);
+        applyFilters();
+        renderMyListings();
+      }
+
+      document.getElementById("editForm").addEventListener("submit", async (e)=>{
+        e.preventDefault();
+        const fd = new FormData(e.target);
+        const id = fd.get("id");
+        let list = load();
+        const idx = list.findIndex(x => x.id === id);
+        if (idx < 0) { alert("Listing not found."); return; }
+
+        const face  = Number(fd.get("face"));
+        const price = Number(fd.get("price"));
+        const qty   = Math.max(1, Number(fd.get("qty") || 1));
+        if (!withinCap(face,price)) return alert("This price exceeds the +15% cap. Please lower the price.");
+
+        const prev = list[idx];
+        const prevRemaining = (prev.remaining ?? prev.qty ?? qty);
+        const remaining = Math.max(0, Math.min(qty, prevRemaining));
+
+        const updated = {
+          ...prev,
+          group: String(fd.get("group")||"").trim(),
+          date:  String(fd.get("date") ||"").trim(),
+          city:  String(fd.get("city") ||"").trim(),
+          seat:  String(fd.get("seat") ||"").trim(),
+          face, price, qty, remaining,
+          pay:   String(fd.get("pay")    ||"").trim(),
+          seller:String(fd.get("seller") ||"Seller").trim(),
+          sellerEmail: String(fd.get("sellerEmail")||"").trim().toLowerCase(),
+          sellerPhone: String(fd.get("sellerPhone")||"").trim(),
+          updatedAt: new Date().toISOString()
+        };
+
+        const proofFile = fd.get("proof");
+        if (proofFile && proofFile.size) {
+          try { await sendProofViaFormspree(updated, proofFile); } catch {}
+        }
+
+        list[idx] = updated;
+        save(list);
+        closeEditModal();
+
+        applyFilters();
+        renderMyListings();
+
+        try {
+          await upsertListingRemote(updated);
+          await syncFromServerIntoLocal();
+          alert("Listing updated.");
+          renderMyListings();
+        } catch (e) {
+          console.warn("remote upsert failed:", e?.message || e);
+          alert("Listing updated locally. It will sync when the server is reachable.");
+        }
+      });
+
+      /* ===========================
+         Auto-release + Privacy purge (demo)
+         =========================== */
+      const RETENTION_MS = 7*24*3600*1000;
+      function tick(){
+        const list=load(); let changed=false; const now=Date.now();
+        for(const it of list){
+          for(const o of (it.orders||[])){
+            if(o.status==="authorized" && o.tokenExpiresAt && now>o.tokenExpiresAt){
+              o.status="released"; o.releasedAt=Date.now(); changed=true;
+            }
+            if(o.releasedAt && now-o.releasedAt>RETENTION_MS && !o.purged){
+              delete o.buyerEmail; o.purged=true; changed=true;
+            }
+          }
+        }
+        if(changed) save(list);
+      }
+      setInterval(tick, 30000);
+
+      /* ===========================
+         BUYER ESCROW BANNER
+         =========================== */
+      (async function escrowBanner() {
+        const params = new URLSearchParams(location.search);
+        const sid = params.get("sid");
+        const success = params.get("success");
+        if (!success || !sid) return;
+
+        try {
+          const resp = await fetch(`${ORIGIN}/api/session-status?sid=${encodeURIComponent(sid)}`, {
             headers: { "Cache-Control": "no-store" }
           });
-          const d = await r.json().catch(()=> ({}));
-          if (!d?.ok) return;
+          const data = await resp.json();
+          if (!data?.ok) return;
 
-          const listingId = d.listingId || null;
-          const qty = Number(d.qty || 1);
-          if (!listingId || !Number.isFinite(qty) || qty <= 0) return;
+          addOrderSid(sid);
 
-          let holds = getHolds();
-          const existing = holds.find(h => h.sid === sid);
+          const container = document.createElement("div");
+          container.className = "fixed bottom-0 inset-x-0 z-50 bg-emerald-50 border-t border-emerald-200 p-4";
+          container.innerHTML = `
+            <div class="max-w-4xl mx-auto flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+              <div>
+                <div class="font-semibold text-emerald-800">Payment authorized. Funds are in escrow.</div>
+                <div class="text-sm text-emerald-700">
+                  Please confirm after you receive your ticket. Auto-capture in <span id="fepCountdown" class="font-semibold"></span>.
+                </div>
+              </div>
+              <div class="flex gap-2">
+                <button id="fepConfirm" class="px-4 py-2 rounded-xl bg-emerald-600 text-white">Confirm received</button>
+                <button id="fepIssue"   class="px-4 py-2 rounded-xl bg-rose-600 text-white">Cancel order</button>
+              </div>
+            </div>
+          `;
+          document.body.appendChild(container);
 
-          if (d.requires_capture) {
-            // Authorization: HOLD inventory if not already held on this device
-            if (!existing) {
-              if (adjustRemaining(listingId, qty, "dec")) {
-                holds = [...holds, { sid, listingId, qty }];
-                saveHolds(holds);
-              }
+          const elCountdown = container.querySelector("#fepCountdown");
+          function tickDown() {
+            const now = Math.floor(Date.now() / 1000);
+            const remain = Math.max(0, (data.deadline || 0) - now);
+            const h = Math.floor(remain / 3600);
+            const m = Math.floor((remain % 3600) / 60);
+            const s = remain % 60;
+            elCountdown.textContent = `${h.toString().padStart(2,"0")}:${m.toString().padStart(2,"0")}:${s.toString().padStart(2,"0")}`;
+          }
+          tickDown();
+          const t = setInterval(tickDown, 1000);
+
+          container.querySelector("#fepConfirm").onclick = async () => {
+            try {
+              const r = await fetch(`${ORIGIN}/api/confirm-received`, {
+                method: "POST",
+                headers: { "Content-Type":"application/json" },
+                body: JSON.stringify({ sessionId: sid })
+              });
+              if (!r.ok) throw new Error(await r.text().catch(()=> r.statusText));
+              alert("Thanks! Payment captured.");
+              location.href = "/";
+            } catch (e) {
+              alert(`Capture failed. Please contact support.\n${e?.message || e}`);
             }
-          } else if (d.canceled) {
-            // Buyer/system canceled before capture: RETURN held qty (if we held it)
-            if (existing) {
-              if (adjustRemaining(existing.listingId, existing.qty, "inc")) {
+          };
+
+          container.querySelector("#fepIssue").onclick = async () => {
+            try {
+              const r = await fetch(`${ORIGIN}/api/cancel-order`, {
+                method: "POST",
+                headers: { "Content-Type":"application/json" },
+                body: JSON.stringify({ sessionId: sid })
+              });
+              if (!r.ok) throw new Error(await r.text().catch(()=> r.statusText));
+              alert("Order canceled. Authorization voided.");
+              location.href = "/";
+            } catch (e) {
+              alert(`Could not cancel. Please contact support.\n${e?.message || e}`);
+            }
+          };
+        } catch (e) {
+          console.warn("Escrow banner failed:", e);
+        }
+      })();
+
+      /* ========= SELLER LOGIN (email code) ========= */
+      const SELLER_PROFILE_KEY = "fep_seller_profile";
+      const CODE_KEY = "fep_seller_code";
+      const CODE_EMAIL_KEY = "fep_seller_code_email";
+      const CODE_EXPIRES_KEY = "fep_seller_code_expires";
+
+      function getSellerProfile(){
+        try { return JSON.parse(localStorage.getItem(SELLER_PROFILE_KEY) || "null"); } catch { return null; }
+      }
+      function setSellerProfile(p){ localStorage.setItem(SELLER_PROFILE_KEY, JSON.stringify(p || null)); }
+
+      function genCode(){ return String(Math.floor(100000 + Math.random()*900000)); }
+      function storeCode(email, code){
+        sessionStorage.setItem(CODE_KEY, code);
+        sessionStorage.setItem(CODE_EMAIL_KEY, email);
+        sessionStorage.setItem(CODE_EXPIRES_KEY, String(Date.now()+10*60*1000));
+      }
+      function readCodeState(){
+        const code = sessionStorage.getItem(CODE_KEY);
+        const email = sessionStorage.getItem(CODE_EMAIL_KEY);
+        const exp = Number(sessionStorage.getItem(CODE_EXPIRES_KEY) || 0);
+        return { code, email, exp };
+      }
+
+      const sellerLoginModal = document.getElementById("sellerLoginModal");
+      const openSellerBtn = document.getElementById("openSeller");
+      const closeSellerLogin = document.getElementById("closeSellerLogin");
+      const sellerStepEmail = document.getElementById("sellerStepEmail");
+      const sellerStepCode = document.getElementById("sellerStepCode");
+      const sellerLoginEmail = document.getElementById("sellerLoginEmail");
+      const sendLoginCodeBtn = document.getElementById("sendLoginCodeBtn");
+      const sellerLoginCode = document.getElementById("sellerLoginCode");
+      const verifyLoginCodeBtn = document.getElementById("verifyLoginCodeBtn");
+
+      function openSellerLogin(){ sellerLoginModal?.classList.remove("hidden"); showLoginStep("email"); }
+      function closeSellerLoginModal(){ sellerLoginModal?.classList.add("hidden"); }
+      function showLoginStep(step){
+        sellerStepEmail.classList.toggle("hidden", step!=="email");
+        sellerStepCode.classList.toggle("hidden", step!=="code");
+      }
+
+      closeSellerLogin?.addEventListener("click", closeSellerLoginModal);
+
+      sendLoginCodeBtn?.addEventListener("click", async ()=>{
+        const email = (sellerLoginEmail?.value || "").trim();
+        if (!email) return alert("Enter your email");
+        const code = genCode();
+        storeCode(email, code);
+
+        const prev = sendLoginCodeBtn.textContent;
+        sendLoginCodeBtn.disabled = true;
+        sendLoginCodeBtn.textContent = "Sending…";
+
+        try {
+          await sendLoginCodeEmail(email, code);
+          sendLoginCodeBtn.textContent = "Sent!";
+          showLoginStep("code");
+          sellerLoginCode?.focus();
+        } catch (e) {
+          console.error("EmailJS send failed:", e);
+          const msg = String(e?.message || "");
+          if (msg.includes("SDK not loaded")) alert("Email service is still loading. Wait a moment and try again.");
+          else if (msg.includes("EMAILJS_SERVICE")) alert("Email service not configured (EMAILJS_SERVICE). Set it in config/env.");
+          else alert("Could not send code. Check EmailJS keys, template IDs, and allowed origins.");
+          sendLoginCodeBtn.textContent = prev;
+        } finally {
+          sendLoginCodeBtn.disabled = false;
+        }
+      });
+
+      verifyLoginCodeBtn?.addEventListener("click", ()=>{
+        const entered = (sellerLoginCode?.value || "").trim();
+        const { code, email, exp } = readCodeState();
+        if (!code || !email || !exp || Date.now() > exp) return alert("Code expired. Please request a new one.");
+        if (entered !== code) return alert("Incorrect code.");
+        const existing = getSellerProfile() || {};
+        const acct = localStorage.getItem("fep_connect_acct") || existing.connectAccountId || "";
+        setSellerProfile({ email, connectAccountId: acct, isVerified: true });
+        localStorage.setItem("fep_seller_email", email);
+        sessionStorage.removeItem(CODE_KEY);
+        sessionStorage.removeItem(CODE_EMAIL_KEY);
+        sessionStorage.removeItem(CODE_EXPIRES_KEY);
+        closeSellerLoginModal();
+        openSellerDash();
+        toggleSellerUI();
+      });
+
+      /* ========= SELLER DASHBOARD LOGIC ========= */
+      const FEP_ACCT_KEY = "fep_connect_acct";
+      const FEP_SELLER_EMAIL_KEY = "fep_seller_email";
+
+      function isSellerLoggedIn(){
+        const p = getSellerProfile();
+        return !!(p && p.isVerified === true && p.email && p.email.includes("@"));
+      }
+
+      function toggleSellerUI(){
+        const loggedIn = isSellerLoggedIn();
+        ["openAdd","openAddFab"].forEach(id=>{
+          const el=document.getElementById(id);
+          if(el) el.classList.toggle("hidden", !loggedIn);
+        });
+      }
+
+      function openSellerDash(){ document.getElementById("sellerDash").classList.remove("hidden"); loadSellerPanel(); }
+      function closeSellerDash(){ document.getElementById("sellerDash").classList.add("hidden"); }
+
+      openSellerBtn?.addEventListener("click", ()=>{
+        if (!isSellerLoggedIn()) openSellerLogin(); else openSellerDash();
+      });
+      document.getElementById("closeSeller")?.addEventListener("click", closeSellerDash);
+
+      document.getElementById("saveSellerEmail")?.addEventListener("click", ()=>{
+        const email = document.getElementById("sellerEmailInput").value.trim();
+        if(!email) return alert("Enter a seller email.");
+        localStorage.setItem(FEP_SELLER_EMAIL_KEY, email);
+        const prof = getSellerProfile() || {};
+        setSellerProfile({ email, connectAccountId: prof.connectAccountId || localStorage.getItem(FEP_ACCT_KEY) || "", isVerified: prof.isVerified === true });
+        renderMyListings();
+        toggleSellerUI();
+        alert("Saved.");
+      });
+
+      async function connectOrReconnectStripe(){
+        const prof = (function(){ try { return JSON.parse(localStorage.getItem("fep_seller_profile") || "null"); } catch { return null; } })();
+        const inputEmail = (document.getElementById("sellerEmailInput")?.value || "").trim();
+        const sellerEmail = (localStorage.getItem("fep_seller_email") || prof?.email || inputEmail || "").trim();
+        if (!sellerEmail || !sellerEmail.includes("@")) {
+          alert("Save your seller email first (in Seller Dashboard) and try again.");
+          return;
+        }
+
+        const accountId = localStorage.getItem("fep_connect_acct") || prof?.connectAccountId || "";
+        const sellerName = "";
+
+        const btn = document.getElementById("connectStripe") || document.getElementById("reconnectStripe");
+        const prevText = btn ? btn.textContent : "";
+        if (btn) { btn.disabled = true; btn.textContent = "Connecting…"; }
+
+        const postUrl = `${ORIGIN}/api/connect/create-link`;
+        const qs = new URLSearchParams({
+          sellerEmail,
+          sellerName,
+          account: accountId || ""
+        }).toString();
+        const getUrl  = `${ORIGIN}/api/connect/create-link?${qs}`;
+
+        async function handleResponse(res, method, url){
+          const text = await res.text();
+          let data = {};
+          try { data = text ? JSON.parse(text) : {}; } catch {}
+
+          if (!res.ok) {
+            if (method === "POST" && (res.status === 405 || res.status === 404)) {
+              const res2 = await fetch(getUrl, { method: "GET" });
+              return handleResponse(res2, "GET", getUrl);
+            }
+            alert(
+              `Could not start Stripe onboarding.\n\n` +
+              `Status: ${res.status}\nMethod: ${method}\nURL: ${url}\n\n` +
+              (data?.error || text || "No message returned.") +
+              (method === "GET" && !accountId
+                ? `\n\nNote: Your server’s GET route requires an ?account=... param. There is no saved account yet on this device. Connect once to store it, or update the backend to create an account when missing.`
+                : "")
+            );
+            return;
+          }
+
+          if (data.accountId) {
+            localStorage.setItem("fep_connect_acct", data.accountId);
+            localStorage.setItem("fep_seller_profile", JSON.stringify({
+              email: sellerEmail,
+              connectAccountId: data.accountId
+            }));
+          }
+
+          const urlOut = data.url || data.onboardingLink || data.loginLink;
+          if (!urlOut) {
+            alert(`Server responded but did not include an onboarding URL.\nMethod: ${method}\nURL: ${url}`);
+            return;
+          }
+          location.href = urlOut;
+        }
+
+        try {
+          const res = await fetch(postUrl, {
+            method: "POST",
+            headers: { "Content-Type":"application/json" },
+            body: JSON.stringify({ sellerEmail, sellerName, accountId, account: accountId })
+          });
+          await handleResponse(res, "POST", postUrl);
+        } catch (e) {
+          alert(`Could not start Stripe onboarding.\n\n${e?.message || e}`);
+        } finally {
+          if (btn) { btn.disabled = false; btn.textContent = prevText; }
+        }
+      }
+
+      document.getElementById("connectStripe")?.addEventListener("click", connectOrReconnectStripe);
+      document.getElementById("reconnectStripe")?.addEventListener("click", connectOrReconnectStripe);
+
+      /* PATCH #1: Refresh pulls server data first, then repaints */
+      document.getElementById("refreshListings")?.addEventListener("click", async ()=>{
+        await syncFromServerIntoLocal();
+        renderMyListings();
+      });
+
+      /* ===========================
+         Orders panel
+         =========================== */
+      document.getElementById("refreshOrders")?.addEventListener("click", renderOrders);
+
+      /* PATCH #2: Robust renderMyListings */
+      function renderMyListings(){
+        const prof = (function(){ try { return JSON.parse(localStorage.getItem("fep_seller_profile") || "null"); } catch { return null; } })();
+        const email = String((localStorage.getItem("fep_seller_email") || prof?.email || "")).toLowerCase();
+
+        const input = document.getElementById("sellerEmailInput");
+        if (input) input.value = email;
+
+        const all = load() || [];
+        const my = email ? all.filter(x => (String(x.sellerEmail||"").toLowerCase() === email)) : [];
+
+        const wrap = document.getElementById("myListings");
+        const empty = document.getElementById("noListings");
+        if (!wrap || !empty) return;
+
+        wrap.textContent = "";
+        if (!my.length) {
+          empty.classList.remove("hidden");
+          return;
+        }
+        empty.classList.add("hidden");
+
+        for (const it of my){
+          const feePer = calcPlatformFee(it.price);
+          const payoutPer = calcPayoutPerTicket(it.price);
+          const totalIfAllSell = payoutPer * (it.qty || 0);
+
+          const div = document.createElement("div");
+          div.className = "rounded-2xl border border-gray-200 p-3";
+          div.innerHTML = `
+            <div class="font-semibold">${esc(it.group)}</div>
+            <div class="text-xs text-gray-500">${esc(it.date)}${it.city?(" • "+esc(it.city)):""}</div>
+            <div class="text-xs text-gray-500 mt-1">${esc(it.seat||"")}</div>
+            <div class="mt-2 text-sm">Price: ${money(it.price)} • Qty: ${it.qty} • Avail: ${(it.remaining ?? it.qty)}</div>
+            <div class="text-[11px] text-gray-500">If all sell: ${money2(totalIfAllSell)} (excludes Stripe processing)</div>
+            <div class="mt-1 text-xs text-gray-700">
+              Platform fee: <span class="font-medium">${money2(feePer)}</span> / ticket •
+              Est. payout: <span class="font-medium">${money2(payoutPer)}</span> / ticket
+            </div>
+            <div class="mt-3 flex gap-2">
+              <button class="rounded-xl px-3 py-2 bg-gray-900 text-white" data-edit="${esc(it.id)}">Edit</button>
+              <button class="rounded-xl px-3 py-2 bg-white ring-1 ring-rose-200 text-rose-700 hover:bg-rose-50" data-del="${esc(it.id)}">Delete</button>
+            </div>
+          `;
+          wrap.appendChild(div);
+        }
+
+        wrap.querySelectorAll("[data-edit]").forEach(btn=>{
+          btn.addEventListener("click", ()=> openEdit(btn.getAttribute("data-edit")));
+        });
+        wrap.querySelectorAll("[data-del]").forEach(btn=>{
+          btn.addEventListener("click", ()=> deleteListing(btn.getAttribute("data-del")));
+        });
+      }
+
+      async function loadStripeStatus(){
+        const acct = localStorage.getItem("fep_connect_acct") || "";
+        const elStatus = document.getElementById("stripeStatus");
+        const elAcct = document.getElementById("stripeAcct");
+        const btnReconnect = document.getElementById("reconnectStripe");
+        if(!acct){
+          elStatus.textContent = "Not connected";
+          elAcct.textContent = "";
+          btnReconnect.classList.add("hidden");
+          return;
+        }
+        const r = await fetch(`${ORIGIN}/api/connect/account-status?account=${encodeURIComponent(acct)}`);
+        const d = await r.json().catch(()=> ({}));
+        if(!r.ok || !d?.ok){
+          elStatus.textContent = "Unknown";
+          elAcct.textContent = `Account: ${acct}`;
+          btnReconnect.classList.remove("hidden");
+          return;
+        }
+        const ok = d.charges_enabled && d.payouts_enabled;
+        elStatus.textContent = ok ? "Connected" : "Needs info";
+        elAcct.textContent = `Account: ${d.account}`;
+        if (ok) btnReconnect.classList.add("hidden"); else btnReconnect.classList.remove("hidden");
+      }
+
+      async function checkSid(){
+        const sid = document.getElementById("sidInput").value.trim();
+        if(!sid) return;
+        const r = await fetch(`${ORIGIN}/api/session-status?sid=${encodeURIComponent(sid)}`);
+        const d = await r.json().catch(()=> ({}));
+        const out = document.getElementById("sidResult");
+        out.textContent = JSON.stringify(d, null, 2);
+
+        const copyBtn = document.getElementById("copySid");
+        if (copyBtn) {
+          copyBtn.disabled = !sid;
+          copyBtn.dataset.sid = sid || "";
+        }
+      }
+      document.getElementById("checkSid")?.addEventListener("click", checkSid);
+      document.getElementById("copySid")?.addEventListener("click", async (e)=>{
+        const sid = e.currentTarget?.dataset?.sid || document.getElementById("sidInput")?.value || "";
+        if (!sid) return;
+        try {
+          await navigator.clipboard.writeText(sid);
+          const btn = e.currentTarget;
+          const prev = btn.textContent;
+          btn.textContent = "Copied!";
+          setTimeout(()=> btn.textContent = prev, 1100);
+        } catch {
+          alert("Could not copy SID. Please copy manually.");
+        }
+      });
+
+      (function wireSidInputEnablers() {
+        const sidInput = document.getElementById("sidInput");
+        const copyBtn = document.getElementById("copySid");
+        const markBtn = document.getElementById("markSentBtn");
+        if (!sidInput) return;
+        const sync = () => {
+          const sid = sidInput.value.trim();
+          const hasSid = !!sid;
+          if (copyBtn) { copyBtn.disabled = !hasSid; copyBtn.dataset.sid = hasSid ? sid : ""; }
+          if (markBtn) { markBtn.disabled = !hasSid; }
+        };
+        sidInput.addEventListener("input", sync);
+        sync();
+      })();
+
+      document.getElementById("markSentBtn")?.addEventListener("click", async () => {
+        const sid = document.getElementById("sidInput")?.value.trim();
+        if (!sid) return alert("Enter a Checkout Session ID first.");
+        try {
+          const r = await fetch(`${ORIGIN}/api/mark-sent`, {
+            method: "POST",
+            headers: { "Content-Type":"application/json" },
+            body: JSON.stringify({ sessionId: sid })
+          });
+          const d = await r.json().catch(()=> ({}));
+          if (!r.ok || !d?.ok) {
+            alert(d?.error || `Failed to mark as sent (HTTP ${r.status}).`);
+            return;
+          }
+          alert("✅ Ticket marked as sent. Buyer can no longer cancel.");
+          try { await checkSid(); } catch {}
+        } catch (e) {
+          alert(`Failed to mark as sent.\n${e?.message || e}`);
+        }
+      });
+
+      const FEP_ORDERS_KEY = "fep_orders_v1";
+      function getOrders() { try { return JSON.parse(localStorage.getItem(FEP_ORDERS_KEY) || "[]"); } catch { return []; } }
+      function saveOrders(list) { localStorage.setItem(FEP_ORDERS_KEY, JSON.stringify(list || [])); }
+      function addOrderSid(sid) {
+        if (!sid) return;
+        const list = getOrders();
+        if (!list.find(o => o.sid === sid)) {
+          list.unshift({ sid, savedAt: Date.now() });
+          saveOrders(list);
+        }
+      }
+      async function fetchOrderStatus(sid) {
+        const r = await fetch(`${ORIGIN}/api/session-status?sid=${encodeURIComponent(sid)}`);
+        if (!r.ok) throw new Error(await r.text().catch(()=> "") || r.statusText);
+        return r.json();
+      }
+      function fmtDeadline(deadlineEpochSec, nowEpochSec) {
+        const remain = Math.max(0, deadlineEpochSec - nowEpochSec);
+        const h = Math.floor(remain / 3600);
+        const m = Math.floor((remain % 3600) / 60);
+        const s = remain % 60;
+        return `${h.toString().padStart(2,"0")}:${m.toString().padStart(2,"0")}:${s.toString().padStart(2,"0")}`;
+      }
+
+      async function renderOrders() {
+        const wrap = document.getElementById("myOrders");
+        const empty = document.getElementById("noOrders");
+        if (!wrap) return;
+        wrap.textContent = "";
+        const list = getOrders();
+        if (!list.length) { empty?.classList.remove("hidden"); return; }
+        empty.classList.add("hidden");
+
+        for (const o of list) {
+          const div = document.createElement("div");
+          div.className = "rounded-2xl border border-gray-200 p-3 text-sm";
+          div.innerHTML = `
+            <div class="font-semibold break-all">SID: ${esc(o.sid)}</div>
+            <div class="text-xs text-gray-500 mt-0.5">Saved ${new Date(o.savedAt).toLocaleString()}</div>
+            <div class="mt-2" data-status>Loading…</div>
+            <div class="mt-2 flex gap-2">
+              <button class="rounded-xl bg-gray-900 text-white px-3 py-1" data-refresh>Refresh</button>
+              <button class="rounded-xl bg-white ring-1 ring-gray-200 px-3 py-1" data-copy>Copy SID</button>
+              <button class="rounded-xl bg-white ring-1 ring-gray-200 px-3 py-1" data-remove>Remove</button>
+            </div>
+          `;
+          wrap.appendChild(div);
+
+          const statusEl = div.querySelector("[data-status]");
+          const refreshBtn = div.querySelector("[data-refresh]");
+          const removeBtn = div.querySelector("[data-remove]");
+          const copyBtn = div.querySelector("[data-copy]");
+          let timer = null;
+
+          async function refreshOne() {
+            statusEl.textContent = "Loading…";
+            try {
+              const d = await fetchOrderStatus(o.sid);
+              if (timer) { clearInterval(timer); timer = null; }
+              if (!d?.ok) { statusEl.textContent = "Unknown session"; return; }
+
+              if (d.requires_capture) {
+                statusEl.innerHTML = `Status: ${esc(d.status)}<br>Escrow: requires_capture<br>`;
+                if (d.deadline && d.now) {
+                  const span = document.createElement("span");
+                  span.className = "font-semibold";
+                  span.textContent = fmtDeadline(d.deadline, d.now);
+                  const line = document.createElement("div");
+                  line.innerHTML = "Auto-capture in ";
+                  line.appendChild(span);
+                  statusEl.appendChild(line);
+                  timer = setInterval(() => {
+                    span.textContent = fmtDeadline(d.deadline, Math.floor(Date.now()/1000));
+                  }, 1000);
+                }
+              } else {
+                statusEl.innerHTML = `Status: ${esc(d.status)}`;
+              }
+            } catch (e) { statusEl.textContent = "Failed to load"; }
+          }
+
+          refreshBtn.addEventListener("click", refreshOne);
+          copyBtn.addEventListener("click", async ()=>{
+            try {
+              await navigator.clipboard.writeText(o.sid);
+              const prev = copyBtn.textContent;
+              copyBtn.textContent = "Copied!";
+              setTimeout(()=> copyBtn.textContent = prev, 1100);
+            } catch {
+              alert("Could not copy SID. Please copy manually.");
+            }
+          });
+          removeBtn.addEventListener("click", () => {
+            saveOrders(getOrders().filter(x => x.sid !== o.sid));
+            renderOrders();
+          });
+          refreshOne();
+        }
+      }
+
+      function loadSellerPanel(){
+        const p = new URLSearchParams(location.search);
+        const acct = p.get("account");
+        if (acct) {
+          localStorage.setItem("fep_connect_acct", acct);
+          const prof = getSellerProfile() || {};
+          setSellerProfile({
+            email: prof.email || localStorage.getItem("fep_seller_email") || "",
+            connectAccountId: acct,
+            isVerified: prof.isVerified === true
+          });
+          history.replaceState({}, "", location.pathname);
+        }
+
+        loadStripeStatus();
+        renderMyListings();
+        renderOrders();
+      }
+
+      /* ===========================
+         Init
+         =========================== */
+      (async function init(){
+        applyFilters();
+        document.getElementById("openSeller")?.classList.remove("hidden");
+        updateSellerFeeUI();
+        toggleSellerUI();
+        await syncFromServerIntoLocal();
+      })();
+
+      /* ============================================
+         AUTO SYNC INVENTORY AFTER CHECKOUT
+         ============================================ */
+      (function autoInventorySyncAfterCheckout(){
+        const params = new URLSearchParams(location.search);
+        const sid = params.get("sid");
+        if (!sid) return;
+
+        const HELD_KEY = "fep_held_v1";
+
+        function loadListings(){ try{ return JSON.parse(localStorage.getItem("fep_listings_v1") || "[]"); }catch{ return []; } }
+        function saveListings(list){ localStorage.setItem("fep_listings_v1", JSON.stringify(list || [])); }
+        function renderIfPresent(){ try { if (typeof render === "function") render(); } catch {} }
+
+        function getHolds(){ try{ return JSON.parse(localStorage.getItem(HELD_KEY) || "[]"); }catch{ return []; } }
+        function saveHolds(list){ localStorage.setItem(HELD_KEY, JSON.stringify(list || [])); }
+
+        function adjustRemaining(listingId, qty, mode){
+          if (!listingId || !Number.isFinite(qty) || qty <= 0) return false;
+          const list = loadListings();
+          const i = list.findIndex(x => String(x.id) === String(listingId));
+          if (i === -1) return false;
+
+          const L = { ...list[i] };
+          const baseRemaining = Number.isFinite(L.remaining) ? Number(L.remaining) : Number(L.qty || 0) || 0;
+
+          if (mode === "dec") {
+            L.remaining = Math.max(0, baseRemaining - qty);
+          } else if (mode === "inc") {
+            const total = Number(L.qty || 0) || 0;
+            L.remaining = Math.min(total, baseRemaining + qty);
+          } else {
+            return false;
+          }
+
+          list[i] = L;
+          saveListings(list);
+          renderIfPresent();
+          return true;
+        }
+
+        async function run(){
+          try {
+            const r = await fetch(`${(window.APP_CONFIG?.API_BASE || window.location.origin).replace(/\/+$/,"")}/api/session-status?sid=${encodeURIComponent(sid)}`, {
+              headers: { "Cache-Control": "no-store" }
+            });
+            const d = await r.json().catch(()=> ({}));
+            if (!d?.ok) return;
+
+            const listingId = d.listingId || null;
+            const qty = Number(d.qty || 1);
+            if (!listingId || !Number.isFinite(qty) || qty <= 0) return;
+
+            let holds = getHolds();
+            const existing = holds.find(h => h.sid === sid);
+
+            if (d.requires_capture) {
+              if (!existing) {
+                if (adjustRemaining(listingId, qty, "dec")) {
+                  holds = [...holds, { sid, listingId, qty }];
+                  saveHolds(holds);
+                }
+              }
+            } else if (d.canceled) {
+              if (existing) {
+                if (adjustRemaining(existing.listingId, existing.qty, "inc")) {
+                  saveHolds(holds.filter(h => h.sid !== sid));
+                }
+              }
+            } else if (d.succeeded) {
+              if (existing) {
                 saveHolds(holds.filter(h => h.sid !== sid));
               }
             }
-          } else if (d.succeeded) {
-            // Captured: keep it decremented, just forget the hold locally
-            if (existing) {
-              saveHolds(holds.filter(h => h.sid !== sid));
-            }
+          } catch (e) {
+            console.warn("autoInventorySyncAfterCheckout:", e?.message || e);
           }
-        } catch (e) {
-          console.warn("autoInventorySyncAfterCheckout:", e?.message || e);
         }
-      }
 
-      run();
-    })();
+        run();
+      })();
 
-    /* ============================================
-       ALSO RECONCILE WHEN VIEWING ORDERS IN DASHBOARD
-       (if user opens Seller Dashboard later, we keep
-       the local inventory consistent with real status)
-       ============================================ */
-    (function autoReconcileFromOrders(){
-      const HELD_KEY = "fep_held_v1";
-      const FEP_ORDERS_KEY = "fep_orders_v1";
+      /* ============================================
+         Reconcile from Orders when opening dashboard
+         ============================================ */
+      (function autoReconcileFromOrders(){
+        const HELD_KEY = "fep_held_v1";
+        const FEP_ORDERS_KEY = "fep_orders_v1";
 
-      function getOrders(){ try{ return JSON.parse(localStorage.getItem(FEP_ORDERS_KEY) || "[]"); }catch{ return []; } }
-      function getHolds(){ try{ return JSON.parse(localStorage.getItem(HELD_KEY) || "[]"); }catch{ return []; } }
-      function saveHolds(list){ localStorage.setItem(HELD_KEY, JSON.stringify(list || [])); }
+        function getOrders(){ try{ return JSON.parse(localStorage.getItem(FEP_ORDERS_KEY) || "[]"); }catch{ return []; } }
+        function getHolds(){ try{ return JSON.parse(localStorage.getItem(HELD_KEY) || "[]"); }catch{ return []; } }
+        function saveHolds(list){ localStorage.setItem(HELD_KEY, JSON.stringify(list || [])); }
 
-      function loadListings(){ try{ return JSON.parse(localStorage.getItem("fep_listings_v1") || "[]"); }catch{ return []; } }
-      function saveListings(list){ localStorage.setItem("fep_listings_v1", JSON.stringify(list || [])); }
-      function renderIfPresent(){ try { if (typeof render === "function") render(); } catch {} }
+        function loadListings(){ try{ return JSON.parse(localStorage.getItem("fep_listings_v1") || "[]"); }catch{ return []; } }
+        function saveListings(list){ localStorage.setItem("fep_listings_v1", JSON.stringify(list || [])); }
+        function renderIfPresent(){ try { if (typeof render === "function") render(); } catch {} }
 
-      function adjustRemaining(listingId, qty, mode){
-        if (!listingId || !Number.isFinite(qty) || qty <= 0) return false;
-        const list = loadListings();
-        const i = list.findIndex(x => String(x.id) === String(listingId));
-        if (i === -1) return false;
+        function adjustRemaining(listingId, qty, mode){
+          if (!listingId || !Number.isFinite(qty) || qty <= 0) return false;
+          const list = loadListings();
+          const i = list.findIndex(x => String(x.id) === String(listingId));
+          if (i === -1) return false;
 
-        const L = { ...list[i] };
-        const baseRemaining = Number.isFinite(L.remaining) ? Number(L.remaining) : Number(L.qty || 0) || 0;
+          const L = { ...list[i] };
+          const baseRemaining = Number.isFinite(L.remaining) ? Number(L.remaining) : Number(L.qty || 0) || 0;
 
-        if (mode === "dec")      L.remaining = Math.max(0, baseRemaining - qty);
-        else if (mode === "inc") L.remaining = Math.min(Number(L.qty||0)||0, baseRemaining + qty);
-        else return false;
+          if (mode === "dec")      L.remaining = Math.max(0, baseRemaining - qty);
+          else if (mode === "inc") L.remaining = Math.min(Number(L.qty||0)||0, baseRemaining + qty);
+          else return false;
 
-        list[i] = L; saveListings(list); renderIfPresent(); return true;
-      }
+          list[i] = L; saveListings(list); renderIfPresent(); return true;
+        }
 
-      async function checkOne(sid){
-        try {
-          const r = await fetch(`${(window.APP_CONFIG?.API_BASE || window.location.origin).replace(/\/+$/,"")}/api/session-status?sid=${encodeURIComponent(sid)}`, {
-            headers: { "Cache-Control": "no-store" }
-          });
-          const d = await r.json().catch(()=> ({}));
-          if (!d?.ok || !d.listingId) return;
+        async function checkOne(sid){
+          try {
+            const r = await fetch(`${(window.APP_CONFIG?.API_BASE || window.location.origin).replace(/\/+$/,"")}/api/session-status?sid=${encodeURIComponent(sid)}`, {
+              headers: { "Cache-Control": "no-store" }
+            });
+            const d = await r.json().catch(()=> ({}));
+            if (!d?.ok || !d.listingId) return;
 
-          const qty = Number(d.qty || 1);
-          let holds = getHolds();
-          const existing = holds.find(h => h.sid === sid);
+            const qty = Number(d.qty || 1);
+            let holds = getHolds();
+            const existing = holds.find(h => h.sid === sid);
 
-          if (d.requires_capture && !existing) {
-            if (adjustRemaining(d.listingId, qty, "dec")) {
-              holds = [...holds, { sid, listingId: d.listingId, qty }];
-              saveHolds(holds);
-            }
-          } else if (d.canceled && existing) {
-            if (adjustRemaining(existing.listingId, existing.qty, "inc")) {
+            if (d.requires_capture && !existing) {
+              if (adjustRemaining(d.listingId, qty, "dec")) {
+                holds = [...holds, { sid, listingId: d.listingId, qty }];
+                saveHolds(holds);
+              }
+            } else if (d.canceled && existing) {
+              if (adjustRemaining(existing.listingId, existing.qty, "inc")) {
+                saveHolds(holds.filter(h => h.sid !== sid));
+              }
+            } else if (d.succeeded && existing) {
               saveHolds(holds.filter(h => h.sid !== sid));
             }
-          } else if (d.succeeded && existing) {
-            // captured: just drop the hold
-            saveHolds(holds.filter(h => h.sid !== sid));
-          }
-        } catch {}
-      }
+          } catch {}
+        }
 
-      // Run shortly after load; harmless if no orders
-      setTimeout(()=>{
-        const orders = getOrders();
-        if (!orders.length) return;
-        // light sweep (don’t spam the API)
-        orders.slice(0, 6).forEach(o => checkOne(o.sid));
-      }, 1200);
-    })();
-  </script>
+        setTimeout(()=>{
+          const orders = getOrders();
+          if (!orders.length) return;
+          orders.slice(0, 6).forEach(o => checkOne(o.sid));
+        }, 1200);
+      })();
+    </script>
+  </div>
 </body>
 </html>
-
