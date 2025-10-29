@@ -416,6 +416,9 @@
       if (!STRIPE_PK) console.warn("⚠️ Missing STRIPE_PK in config.js (Production must use pk_live_...)");
       let stripe = Stripe(STRIPE_PK);
 
+      /* Show/hide buyer price details */
+      const SHOW_FACE_AND_CAP_TO_BUYERS = false;
+
       /* ===========================
          PWA install + Service Worker
          =========================== */
@@ -465,9 +468,14 @@
       const token = () => Math.random().toString(36).slice(2)+Math.random().toString(36).slice(2);
       const esc = s => String(s ?? "").replace(/[&<>"'`=\/]/g, c => ({'&':'&amp;','<':'&lt;','>':'&#x3E;','"':'&quot;',"'":'&#39;','/':'&#x2F;','`':'&#x60;','=':'&#x3D;'}[c]));
 
-      /* ✅ Added helpers */
+      /* ✅ Updated: auth persistence fallback to seller profile */
       function loggedInSellerEmail() {
-        return (localStorage.getItem("fep_seller_email") || "").toLowerCase();
+        const direct = (localStorage.getItem("fep_seller_email") || "").toLowerCase();
+        if (direct) return direct;
+        try {
+          const prof = JSON.parse(localStorage.getItem("fep_seller_profile") || "null");
+          return (prof?.email || "").toLowerCase();
+        } catch { return ""; }
       }
       function openEditListing(id){
         const list = load();
@@ -490,7 +498,7 @@
       /* ===========================
          🔁 Listings: Remote Sync + Upsert
          =========================== */
-      /* PATCH (2): Merge-preserving server sync (does NOT wipe rich local fields) */
+      /* Existing merge-preserving sync kept intact */
       async function syncFromServerIntoLocal() {
         try {
           const r = await fetch(`${ORIGIN}/api/listings`, { headers:{ "Cache-Control":"no-store" } });
@@ -690,11 +698,15 @@
             <div class="flex items-start justify-between gap-3">
               <div>
                 <h3 class="font-poppins text-lg">${esc(titleSafe)}</h3>
-                <p class="text-xs text-gray-500 mt-0.5">${esc(it.city ? `${it.date} • ${it.city}` : it.date)}</p>
+                <p class="text-xs text-gray-500 mt-0.5">${esc(it.city ? ${"`"}${"${it.date}"} • ${"${it.city}"}${"`"} : it.date)}</p>
                 <p class="text-xs text-gray-600 mt-1">${esc(it.seat||"")}</p>
                 <div class="mt-2 flex items-center gap-2">
-                  <span class="chip inline-flex items-center gap-1 bg-gray-100 px-2 py-1 rounded-full">Face: ${money(it.face)}</span>
-                  ${ showCap ? `<span class="chip inline-flex items-center gap-1 bg-gray-100 px-2 py-1 rounded-full">Cap: ${money(capVal)}</span>` : `` }
+                  ${
+                    SHOW_FACE_AND_CAP_TO_BUYERS
+                      ? `<span class="chip inline-flex items-center gap-1 bg-gray-100 px-2 py-1 rounded-full">Face: ${money(it.face)}</span>
+                         ${ showCap ? `<span class="chip inline-flex items-center gap-1 bg-gray-100 px-2 py-1 rounded-full">Cap: ${money(capVal)}</span>` : `` }`
+                      : ``
+                  }
                   <span class="chip inline-flex items-center gap-1 ${remaining>0?"bg-emerald-100":"bg-gray-200"} px-2 py-1 rounded-full">Available: ${remaining}/${it.qty}</span>
                 </div>
               </div>
@@ -702,7 +714,7 @@
 
             <div class="flex items-center justify-between mt-3">
               <div>
-                <div class="text-xl font-poppins ${(showCap && !ok) ? "text-rose-600" : "text-gray-900"}">${money(it.price)}</div>
+                <div class="text-xl font-poppins ${(showCap && !ok && SHOW_FACE_AND_CAP_TO_BUYERS) ? "text-rose-600" : "text-gray-900"}">${money(it.price)}</div>
                 <div class="mt-1 flex items-center gap-2">
                   <label class="text-xs text-gray-600">Qty</label>
                   <input
@@ -723,7 +735,7 @@
               </button>
             </div>
 
-            ${ (showCap && !ok) ? `<div class="mt-3 text-[11px] text-rose-600">⚠️ Price exceeds +15% cap.</div>` : `` }
+            ${ (SHOW_FACE_AND_CAP_TO_BUYERS && showCap && !ok) ? `<div class="mt-3 text-[11px] text-rose-600">⚠️ Price exceeds +15% cap.</div>` : `` }
             <div class="mt-2 text-[11px] text-gray-500">Funds held until transfer confirmed. Report issues to <a class="underline" href="mailto:support@fandomentrypass.com">support</a>.</div>
           `;
           elListings.appendChild(card);
@@ -774,7 +786,9 @@
           face: it.face, price: it.price,
           qty: Number(qty),
           sellerEmail: it.sellerEmail, buyerEmail,
-          sellerAccountId
+          sellerAccountId,
+          /* ✅ Duplicate key for backend variants expecting different casing */
+          sellerAccountID: sellerAccountId
         };
 
         const url = `${ORIGIN}/api/create-checkout-session`;
@@ -860,9 +874,10 @@
       const modal = document.getElementById("modal");
       const openModal = ()=> modal?.classList.remove("hidden");
       const closeModal = ()=> modal?.classList.add("hidden");
-      document.getElementById("openAdd")?.addEventListener("click", openModal);
-      document.getElementById("openAddFab")?.addEventListener("click", openModal);
-      document.getElementById("openAddFromDash")?.addEventListener("click", openModal);
+      /* ✅ After opening Add, refresh fee/cap UI immediately */
+      document.getElementById("openAdd")?.addEventListener("click", ()=>{ openModal(); setTimeout(updateSellerFeeUI, 0); });
+      document.getElementById("openAddFab")?.addEventListener("click", ()=>{ openModal(); setTimeout(updateSellerFeeUI, 0); });
+      document.getElementById("openAddFromDash")?.addEventListener("click", ()=>{ openModal(); setTimeout(updateSellerFeeUI, 0); });
       document.getElementById("cancelAdd")?.addEventListener("click", closeModal);
 
       const editModal = document.getElementById("editModal");
@@ -1014,9 +1029,14 @@
         maybeShowQtyClampNote();
       }
 
+      /* ✅ Owner guard on openEdit */
       function openEdit(id){
         const it = (load() || []).find(x => x.id === id);
         if(!it) return alert("Listing not found.");
+        const me = loggedInSellerEmail();
+        if (!me || (String(it.sellerEmail||"").toLowerCase() !== me)) {
+          return alert("You can only edit your own listings.");
+        }
         fillEditForm(it);
         openEditModal();
       }
@@ -1823,4 +1843,5 @@
   </div>
 </body>
 </html>
+
 
