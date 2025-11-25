@@ -13,6 +13,7 @@ export default async function handler(req, res) {
   };
 
   try {
+    // Fetch latest listings (frontend uses this to sync across devices)
     if (req.method === "GET") {
       const limit = Math.min(parseInt(req.query.limit ?? "50", 10), 200);
       const url = `${base}?select=*&order=created_at.desc&limit=${limit}`;
@@ -22,21 +23,25 @@ export default async function handler(req, res) {
       return res.status(200).json(data);
     }
 
+    // Create a new listing – accept the full listing object from the frontend
     if (req.method === "POST") {
-      const { title, price, qty, seller_email } = req.body || {};
-      if (!title || price == null || qty == null || !seller_email) {
-        return res.status(400).json({ error: "Missing required fields" });
+      const body = req.body;
+      if (!body) {
+        return res.status(400).json({ error: "Missing request body" });
       }
+      const rows = Array.isArray(body) ? body : [body];
       const r = await fetch(base, {
         method: "POST",
         headers: { ...headers, Prefer: "return=representation" },
-        body: JSON.stringify([{ title, price, qty, seller_email }]),
+        body: JSON.stringify(rows),
       });
       const data = await r.json();
       if (!r.ok) return res.status(r.status).json({ error: data });
-      return res.status(201).json(Array.isArray(data) ? data[0] : data);
+      const row = Array.isArray(data) ? data[0] : data;
+      return res.status(201).json(row);
     }
 
+    // Update an existing listing by id
     if (req.method === "PATCH") {
       const { id, ...updates } = req.body || {};
       if (!id) return res.status(400).json({ error: "Missing id" });
@@ -50,6 +55,7 @@ export default async function handler(req, res) {
       return res.status(200).json(Array.isArray(data) ? data[0] : data);
     }
 
+    // Delete a listing by id
     if (req.method === "DELETE") {
       const { id } = req.query || {};
       if (!id) return res.status(400).json({ error: "Missing id" });
